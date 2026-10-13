@@ -52,8 +52,7 @@ Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windo
 
 ![真实赛百灵赛事的圈速与全场油门刹车曲线](docs/screenshots/race-curves.webp)
 
-<details>
-<summary>展开查看浅色主题与赛道指南</summary>
+### 浅色主题与赛道指南
 
 深浅主题一键切换，HUD 与记录管理仍沿用同一套操作。
 
@@ -62,8 +61,6 @@ Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windo
 赛道指南在菜单内展示赛道图片、资料与车型建议，支持筛选、收藏和翻页。
 
 ![巴林赛道指南的原生菜单实机截图](docs/screenshots/circuit-guide.webp)
-
-</details>
 
 ## 功能
 

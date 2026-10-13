@@ -20,6 +20,8 @@ PUBLIC_ASSETS={'src/branding/stx-app.png': '8f1d9730f44ee12cc63136f31484cbc77a9a
 sys.path.insert(0,str(ROOT))
 from tools.guide_assets import GUIDE_ASSETS
 PUBLIC_ASSETS.update(GUIDE_ASSETS)
+from tools.readme_assets import README_ASSETS
+PUBLIC_ASSETS.update(README_ASSETS)
 
 PRIVATE_PATTERNS=[rb'(?i)[A-Z]:[\\/]+Users[\\/]+[^\\/\s]+',rb'(?i)[A-Z]:[\\/]+(?:SteamLibrary|SPD)[\\/]+']
 

@@ -8,6 +8,10 @@ Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windo
 
 实时缓存与离线复盘采用紧凑数值存储和流式压缩；保留完整采样、原始 CSV 与现有操作。实测结果、模块职责和旧网页升级方式见 [内存与赛事文件](docs/PERFORMANCE.md)。
 
+![LMU Stintrix 深色控制中心实机截图](docs/screenshots/run-dark.webp)
+
+*Windows 实机运行：集中配置 HUD、遥测面板和记录选项。下方展示赛事复盘、个人最快圈与同组领奖台的实际界面。*
+
 ## 下载与一键启动
 
 **便携版（推荐）**：从 [Releases](https://github.com/MarkYang44/LMU-Stintrix/releases) 下载 `LMU-Stintrix-v*-windows-x64.zip`，完整解压到可写目录，双击 **`LMU-Stintrix.exe`**。不需要安装 Python；`Demo.cmd` 可在不开游戏时演示。不要只移动 EXE，保留 `_internal` 文件夹。
@@ -15,6 +19,51 @@ Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windo
 **源码版**：点击 GitHub **Code → Download ZIP**，完整解压，双击 `Setup.cmd`，完成后双击 `Start.cmd`。首次配置需要联网：脚本查找 64 位 Python 3.13；没有时使用 winget 为当前用户安装官方 Python，然后创建独立 `.venv`、校验固定版本依赖并安装，同时下载校验约 0.6 MB 的官方 7zr 工具。没有 winget 时，请手动安装带 Tcl/Tk 的 [Python 3.13](https://www.python.org/downloads/windows/)，然后重试。
 
 `LMU-Stintrix.exe` 默认打开分类控制中心（源码启动脚本同样适用），点击 **启动 HUD** 后读取 LMU 的 `LMU_Data` 共享内存。**排位赛和正赛自动记录；可在采样与遥测中开启练习赛完整记录，默认关闭。Warmup 仅显示实时 HUD。** 无需向游戏复制 DLL，也不修改游戏文件或现有 ApexLink / RaceCom 配置。LMU Stintrix 独立运行；不是 RaceCom 本体、ApexLink 或官方插件。
+
+## 实机截图
+
+以下截图采集于 Windows 上运行的 **v0.2.21**。赛事列表、最快圈和领奖台页面使用真实历史赛事；HUD 截图使用程序自带 **DEMO 合成输入**，可在不开游戏时体验。车型照片来自内置车型图鉴，涂装可能与当场赛事不同。
+
+### 输入 HUD：油门、刹车与转向
+
+三色曲线、实时输入百分比、踏板柱和示意方向盘集中展示；底部同时显示实际采样与绘制速率。
+
+![输入 HUD 实机截图，DEMO 合成输入](docs/screenshots/hud-demo.webp)
+
+### 赛事资料库：组合筛选与排序
+
+按 UTC 日期范围、阶段、赛道和车辆查找历史赛事，支持升降序排序；圈速与所用车辆直接显示在列表中。
+
+![真实历史赛事资料库及筛选排序控件](docs/screenshots/session-library.webp)
+
+### 个人最快圈：圈速、车型与条件
+
+真实伊莫拉纪录 **1:45.840**：对应车型图片、赛道布局、温度、圈起点油量、轮胎和驾驶辅助分区呈现。不同赛道布局与车辆组别独立统计。
+
+![真实伊莫拉最快圈及 Porsche 911 GT3 R LMGT3 条件](docs/screenshots/personal-best.webp)
+
+### 同组领奖台：保留每场比赛的成绩
+
+真实赛百灵同组冠军示例：从 **同组 P4** 发车，**同组 P1** 完赛，个人最快圈 **2:04.207**。总排名、同组排名与比赛用时分开展示。
+
+![真实赛百灵同组冠军的成绩与 Ford Mustang LMGT3 图片](docs/screenshots/class-podium.webp)
+
+继续向下可查看圈速随时间的变化及整场油门 / 刹车曲线，并直接打开赛事复盘、圈速单和比赛日志。
+
+![真实赛百灵赛事的圈速与全场油门刹车曲线](docs/screenshots/race-curves.webp)
+
+<details>
+<summary>展开查看浅色主题与赛道指南</summary>
+
+深浅主题一键切换，HUD 与记录管理仍沿用同一套操作。
+
+![LMU Stintrix 浅色控制中心实机截图](docs/screenshots/run-light.webp)
+
+赛道指南在菜单内展示赛道图片、资料与车型建议，支持筛选、收藏和翻页。
+
+![巴林赛道指南的原生菜单实机截图](docs/screenshots/circuit-guide.webp)
+
+</details>
 
 ## 功能
 

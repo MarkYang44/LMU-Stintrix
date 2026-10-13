@@ -60,7 +60,8 @@ class LosslessStorageTests(unittest.TestCase):
         if os.name!='nt':self.skipTest('Windows LZX')
         from session_archive import export_session,import_session
         from session_delete import remove
-        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory:
+        fixture_base=Path(os.environ.get('LMU_STINTRIX_COMPRESSION_TEST_DIR',str(ROOT/'_local')))
+        with tempfile.TemporaryDirectory(dir=fixture_base) as directory:
             root=Path(directory)/'data';folder=root/'Logs'/'Synthetic';folder.mkdir(parents=True)
             (folder/'session.json').write_text(json.dumps(dict(status='complete',track='Synthetic',vehicle='Test',session=10)),encoding='utf-8')
             csv=b'time_s,throttle\n'+b'0.123456789012345,0.987654321012345\n'*9000

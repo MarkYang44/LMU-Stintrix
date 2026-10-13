@@ -24,8 +24,8 @@ import vehiclelab
 import endurance
 import control_theme
 
-PAGES=('运行与 HUD','赛事复盘','曲线对比','采样与遥测','图像与数据','赛道指南','车型图鉴')
-SUBTITLES=('比赛中保持专注。所有控制，在这里。','你的赛事、圈速单与日志，集中在一处。','完整圈 / 距离对齐 / 轨迹与驾驶分析','分别配置输入采样、轮胎策略与耐力赛遥测。','RaceCom 原版报告与本地赛事包。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。')
+PAGES=('运行与 HUD','赛事复盘','采样与遥测','图像与数据','赛道指南','车型图鉴','个人赛道纪录')
+SUBTITLES=('比赛中保持专注。所有控制，在这里。','赛事复盘、圈速对比与记录管理，集中在一处。','分别配置输入采样、轮胎策略与耐力赛遥测。','RaceCom 原版报告与本地赛事包。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。','赛道最快圈与同组领奖台，记录每一次突破。')
 
 
 class ControlCenter:
@@ -181,7 +181,11 @@ class ControlCenter:
         self.shell.scroller.cancel()
         self.title.configure(text=PAGES[index]);self.subtitle.configure(text=SUBTITLES[index]);self.scroll.yview_moveto(0)
         if self.shell.navigation.selected!=index:self.shell.select(index)
-        self.pages.mount(index,(self.run_page,self.review_page,self.compare_page,self.settings_page,self.data_page,self.tracks_page,self.cars_page)[index],progressive)
+        self.pages.mount(index,(self.run_page,self.review_page,self.settings_page,self.data_page,self.tracks_page,self.cars_page,self.records_page)[index],progressive)
+
+    def records_page(self):
+        from control_records import show
+        show(self)
 
     def tracks_page(self):
         from control_guide import show
@@ -192,7 +196,7 @@ class ControlCenter:
         show(self,'cars')
 
     def run_page(self):
-        body=self.card('下一段 Stint，从这里开始','练习时显示 HUD；排位赛和正赛自动保存记录与报告')
+        body=self.card('下一段 Stint，从这里开始','排位赛和正赛自动保存；练习赛完整记录可在设置中开启')
         LaunchArtwork(body).pack(fill='x',pady=(0,px(self.root,7)))
         self.live_label=self.label(body,'等待启动',11,T.ACCENT);self.live_label.pack(anchor='w',pady=(0,10))
         row=self.row(body);self.button(row,'▶  启动 HUD',self.start,True,160);self.button(row,'停止并保存',self.stop_hud,False,140)
@@ -283,10 +287,12 @@ class ControlCenter:
                 if done:done(result)
         self.run_background(work,finish)
 
-    def sessions(self,body,multiple=False,checkboxes=False):
+    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True):
         row=self.row(body);self.search=tk.StringVar(self.root);entry=Field(row,textvariable=self.search)
         entry.pack(side='left',fill='x',expand=True);entry.entry.bind('<KeyRelease>',lambda _:self.populate())
         self.button(row,'刷新记录',self.refresh,False,112)
+        from control_review_filters import ReviewFilters
+        self.review_filters=ReviewFilters(body,self)
         self.tree=SessionList(body,columns=('date','type','track','car','lap'),height=9,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
         for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('track','赛道',200),('car','车辆',175),('lap','最快圈',92)]:
             self.tree.heading(key,text=title);self.tree.column(key,width=px(self.root,width),minwidth=px(self.root,60),stretch=key in ('track','car'))
@@ -294,12 +300,16 @@ class ControlCenter:
         self.tree.bind('<Double-1>',lambda _:self.report('review.html'))
         self.tree.bind('<Return>',lambda _:self.report('review.html'))
         if checkboxes:
-            row=self.row(body);self.selected_count=tk.StringVar(self.root,value='已选 0 场')
-            self.button(row,'全选当前列表',lambda:self.tree.selection_set(self.tree.get_children()),False,128)
-            self.button(row,'清除选择',lambda:self.tree.selection_set(()),False,108)
-            self.label(row,self.selected_count,9,T.MUTED).pack(side='right',padx=8)
+            self.selected_count=tk.StringVar(self.root,value='已选 0 场')
+            if selection_buttons:self.selection_buttons(body)
             self.tree.bind('<<TreeviewSelect>>',lambda _:self.update_selection_count())
         self.refresh()
+
+    def selection_buttons(self,body):
+        row=self.row(body)
+        self.button(row,'全选当前列表',lambda:self.tree.selection_set(self.tree.get_children()),False,128)
+        self.button(row,'清除选择',lambda:self.tree.selection_set(()),False,108)
+        self.label(row,self.selected_count,9,T.MUTED).pack(side='right',padx=8)
 
     def update_selection_count(self):
         if self.tree and self.tree.checkboxes:self.selected_count.set(f'已选 {len(self.tree.selection())} 场 / 列表 {len(self.tree.get_children())} 场')
@@ -312,16 +322,20 @@ class ControlCenter:
             if error:self.status.set(error);return
             selected={self.items[int(i)]['folder'] for i in self.tree.selection()} if self.tree else set()
             self.items=result;chosen=[str(i) for i,item in enumerate(result) if item['folder'] in selected]
+            if hasattr(self,'review_filters') and self.review_filters.winfo_exists():self.review_filters.update_options(result)
             self.populate(chosen);self.status.set(f"{len(result)}{tr(' 场本地记录 · 旧 Practice 记录仍保留')}")
         self.run_background(lambda:inventory(ROOT),done)
 
     def populate(self,selected=None):
+        from track_names import display,search_text
         if self.tree is None or not self.tree.winfo_exists():return
         selected=self.tree.selection() if selected is None else selected;query=self.search.get().strip().casefold();rows=[]
-        for i,value in enumerate(self.items):
-            if query and query not in ' '.join(str(value.get(k,'')) for k in ('track','vehicle','session_type','date','driver')).casefold():continue
+        from review_filters import filtered
+        try:matches=filtered(self.items,getattr(self,'review_filter_state',{}),query)
+        except ValueError as error:self.status.set(tr(str(error)));return
+        for i,value in matches:
             time=value.get('time_s');lap=f'{int(time//60)}:{time%60:06.3f}' if time else '—'
-            rows.append((str(i),(value['date'][:19].replace('T',' '),value['session_type'],value['track'],value['vehicle'],lap)))
+            rows.append((str(i),(value['date'][:19].replace('T',' '),value['session_type'],display(value['track']),value['vehicle'],lap)))
         self.tree.replace(rows,selected)
         self.update_selection_count()
 
@@ -354,39 +368,39 @@ class ControlCenter:
 
     def review_page(self):
         body=self.card('赛事资料库','搜索时间、阶段、赛道或车辆 · 双击打开赛事复盘')
-        self.sessions(body,True,True)
+        self.sessions(body,True,True,False)
         row=self.row(body);self.button(row,'赛事 Review',lambda:self.report('review.html'),True,140)
         self.button(row,'查看圈速单',lambda:self.report('圈速单.png'),False,130);self.button(row,'查看比赛日志',lambda:self.report('比赛日志.png'),False,140)
         from control_delete import remove
         self.button(row,'删除选中赛事',lambda:remove(self),False,160)
-        row=self.row(body);self.button(row,'同场圈 A / 圈 B',self.selected_laps,False,160);self.button(row,'导出赛事包',self.export_package,False,140)
-        self.button(row,'完整记录管理',self.library,False,150)
-
-    def compare_page(self):
-        body=self.card('圈速对比','同场任意完整圈，或选择两场相同车辆 / 赛道的最快圈；Ctrl 多选赛事')
-        self.sessions(body,True);row=self.row(body)
+        self.label(body,'圈速对比',12,T.FG,True).pack(anchor='w',pady=(14,4))
+        row=self.row(body)
         self.button(row,'圈 A / 圈 B 选择器',self.selected_laps,True,180)
         self.button(row,'跨场最快圈对比',self.compare_sessions,False,180);self.button(row,'查看最快圈',lambda:self.report('fastest_lap.html'),False,150)
-        body=self.card('比赛中参考圈','参考圈、锁定参考、自动匹配与稳定圈功能继续保留')
+        row=self.row(body);self.button(row,'导出赛事包',self.export_package,False,140);self.button(row,'完整记录管理',self.library,False,150)
+        self.label(body,'比赛中参考圈',12,T.FG,True).pack(anchor='w',pady=(14,4))
         row=self.row(body);self.button(row,'选择实时参考圈',lambda:self.hud_action('select_reference'),False,170)
         self.button(row,'开启 / 关闭参考',lambda:self.toggle_reference(),False,180)
+        self.selection_buttons(body)
 
     def toggle_reference(self):
         if self.active():self.hud.reference_on.set(not self.hud.reference_on.get());self.hud.apply_reference()
         else:self.status.set(tr('请先启动 HUD'))
 
     def selected_laps(self):
-        from management import show_lap_selection
-        self.with_selection(lambda items:show_lap_selection(self,ROOT,Path(items[0]['folder'])))
+        from control_lap_pair import show
+        try:
+            chosen=self.selection(None) if self.tree and self.tree.selection() else []
+            show(self,ROOT,[Path(v['folder']) for v in chosen[:2]])
+        except (ValueError,OSError) as error:self.status.set(str(error))
 
     def compare_sessions(self):
         from laps import write_compare
         def action(items):
-            if any(items[0][k]!=items[1][k] for k in ('track','vehicle')):raise ValueError('请选择相同赛道、相同车辆的两场赛事')
             if any(not v['fastest_file'] for v in items):raise ValueError('这两场赛事需要已有最快完整圈')
             def build():
-                records=[load_json(Path(v['folder'])/v['fastest_file']) for v in items]
-                path=ROOT/'FastestLapCompare.html';write_compare(path,ASSETS/'compare.html',records);return str(path)
+                from lap_comparison import export_pair
+                return export_pair(ROOT,[(v['folder'],v['lap']) for v in items],ASSETS/'compare.html')['comparison']
             self.work(build,os.startfile)
         self.with_selection(action,2)
 
@@ -437,6 +451,16 @@ class ControlCenter:
         control_settings.apply(module,values,self.hud if self.active() else None);self.status.set(tr('设置已保存') + (tr('并应用到 HUD') if self.active() else tr('，启动 HUD 时生效')))
 
     def settings_page(self):
+        import recording_policy
+        body=self.card('练习赛完整记录','开启后保存完整采样、车辆遥测、圈速与报告；Warmup 保持实时显示')
+        self.practice_recording=tk.BooleanVar(self.root,value=recording_policy.load(ROOT))
+        def save_recording():
+            enabled=self.practice_recording.get();recording_policy.save(ROOT,enabled)
+            if self.active():self.hud.engine.practice_enabled=enabled
+            self.status.set(tr('设置已保存'))
+        Switch(body,'记录练习赛',self.practice_recording,save_recording).pack(fill='x',pady=4)
+        self.pages.on_resume(lambda:self.practice_recording.set(recording_policy.load(ROOT)))
+        yield
         body=self.card('输入采样与 HUD 刷新','1–4000 Hz · sync 跟随采样目标；有效数据频率由游戏和硬件决定')
         yield from self.form(body,'sampling',[('fixed_hz','固定采样 / Hz'),('min_hz','动态最低 / Hz'),('max_hz','动态最高 / Hz'),
             ('change_pct_s','升频变化阈值 / % 每秒'),('hold_s','降频延迟 / 秒'),('brake_pct','刹车升频阈值 / %'),('draw_hz','手动绘制 / Hz')],

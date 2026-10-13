@@ -18,10 +18,10 @@ class NavigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             data=Path(directory);center=ControlCenter()
             try:
-                center.show_page(3);center.root.update_idletasks()
+                center.show_page(2);center.root.update_idletasks()
                 draft=center.pages.active.forms['sampling'];draft['fixed_hz'].set('777')
                 save_settings(data/'settings.json',{**DEFAULTS,'max_hz':800})
-                center.show_page(0);center.show_page(3);center.root.update_idletasks()
+                center.show_page(0);center.show_page(2);center.root.update_idletasks()
                 actual=center.pages.active.forms['sampling']
                 self.assertEqual(actual['fixed_hz'].get(),'777');self.assertEqual(float(actual['max_hz'].get()),800)
                 self.assertEqual(len(center.pages.pages),2)
@@ -33,11 +33,11 @@ class NavigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                for page in (3,5,1,6,0,4):center.request_page(page)
-                self.assertEqual(center.shell.navigation.selected,4)
-                self.pump(center,lambda:center.page==4 and center.pages.pending is None)
-                center.request_page(3);self.pump(center,lambda:center.page==3)
-                center.request_page(6);self.pump(center,lambda:center.page==6 and center.guide_page.card_job is None and center.guide_page.card_count==3)
+                for page in (2,4,1,5,0,3):center.request_page(page)
+                self.assertEqual(center.shell.navigation.selected,3)
+                self.pump(center,lambda:center.page==3 and center.pages.pending is None)
+                center.request_page(2);self.pump(center,lambda:center.page==2)
+                center.request_page(5);self.pump(center,lambda:center.page==5 and center.guide_page.card_job is None and center.guide_page.card_count==3)
                 old=center.guide_page
                 center.request_page(0);self.pump(center,lambda:center.page==0 and center.pages.active.complete)
                 self.assertTrue(old.closed);self.assertIsNone(old.card_job)
@@ -53,7 +53,7 @@ class NavigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                center.show_page(6);center.root.update_idletasks()
+                center.show_page(5);center.root.update_idletasks()
                 pictures=[widget for widget in walk(center.content) if isinstance(widget,Picture)]
                 center.scroll.yview_moveto(.25);center.root.update_idletasks()
                 jobs=[]
@@ -76,14 +76,14 @@ class NavigationTests(unittest.TestCase):
                 center.show_page(1);center.root.update()
                 old=center.content;self.assertTrue(old.winfo_ismapped())
                 generation=center.scan_generation
-                center.request_page(3);center.root.update_idletasks()
+                center.request_page(2);center.root.update_idletasks()
                 self.assertFalse(old.winfo_ismapped())
                 self.assertTrue(center.shell.covering);self.assertEqual(center.scroll.itemcget(center.content_item,'state'),'hidden')
                 self.assertIsNotNone(center.pages.pending);self.assertIsNone(center.tree)
                 self.assertGreater(center.scan_generation,generation)
-                self.assertEqual(center.shell.navigation.position,3)
-                self.assertEqual(center.shell.navigation.selected,3)
-                center.request_page(6);center.request_page(0)
+                self.assertEqual(center.shell.navigation.position,2)
+                self.assertEqual(center.shell.navigation.selected,2)
+                center.request_page(5);center.request_page(0)
                 self.pump(center,lambda:center.page==0 and center.pages.pending is None)
                 self.assertFalse(center.shell.covering);self.assertEqual(center.scroll.itemcget(center.content_item,'state'),'normal')
                 self.assertTrue(center.pages.active.frame.winfo_ismapped());self.assertFalse(errors,errors)
@@ -121,7 +121,7 @@ class NavigationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                for index in (5,6):
+                for index in (4,5):
                     center.request_page(index)
                     self.pump(center,lambda:center.page==index and center.guide_page and center.guide_page.card_job is None and center.guide_page.card_count==3)
                     page=center.guide_page

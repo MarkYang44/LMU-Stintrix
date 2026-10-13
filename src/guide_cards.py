@@ -146,7 +146,8 @@ class Cards:
     def car(self,parent,item,rec=None,comparison=False):
         tr=self.library.tr;key=rec['key'] if rec else 'car:'+item['slug']
         track=self.library.data['tracks'][rec['track_slug']] if rec else None
-        subtitle=(track['name']+' // ' if track else '')+item['car_class']+(' // SLEEPER PICK' if rec and rec['sleeper'] else '')
+        from track_names import display
+        subtitle=(display(track['name'],self.library.language)+' // ' if track else '')+item['car_class']+(' // SLEEPER PICK' if rec and rec['sleeper'] else '')
         body=self.surface(parent,item['name'],subtitle);Picture(body,self.center,item)
         if rec:self.text(body,self.library.text(rec,'fit'),11)
         self.text(body,tr('优点：','Strengths: ')+self.library.text(item,'strength'),11)
@@ -164,7 +165,7 @@ class Cards:
                     if not recs:self.text(holder,tr('原资料暂无车型推荐赛道。','No recommended circuits in this snapshot.'),10,T.MUTED)
                     for value in recs:
                         target=self.library.data['tracks'][value['track_slug']]
-                        panel=self.surface(holder,target['name'],'SLEEPER PICK' if value['sleeper'] else '')
+                        panel=self.surface(holder,display(target['name'],self.library.language),'SLEEPER PICK' if value['sleeper'] else '')
                         self.text(panel,self.library.text(value,'fit'),11);self.review(panel,value)
                         row=self.center.row(panel);self.center.button(row,tr('查看赛道','View circuit'),lambda slug=target['slug']:self.page.jump('tracks',slug),width=140)
                         self.sources(panel,[(tr('来源','Source'),url) for url in value['review']['sources']])
@@ -176,7 +177,8 @@ class Cards:
         self.sources(body,[(tr('LMU 官方车型资料','Official LMU car page'),item['source_url']),(item['note']['source_name'],item['note']['source_url'])]+([(tr('推荐来源','Recommendation source'),url) for url in rec['review']['sources']] if rec else []))
         return body
     def track(self,parent,item,recs):
-        tr=self.library.tr;body=self.surface(parent,item['name'],self.library.text(item,'location')+' · '+item['length_km']+' km'+(' · DLC' if item['is_dlc'] else ''))
+        from track_names import display
+        tr=self.library.tr;body=self.surface(parent,display(item['name'],self.library.language),self.library.text(item,'location')+' · '+item['length_km']+' km'+(' · DLC' if item['is_dlc'] else ''))
         Picture(body,self.center,item)
         for key,title in [('character',tr('赛道特性：','Circuit character: ')),('challenge',tr('主要挑战：','Challenge: ')),('advice',tr('驾驶建议：','Driving advice: '))]:self.text(body,title+self.library.text(item,key),11)
         self.practice(body,item);self.actions(body,'tracks',item)

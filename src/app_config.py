@@ -11,4 +11,5 @@ COLUMNS = ('time_s', 'utc', 'session_time_s', 'lap', 'lap_distance_m', 'throttle
            'lap_start_s','lap_invalidated','in_pits','track_length_m',
            'world_x_m','world_y_m','world_z_m')
 EXTRA_COLUMNS=('fuel_l','tyre_compound','track_temp_c','wetness','tc_level','abs_level','tc_active','abs_active','gear')
+EXTRA_COLUMNS=(*EXTRA_COLUMNS,'tyre_rear_compound','tyre_front_name','tyre_rear_name','ambient_temp_c','rain','track_grip')
 COLUMNS=(*COLUMNS,*EXTRA_COLUMNS)

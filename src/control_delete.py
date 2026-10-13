@@ -12,7 +12,8 @@ def busy(center):
     return False
 
 def confirm(center,items):
-    details=[' · '.join((item['date'][:19],item['session_type'],item['track'],item['vehicle'])) for item in items]
+    from track_names import display
+    details=[' · '.join((item['date'][:19],item['session_type'],display(item['track']),item['vehicle'])) for item in items]
     prompt=tr('永久删除选中的赛事记录？')+f' ({len(items)})'
     warning=tr('将从本机删除所选赛事的全部记录、圈文件与报告，无法恢复。')
     if len(items)<=8:

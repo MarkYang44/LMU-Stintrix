@@ -48,7 +48,7 @@ function validateLap(v){
  return v;
 }
 function addLap(v){v=validateLap(v);const old=laps.find(x=>x.id===v.id);if(old)return false;if(laps.length>=6)throw Error('一次最多对比 6 圈；重新打开页面可重选文件');laps.push(v);chosen.add(v.id);return true}
-function compatible(a,b){return a.session.track.trim().toLowerCase()===b.session.track.trim().toLowerCase()&&Math.abs(a.lap.track_length_m-b.lap.track_length_m)<=Math.max(30,b.lap.track_length_m*.01)}
+function compatible(a,b){const layout=v=>String(v.session.track_layout||'').trim().toLowerCase();return a.session.track.trim().toLowerCase()===b.session.track.trim().toLowerCase()&&(!layout(a)||!layout(b)||layout(a)===layout(b))&&Math.abs(a.lap.track_length_m-b.lap.track_length_m)<=1}
 function base(){return laps.find(v=>v.id===referenceId)}
 function visible(){const b=base();return b?laps.filter(v=>chosen.has(v.id)&&compatible(v,b)):[]}
 function color(v){

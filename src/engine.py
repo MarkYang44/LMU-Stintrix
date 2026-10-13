@@ -5,7 +5,7 @@ import time
 
 import endurance
 import vehiclelab
-from recording_policy import should_record
+from recording_policy import should_record,load as recording_preferences
 from app_config import ROOT
 from buffers import ControlHistory, NumericRing, window_rate
 from diagnostics import Diagnostics
@@ -19,6 +19,7 @@ from telemetry import SharedReader
 class Engine:
     def __init__(self, demo=False, output=None, reader_factory=SharedReader, settings=None, rate_wake=None,vehicle_settings=None,endurance_settings=None):
         self.demo = demo
+        self.practice_enabled = recording_preferences(ROOT)
         self.reader_factory = reader_factory
         self.recorder = Recorder(output or ROOT / ('DemoLogs' if demo else 'Logs'),vehicle_settings,endurance_settings)
         self.endurance_monitor=endurance.Monitor(endurance_settings)
@@ -203,7 +204,9 @@ class Engine:
                         last_fresh = now
                         last_received_perf=time.perf_counter()
                     sample=dict(sample,_received_perf=last_received_perf)
-                    recording=should_record(sample['session'],self.demo)
+                    recording=should_record(sample['session'],self.demo,self.practice_enabled)
+                    if not recording and self.recorder.file is not None:
+                        self.finish_recording('practice recording disabled')
                     if recording and self.recorder.file is None and ended_key != key and sample['finish'] == 0 and fresh:
                         self.recorder.start(sample, config, self.target_hz)
                         self.recorder.meta['vehicle_strategy']['started_at_s']=(self.fuel_planner.baseline_et if self.fuel_planner.baseline_et is not None else sample['et'])-sample['et']

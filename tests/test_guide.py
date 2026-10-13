@@ -60,11 +60,11 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
     @unittest.skipUnless(os.name=='nt','Windows native guide navigation')
     def test_native_pages_are_lazy_and_do_not_start_telemetry_or_write_preferences(self):
         from control_center import ControlCenter,PAGES
-        self.assertEqual(PAGES[-2:],('赛道指南','车型图鉴'))
+        self.assertEqual(PAGES[4:6],('赛道指南','车型图鉴'))
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)),patch('hud.Engine') as engine,patch('webbrowser.open') as browser:
             center=ControlCenter()
             try:
-                for index in (5,6,0,5):center.show_page(index);center.root.update()
+                for index in (4,5,0,4):center.show_page(index);center.root.update()
                 engine.assert_not_called();browser.assert_not_called();self.assertFalse(list(Path(directory).glob('*settings.json')))
                 center.guide_state['tracks']['query']='Monza';center.set_theme('light');center.root.update()
                 self.assertEqual(center.guide_state['tracks']['query'],'Monza')
@@ -105,7 +105,7 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)),patch('webbrowser.open') as browser:
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                center.show_page(6);page=center.guide_page;self.assertEqual(page.card_count,3)
+                center.show_page(5);page=center.guide_page;self.assertEqual(page.card_count,3)
                 page.variables['query'].set('BMW');pump(center);self.assertEqual(len(page.rows),2)
                 page.favorite('cars','bmw-m4-lmgt3');self.assertTrue((Path(directory)/'guide_settings.json').is_file())
                 page.select('car:bmw-m4-lmgt3');page.select('car:bmw-m-hybrid-v8');page.compare();pump(center)
@@ -134,7 +134,7 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)),patch('webbrowser.open') as browser:
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                center.show_page(6);center.root.update_idletasks()
+                center.show_page(5);center.root.update_idletasks()
                 sources=[widget for widget in walk(center.guide_page.results) if isinstance(widget,Sources)]
                 self.assertEqual(len(sources),3)
                 self.assertTrue(all(not widget.opened and not widget.built and not widget.panel.winfo_manager() for widget in sources))
@@ -152,7 +152,7 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
                 center.set_theme('dark');center.root.update_idletasks()
                 replacement=next(widget for widget in walk(center.guide_page.results) if isinstance(widget,Sources) and widget.flag==flag)
                 self.assertFalse(replacement.opened);self.assertFalse(replacement.built)
-                center.show_page(5);center.root.update_idletasks()
+                center.show_page(4);center.root.update_idletasks()
                 self.assertTrue(all(not widget.opened for widget in walk(center.guide_page.results) if isinstance(widget,Sources)))
                 browser.assert_not_called();self.assertFalse(errors,errors)
             finally:

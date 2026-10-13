@@ -43,6 +43,7 @@ class Recorder:
                                      + session_label(sample.get('session')) + '_' + safe)
         self.folder.mkdir(parents=True)
         self.meta = {k: sample[k] for k in ('track', 'driver', 'vehicle', 'session', 'player_id')}
+        self.meta.update({k:sample.get(k,'') for k in ('track_layout','vehicle_class','track_length')})
         self.meta.update(started_utc=datetime.now(timezone.utc).isoformat(), status='recording',
                          input_units='Throttle/brake 0..1; steering -1..1 left to right',
                          position_units='LMU world XYZ in metres; top-down map uses XZ',

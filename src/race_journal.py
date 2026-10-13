@@ -4,6 +4,7 @@ import math
 from itertools import islice
 from pathlib import Path
 from storage import BatchWriter, atomic_json
+from lap_identity import canonical_class
 
 EVENT_COLUMNS = ('session_time_s', 'event', 'payload_json')
 
@@ -20,19 +21,29 @@ def capture(data, car, player, info, cache=None):
     """Cache scoring-grid work at the producer's scoring cadence, not poll Hz."""
     key=(float(info.mCurrentET),int(info.mSession),int(player.mID),int(info.mGamePhase),
          int(player.mTotalLaps),int(player.mPlace),int(player.mNumPenalties),int(player.mNumPitstops),
-         float(player.mLastLapTime),float(player.mLastSector1),float(player.mLastSector2),float(player.mLapStartET))
+         float(player.mLastLapTime),float(player.mLastSector1),float(player.mLastSector2),float(player.mLapStartET),
+         int(info.mNumVehicles),text(player.mVehicleClass))
     if cache is not None and cache.get('_key')==key:
         state=cache
     else:
-        best=None;driver=''
+        best=None;driver='';grid=[];group=canonical_class(text(player.mVehicleClass))
         for vehicle in islice(data.scoring.vehScoringInfo,min(104,max(0,int(info.mNumVehicles)))):
             lap=positive(vehicle.mBestLapTime)
             if lap is not None and (best is None or lap<best):best,driver=lap,text(vehicle.mDriverName)
+            grid.append((int(vehicle.mID),int(vehicle.mPlace),canonical_class(text(vehicle.mVehicleClass))))
+        places=[place for _,place,_ in grid]
+        complete=bool(group) and 0<int(info.mNumVehicles)<=104 and len(grid)==int(info.mNumVehicles) and all(
+            place>0 and bool(class_name) for _,place,class_name in grid) and len(set(places))==len(places) and sum(
+            vehicle_id==int(player.mID) for vehicle_id,_,_ in grid)==1
+        same=[place for _,place,class_name in grid if class_name==group] if complete else []
+        class_place=1+sum(place<int(player.mPlace) for place in same) if same else None
         state=dict(_key=key,completed_laps=int(player.mTotalLaps),place=int(player.mPlace) or None,
             scoring_lap_start=float(player.mLapStartET),last_lap=positive(player.mLastLapTime),
             sector1=positive(player.mLastSector1),sector12=positive(player.mLastSector2),
             penalties=int(player.mNumPenalties),pit_stops=int(player.mNumPitstops),
-            phase=int(info.mGamePhase),team=text(player.mVehicleName),vehicle_class=text(player.mVehicleClass),
+            phase=int(info.mGamePhase),team=text(player.mVehicleName),vehicle_class=group,
+            vehicle_class_raw=text(player.mVehicleClass),class_place=class_place,class_size=len(same) if same else None,
+            class_position_available=bool(same),
             session_best_lap=best,session_best_driver=driver,
             path_lateral=float(player.mPathLateral),track_edge=float(player.mTrackEdge))
     return dict(state,impact_et=positive(car.mLastImpactET),impact_magnitude=positive(car.mLastImpactMagnitude))
@@ -44,9 +55,11 @@ class RaceJournal:
         self.folder=Path(folder);self.origin=sample['et'];self.previous=None
         self.current=None;self.closed=[];self.signature=None;self.last_impact=None
         self.offtrack_since=None;self.offtrack_logged=False;self.rows=0
-        self.summary=dict(version=1,source='LMU_Data scoring / telemetry',available=bool(sample.get('race_state')),
+        self.summary=dict(version=1,position_display_version=1,source='LMU_Data scoring / telemetry',available=bool(sample.get('race_state')),
             impact_count=0,offtrack_estimate_count=0,start_place=None,grid_place=None,finish_place=None,
             finish_flag=0,recording_started_mid_session=None,
+            start_class_place=None,start_class_size=None,grid_class_place=None,grid_class_size=None,
+            finish_class_place=None,class_size=None,class_position_available=False,
             note='名次与分段来自游戏；出界仅为边界估算，非 Race Control 警告。碰撞按接触事件合并。')
         self.writer=BatchWriter(folder,EVENT_COLUMNS,capacity=8192,filename='race_events.csv',
             checkpoint_name='race_events_checkpoint.json')
@@ -61,7 +74,9 @@ class RaceJournal:
         signature=(state.get('_key'),start,sample.get('lap_invalidated'),sample.get('in_pits'),
                    sample.get('finish'),state.get('impact_et'))
         if signature==self.signature:return
-        if self.signature is None:self.emit(et,'recording_start',{'session':sample['session']})
+        if self.signature is None:self.emit(et,'recording_start',{'session':sample['session'],
+            'position_display_version':1,
+            'class_place':state.get('class_place'),'class_size':state.get('class_size'),'vehicle_class':state.get('vehicle_class','')})
         self.signature=signature
         if self.current is None or start!=self.current['start']:
             if self.current is not None and start is not None and self.current['start'] is not None and start>self.current['start']:
@@ -75,16 +90,27 @@ class RaceJournal:
         old=self.previous
         if state and old is None:
             self.summary.update(start_place=state.get('place'),recording_started_mid_session=state.get('phase',0)>=5,
-                team=state.get('team',''),vehicle_class=state.get('vehicle_class',''))
+                team=state.get('team',''),vehicle_class=canonical_class(state.get('vehicle_class')),
+                start_class_place=state.get('class_place'),start_class_size=state.get('class_size'))
             self.last_impact=state.get('impact_et')
         if state:
+            if sample.get('session') in (10,11,12,13):
+                if state.get('phase')==5 and old and old.get('phase') in (2,3,4):self.summary.setdefault('race_started_et',et)
+                if sample.get('finish')==1:self.summary.setdefault('race_finished_et',et)
             if sample.get('session') in (10,11,12,13) and state.get('phase') in (2,3,4) and state.get('place'):
                 self.summary['grid_place']=state['place']
+                self.summary.update(grid_class_place=state.get('class_place'),grid_class_size=state.get('class_size'))
             self.summary.update(finish_place=state.get('place'),finish_flag=int(sample.get('finish',0)),
+                vehicle_class=canonical_class(state.get('vehicle_class')) or self.summary.get('vehicle_class',''),
+                finish_class_place=state.get('class_place'),class_size=state.get('class_size'),
+                class_position_available=bool(state.get('class_position_available')),
                 session_best_lap=state.get('session_best_lap'),session_best_driver=state.get('session_best_driver',''))
             if old:
                 for key,event in [('place','position'),('phase','phase'),('penalties','penalties'),('pit_stops','pit_stop')]:
                     if state.get(key)!=old.get(key):self.emit(et,event,{'from':old.get(key),'to':state.get(key)})
+                if any(state.get(k)!=old.get(k) for k in ('class_place','class_size')):
+                    self.emit(et,'class_position',{'from':old.get('class_place'),'to':state.get('class_place'),
+                        'class_size':state.get('class_size'),'vehicle_class':canonical_class(state.get('vehicle_class'))})
                 completed=state.get('completed_laps',0);previous=old.get('completed_laps',0)
                 if completed>previous:
                     end=state.get('scoring_lap_start',et)
@@ -133,7 +159,9 @@ class RaceJournal:
 
     def finish(self,reason):
         try:
-            self.emit(getattr(self,'last_et',self.origin),'recording_end',{'reason':reason,'finish_flag':self.summary['finish_flag']})
+            self.emit(getattr(self,'last_et',self.origin),'recording_end',{'reason':reason,'finish_flag':self.summary['finish_flag'],
+                'class_place':self.summary.get('finish_class_place'),'class_size':self.summary.get('class_size'),
+                'vehicle_class':self.summary.get('vehicle_class','')})
         finally:
             stats=self.writer.finish()
         self.summary['event_rows']=self.rows

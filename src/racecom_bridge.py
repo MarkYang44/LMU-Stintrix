@@ -10,6 +10,7 @@ import zipfile
 from race_model import describe,lap_time,number
 from storage import atomic_json
 from renderer_process import run
+from class_positions import inline_positions
 
 
 def local_start(meta):
@@ -34,17 +35,21 @@ def adapt(model):
         if excluded and lap['valid'] is not False:item['note']='统计无效 / '+item['note']
         for key,best in zip(('s1','s2','s3'),model['sector_bests']):item[key+'_best']=best is not None and lap.get(key)==best
         laps.append(item)
+    start_text,end_text=inline_positions(model)
     return dict(date=start.strftime('%Y-%m-%d %H:%M:%S') if start else meta.get('started_utc','未知'),
         track=meta.get('track',''),session={'Qualify':'排位赛','Race':'正赛','Practice':'练习赛'}.get(model['session_type'],model['session_type']),
         session_code=meta.get('session'),driver=meta.get('driver',''),vehicle=meta.get('vehicle',''),team=summary.get('team',''),
         start_place=summary.get('grid_place'),finish_place=None if finish_text else summary.get('finish_place'),
         observed_finish_place=summary.get('finish_place'),finish_flag=finish_flag,stintrix_finish_text=finish_text,
+        stintrix_position_cards=dict(start=start_text,finish=end_text) if start_text else None,
+        vehicle_class=summary.get('vehicle_class',''),
         session_best_lap=summary.get('session_best_lap'),session_best_driver=summary.get('session_best_driver',''),
         impact_count=summary.get('impact_count') if model['scoring_available'] else '未知',
         # This is explicitly an estimate, never a Race Control warning count.
         track_limit_count='未知（边界估算 '+str(summary.get('offtrack_estimate_count','未知'))+'）',
-        laps=laps,events=[dict(time=(start+timedelta(seconds=e['time']-model['origin'])).strftime('%H:%M:%S') if start else '',
-            text=describe(e)) for e in model['events']]+[
+        laps=laps,events=[
+            dict(time=(start+timedelta(seconds=e['time']-model['origin'])).strftime('%H:%M:%S') if start else '',
+            text=describe(e)) for e in model['events'] if e['event']!='class_position' or start_text]+[
                 dict(time='',text=text) for text in ('缺失字段显示未知；未采集的信息不补造。','出界为边界估算，非官方警告；碰撞合并连续接触。',
                     '统计无效 = 排除部分记录 / PIT / 未验证圈，不代表游戏处罚。')])
 
@@ -92,7 +97,7 @@ def write_inputs(folder,model):
     header += [f'{label}：{value[key]}' for label,key in [('日期','date'),('赛道','track'),('类型','session'),('车手','driver'),('车型','vehicle'),('车队','team')]]
     header += [f"比赛圈数：{len(value['laps'])}",f"发生碰撞：{value['impact_count']}次",
         # No digits in the TXT field: original loader takes our labelled JSON value.
-        '超出赛道限制：未知',f"发车位置：{position(value['start_place'])}",f"结束名次：{value['stintrix_finish_text'] or position(value['finish_place'])}",
+        '超出赛道限制：未知',f"发车位置：{(value['stintrix_position_cards'] or {}).get('start') or position(value['start_place'])}",f"结束名次：{(value['stintrix_position_cards'] or {}).get('finish') or value['stintrix_finish_text'] or position(value['finish_place'])}",
         f"全场最快单圈：{lap_time(value['session_best_lap'])} - {value['session_best_driver'] or '未知'}",
         f"个人最速单圈：{lap_time(fastest['time'])} - in Lap {fastest['num']}" if fastest else '个人最速单圈：未知',
         '-'*64,'圈速表','-'*64]

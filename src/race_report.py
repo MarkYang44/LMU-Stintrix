@@ -10,7 +10,7 @@ from race_model import build_model,describe,elapsed,lap_status,lap_time,read_jso
 from reporting import serialized
 from storage import atomic_json
 
-RENDER_VERSION=6
+RENDER_VERSION=8
 
 
 def digest(path):
@@ -51,10 +51,12 @@ def generate(folder,car_directory=None,renderer=None):
             Path(name).name==name and (folder/name).is_file() and digest(folder/name)==sha
             for name,sha in receipt['files'].items()):return receipt
     model=build_model(folder)
+    if model['summary'].get('position_display_version')!=1:
+        model['events']=[e for e in model['events'] if e['event']!='class_position']
     files={}
     try:
         old_mode=receipt.get('fingerprint',{}).get('renderer') or ('racecom' if 'RaceCom' in receipt.get('generator','') else 'native')
-        if receipt.get('files') and old_mode!=config['mode']:
+        if receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION):
             # A renderer change is reviewable and reversible, including old v0.1.4 PNGs.
             prior=hashlib.sha256(json.dumps(receipt,sort_keys=True).encode('utf-8')).hexdigest()[:12]
             backup=folder/'_report_history'/('renderer-'+prior)
@@ -64,6 +66,9 @@ def generate(folder,car_directory=None,renderer=None):
         atomic_json(folder/'race_log.json',model)
         lines=['LMU STINTRIX · 比赛日志',f"{model['session_type']} / {meta.get('track','')} / {meta.get('vehicle','')}",
             f"车手：{meta.get('driver','')}  开始：{meta.get('started_utc','')}",model['note'],'','圈速单：']
+        from class_positions import inline_positions
+        start_text,end_text=inline_positions(model)
+        if start_text:lines[3:3]=['发车：'+start_text,'完赛：'+end_text]
         lines += [f"Lap {lap['num']}  {lap_time(lap['time'])}  S1 {lap['s1']}  S2 {lap['s2']}  S3 {lap['s3']}  {lap_status(lap)}" for lap in model['laps']]
         lines += ['','时间线：']+[elapsed(e['time']-model['origin'])+'  '+describe(e) for e in model['events']]
         write_text(folder/'race_log.txt','\n'.join(lines)+'\n')

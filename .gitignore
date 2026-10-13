@@ -43,6 +43,9 @@
 **/.venv/
 **/local_settings.json
 **/settings.json
+**/recording_settings.json
+**/LapComparisons/
+**/PersonalRecords/
 **/reference_settings.json
 **/vehicle_settings.json
 **/endurance_settings.json

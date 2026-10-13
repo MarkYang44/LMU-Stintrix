@@ -12,7 +12,7 @@ class Page:
     complete:bool=False
 
 class PageDeck:
-    CACHE=(0,3)
+    CACHE=(0,2)
     def __init__(self,owner,host):
         self.owner=owner;self.host=host;self.pages={};self.active=None;self.index=None
         self.pending=None;self.job=None;self.generator=None;self.building=None;self.before={}

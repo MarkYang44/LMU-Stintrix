@@ -46,6 +46,9 @@ class Library:
         query=state.get('query','').strip().casefold();out=[]
         for item in self.data[view].values():
             searchable=' '.join(str(item.get(k,'')) for k in ('name','slug','car_class','location','location_zh'))+' '+ALIASES.get(item['slug'],'')
+            if view=='tracks':
+                from track_names import display
+                searchable+=' '+display(item['name'],'zh')
             if query and query not in searchable.casefold():continue
             if view=='cars':
                 if state.get('group') and state['group']!=item['car_class']:continue

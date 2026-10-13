@@ -1,6 +1,7 @@
 """High-resolution, paginated lap-sheet and race-log images."""
 from race_model import describe,elapsed,lap_status,lap_time
 from windows_png import Canvas
+from class_positions import inline_positions
 
 WIDTH=1800
 ROWS_PER_PAGE=36
@@ -57,8 +58,10 @@ def race_log(c,model,rows,page,total,art):
     grid=s.get('grid_place');start=grid or s.get('start_place')
     start_label='发车名次' if grid else '首次观测名次'
     values=[(start_label,place(start)),('最终观测名次',place(s.get('finish_place'))),('完成状态',outcome)]
+    start_text,end_text=inline_positions(model)
+    if start_text:values=[('发车',start_text),('完赛',end_text),('完成状态',outcome)]
     for i,(label,value) in enumerate(values):
-        x=82+i*360;c.text(label,x,334,338,37,23,MUTED);c.text(value,x,376,338,53,34,bold=True)
+        x=82+i*360;c.text(label,x,334,338,37,23,MUTED);c.text(value,x,376,338,53,24 if start_text and i<2 else 34,bold=True)
     collisions=str(s.get('impact_count',0)) if known else '未知'
     offtrack=str(s.get('offtrack_estimate_count',0)) if known else '未知'
     c.text(f'碰撞事件 {collisions}  ·  出界估算 {offtrack}  ·  圈记录 {len(model["laps"])}',82,466,1070,40,25,MUTED)
@@ -81,7 +84,8 @@ def race_log(c,model,rows,page,total,art):
 
 def pages(model,art=None):
     """Each page owns one small raster; endurance races never create giant PNGs."""
-    for title,items,base,renderer in [('圈速单',model['laps'],542,sheet),('比赛日志',model['events'],645,race_log)]:
+    events=[e for e in model['events'] if e['event']!='class_position' or model['summary'].get('position_display_version')==1]
+    for title,items,base,renderer in [('圈速单',model['laps'],542,sheet),('比赛日志',events,645,race_log)]:
         total=max(1,(len(items)+ROWS_PER_PAGE-1)//ROWS_PER_PAGE)
         for index in range(total):
             rows=items[index*ROWS_PER_PAGE:(index+1)*ROWS_PER_PAGE]

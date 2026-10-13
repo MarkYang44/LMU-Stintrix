@@ -32,6 +32,8 @@ def extract(data, race_cache=None):
         return None
     position = [float(getattr(car.mPos, axis)) for axis in ('x','y','z')]
     return {'track': decode(info.mTrackName), 'driver': decode(player.mDriverName),
+            'track_layout':decode(car.mTrackName) or decode(info.mTrackName),
+            'vehicle_class':decode(player.mVehicleClass),
             'vehicle': decode(car.mVehicleModel) or decode(car.mVehicleName), 'session': int(info.mSession),
             'player_id': int(player.mID), 'et': float(car.mElapsedTime),
             'lap': int(car.mLapNumber), 'distance': float(player.mLapDist),
@@ -43,6 +45,12 @@ def extract(data, race_cache=None):
             'in_pits':bool(player.mInPits),'track_length':float(info.mLapDist),
             'conditions':{'fuel_l':float(car.mFuel) if math.isfinite(car.mFuel) and car.mFuel>=0 else '',
                 'tyre_compound':int(car.mFrontTireCompoundIndex),
+                'tyre_rear_compound':int(car.mRearTireCompoundIndex),
+                'tyre_front_name':decode(car.mFrontTireCompoundName),
+                'tyre_rear_name':decode(car.mRearTireCompoundName),
+                'ambient_temp_c':float(info.mAmbientTemp) if math.isfinite(info.mAmbientTemp) else '',
+                'rain':float(info.mRaining) if math.isfinite(info.mRaining) else '',
+                'track_grip':int(info.mTrackGripLevel),
                 'track_temp_c':float(info.mTrackTemp) if math.isfinite(info.mTrackTemp) else '',
                 'wetness':float(info.mAvgPathWetness) if math.isfinite(info.mAvgPathWetness) and 0<=info.mAvgPathWetness<=1 else '',
                 'tc_level':int(car.mTC),'abs_level':int(car.mABS),'tc_active':int(car.mTCActive),

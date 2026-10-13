@@ -123,6 +123,9 @@ class LaunchArtwork(tk.Canvas):
         self.delete('all');s=scale(self);w=self.winfo_width()
         self.create_text(0,20*s,text='LE MANS ULTIMATE',anchor='w',fill=T.FG,font=('Segoe UI',15,'bold'))
         self.create_text(1*s,48*s,text='DRIVE  /  RECORD  /  REFLECT',anchor='w',fill=T.ACCENT,font=('Segoe UI',8,'bold'))
+        if w>=px(self,500):
+            from lmu_mark import draw
+            draw(self,285*s,20*s,80*s,'#FFFFFF' if T.mode=='dark' else '#FF1D43')
         if w<px(self,610):return
         x=w-270*s
         for offset,color in ((0,T.EDGE),(7,T.MUTED),(14,T.ACCENT)):

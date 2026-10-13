@@ -41,7 +41,7 @@ class DesktopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                for page in (1,3,2,4,0):center.show_page(page);center.root.update()
+                for page in (1,2,1,3,0):center.show_page(page);center.root.update()
                 variable=tk.BooleanVar(center.root,value=False)
                 switch=Switch(center.content,'fixture',variable,lambda:None);switch.pack(fill='x')
                 variable.set(True);center.root.update();variable.set(False);variable.set(True)
@@ -135,7 +135,7 @@ class DesktopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter()
             try:
-                center.show_page(4);center.root.update()
+                center.show_page(3);center.root.update()
                 self.assertTrue(center.tree.multiple);self.assertTrue(center.tree.checkboxes)
                 center.items=[dict(key='Logs/'+str(i),date='',session_type='Race',track='Spa',vehicle='BMW',status='complete',time_s=None) for i in range(3)]
                 center.populate();center.tree.selection_set(('0','1','2'));center.root.update()

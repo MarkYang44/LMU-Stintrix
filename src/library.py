@@ -37,6 +37,8 @@ def inventory(root):
                     except (OSError,ValueError):note={}
                 lap=summary.get('lap',{});stable=analysis.get('recent_stability',{})
                 out.append(dict(key=key,folder=str(folder),track=meta.get('track',''),vehicle=meta.get('vehicle',''),
+                    track_layout=meta.get('track_layout') or meta.get('track',''),
+                    track_length_m=lap.get('track_length_m') or meta.get('track_length'),
                     date=meta.get('started_utc',''),driver=meta.get('driver',''),status=meta.get('status',''),source=name,
                     session_type=session_label(meta.get('session')),
                     lap=lap.get('number'),time_s=lap.get('time_s'),fastest_file=summary.get('file'),

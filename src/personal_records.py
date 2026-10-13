@@ -1,0 +1,75 @@
+"""Metadata-only personal best index, separated by layout and vehicle class."""
+import json,math,hashlib
+from pathlib import Path
+from json_store import load
+from lap_identity import text,vehicle_class
+
+
+def summary_for(root,folder):
+    path=folder/'fastest_lap_summary.json'
+    try:
+        value=json.loads(path.read_text(encoding='utf-8'))
+        if isinstance(value,dict):return value,folder
+    except (OSError,ValueError):pass
+    # Missing reports must not hide a valid record. Derive only in a private cache.
+    files=[folder/name for name in ('inputs.csv','session.json','vehicle.csv','native_channels.json')]
+    signature=[(str(p),p.stat().st_size,p.stat().st_mtime_ns) for p in files if p.exists()]
+    key=hashlib.sha256(repr(signature).encode()).hexdigest()[:24]
+    cache=root/'PersonalRecords'/'Cache'/key;cached=cache/'summary.json'
+    try:
+        value=json.loads(cached.read_text(encoding='utf-8'))
+        if isinstance(value,dict):return value,cache
+    except (OSError,ValueError):pass
+    from laps import extract_best,lap_record,write_json
+    best,candidates,error=extract_best(folder/'inputs.csv')
+    summary=dict(status='no_complete_lap')
+    if best and best['validity']=='verified' and sum(v['number']==best['number'] for v in candidates)==1:
+        record=lap_record(folder,best)
+        cache.mkdir(parents=True,exist_ok=True);write_json(cache/'record.lap.json',record)
+        summary=dict(status='saved',file='record.lap.json',session=record['session'],lap=record['lap'],conditions=record['conditions'])
+    cache.mkdir(parents=True,exist_ok=True);write_json(cached,summary)
+    return summary,cache
+
+
+def records(root):
+    root=Path(root).resolve();winners={}
+    for category in ('Logs','ImportedLogs','RecoveredLogs'):
+        for path in (root/category).glob('*/session.json'):
+            try:
+                if not path.parent.resolve().is_relative_to(root):continue
+                meta=json.loads(path.read_text(encoding='utf-8'))
+                if not isinstance(meta,dict):continue
+                if meta.get('status') in ('recording','write_error'):continue
+                if text(meta.get('source'))=='synthetic demo' or meta.get('demo') is True:continue
+                summary,base=summary_for(root,path.parent)
+                if summary.get('status')!='saved':continue
+                lap=summary['lap'];duration=float(lap['time_s']);length=float(lap['track_length_m'])
+                if lap.get('validity')!='verified' or lap.get('lap_invalidated') or lap.get('in_pits'):continue
+                if not math.isfinite(duration) or duration<=0 or not math.isfinite(length) or length<=100:continue
+                file=(base/summary['file']).resolve()
+                if not file.is_relative_to(root) or not file.is_file():continue
+                session={**summary.get('session',{}),**meta};track=str(session.get('track') or '').strip()
+                if not track:continue
+                layout=str(session.get('track_layout') or '').strip()
+                group=vehicle_class(session)
+                # Include the recorded length even when names are identical.
+                key=(text(track),text(layout or track),round(length),text(group))
+                entry=dict(session=session,lap=lap,conditions=summary.get('conditions',{}),
+                    track=track,layout=layout,vehicle_class=group,file=str(file),folder=str(path.parent),
+                    time_s=duration,length_m=length)
+                if key not in winners or duration<winners[key]['time_s']:winners[key]=entry
+            except (OSError,ValueError,KeyError,TypeError):continue
+    return sorted(winners.values(),key=lambda v:(text(v['track']),text(v['layout']),text(v['vehicle_class'])))
+
+
+def detail(entry):
+    value=load(entry['file'])
+    # Fixed-size drawing envelope retains pedal spikes; source stays full resolution.
+    buckets={};length=value['lap']['track_length_m']
+    for row in value['data']:
+        index=min(599,int(row[0]/length*599))
+        low,high=buckets.setdefault(index,([row[2],row[3]],[row[2],row[3]]))
+        for i in range(2):low[i]=min(low[i],row[2+i]);high[i]=max(high[i],row[2+i])
+    return dict(conditions=value.get('conditions',{}),
+        vehicle_summary=(value.get('vehicle_telemetry') or {}).get('summary',{}),
+        curve=[(index,low,high) for index,(low,high) in sorted(buckets.items())])

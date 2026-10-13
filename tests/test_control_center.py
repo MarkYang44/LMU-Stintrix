@@ -117,7 +117,7 @@ class ControlTests(unittest.TestCase):
         with patch('control_center.ROOT',self.root),patch('hud.Engine') as engine:
             center=control_center.ControlCenter()
             try:
-                for n in (1,2,3,4,0):center.show_page(n);center.root.update()
+                for n in (1,2,3,0):center.show_page(n);center.root.update()
                 engine.assert_not_called();self.assertFalse(list(self.root.glob('*settings.json')))
             finally:center.close()
 

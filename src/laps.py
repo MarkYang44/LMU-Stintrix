@@ -39,8 +39,9 @@ def read_rows(path):
                    'steering','filtered_throttle','filtered_brake','filtered_steering','speed_kmh',
                    'lap_start_s','lap_invalidated','in_pits','track_length_m',
                    'world_x_m','world_y_m','world_z_m','fuel_l','tyre_compound','track_temp_c',
-                   'wetness','tc_level','abs_level','tc_active','abs_active','gear'}
-        layout={k:i for i,k in enumerate(k for k in reader.fieldnames or () if k in numbers)}
+                   'wetness','tc_level','abs_level','tc_active','abs_active','gear',
+                   'tyre_rear_compound','ambient_temp_c','rain','track_grip'}
+        layout={k:i for i,k in enumerate(dict.fromkeys(k for k in reader.fieldnames or () if k in numbers))}
         last_utc=None
         for row in reader:
             try:
@@ -134,7 +135,7 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
         if reason is None and any(b['lap_distance_m']<a['lap_distance_m']-20
                                   for a,b in zip(usable,usable[1:])):
             reason = 'distance moved backwards or reset'
-        info = dict(number=number,time_s=round(duration,6),eligible=reason is None,
+        info = dict(number=number,time_s=round(duration,6),track_length_m=length,eligible=reason is None,
                     exclusion=reason,validity='verified' if checked else 'unverified_legacy',
                     lap_invalidated=any(r.get('lap_invalidated',0)>0 for r in group),
                     in_pits=any(r.get('in_pits',0)>0 for r in group))
@@ -319,12 +320,20 @@ def lap_record(folder,best,metadata=None,native=None,kind='fastest'):
                 lap_invalidated=bool(best.get('lap_invalidated')),in_pits=bool(best.get('in_pits')))
     result = dict(format=FORMAT,version=1,id=folder.name+':'+str(info['number']),
                   session={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc',
-                           'ended_utc','session','source','end_reason')},lap=info,
+                           'ended_utc','session','source','end_reason','track_layout','vehicle_class')},lap=info,
                   data_columns=DATA_COLUMNS,data=comparison_data(best),reference_kind=kind)
     result['trajectory'] = trajectory_data(best,result['data'])
     from sessionlab import lap_conditions,actions
     if native is None and (folder/'native_channels.json').exists():native=load_json(folder/'native_channels.json')
     result['conditions']=lap_conditions(best['rows'],native,best['start_s'],native.get('event_offset_s',0) if native else 0)
+    # Text channels stay in CSV, outside the float64 scratch matrix.
+    with (folder/'inputs.csv').open(encoding='utf-8-sig',newline='') as stream:
+        reader=csv.DictReader(stream)
+        if 'tyre_front_name' in (reader.fieldnames or ()):
+            for row in reader:
+                if best['start_s']<=float(row['session_time_s'])<best['end_s']:
+                    result['conditions'].update({k:row[k] for k in ('tyre_front_name','tyre_rear_name') if row.get(k)})
+                    break
     result['actions']=actions(best['rows'])
     from vehiclelab import lap_telemetry,load_recording
     result['vehicle_telemetry']=lap_telemetry(best,load_recording(folder))
@@ -342,7 +351,17 @@ def lap_record(folder,best,metadata=None,native=None,kind='fastest'):
     return result
 
 
-def write_lap_csv(path,best,metadata):
+def write_lap_csv(path,best,metadata,source=None):
+    if source is not None:
+        with Path(source).open(encoding='utf-8-sig',newline='') as stream,Path(path).open('w',encoding='utf-8',newline='') as output:
+            reader=csv.DictReader(stream);basic={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc')}
+            writer=csv.DictWriter(output,fieldnames=list(dict.fromkeys([*basic,'lap_time_s',*(reader.fieldnames or ())])))
+            writer.writeheader()
+            for row in reader:
+                when=float(row['session_time_s'])
+                if best['start_s']<=when<best['end_s'] and int(float(row['lap']))==best['number']:
+                    writer.writerow({**row,**basic,'lap_time_s':round(when-best['start_s'],6)})
+        return
     with Path(path).open('w',encoding='utf-8',newline='') as stream:
         fields=list(dict.fromkeys(k for r in best['rows'] for k in r))
         basic={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc')}
@@ -388,7 +407,7 @@ def export_selected_laps(folder,numbers,template=None):
     for n,value in zip(numbers,records):
         stem=f"Selected_Lap_{n}_{safe_name(metadata.get('vehicle'))}_{safe_name(metadata.get('track'))}"
         json_path=output/(stem+'.lap.json');csv_path=output/(stem+'.csv')
-        write_json(json_path,value);write_lap_csv(csv_path,selected[n],metadata)
+        write_json(json_path,value);write_lap_csv(csv_path,selected[n],metadata,folder/'inputs.csv')
         exports.append(dict(number=n,json=str(json_path),csv=str(csv_path)))
     page=None
     if template is not None:
@@ -406,7 +425,7 @@ def export_fastest(folder, template, library=None):
         result=lap_record(folder,best,metadata);info=result['lap']
         name = f"Fastest_Lap_{info['number']}_{safe_name(metadata['vehicle'])}_{safe_name(metadata['track'])}.lap.json"
         write_json(folder/name,result)
-        write_lap_csv(folder/'fastest_lap.csv',best,metadata)
+        write_lap_csv(folder/'fastest_lap.csv',best,metadata,folder/'inputs.csv')
         (folder/'fastest_lap.svg').write_text(curve_svg(result),encoding='utf-8')
         summary.update(file=name,lap=info,session=result['session'],conditions=result['conditions'])
     write_json(folder/'fastest_lap_summary.json',summary)

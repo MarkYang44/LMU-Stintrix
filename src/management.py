@@ -14,6 +14,7 @@ from storage import atomic_json,recover_session,compress_session
 from sessionlab import analyze_session
 from laps import write_compare,complete_laps,export_selected_laps,finished_metadata
 from paths import ASSETS
+from track_names import display as track_name,search_text as track_search
 
 
 def panel(app,title,width,height):
@@ -84,11 +85,11 @@ def show_library(app,root,render_review,make_report):
     def fill(*_):
         tree.delete(*tree.get_children());q=search.get().casefold()
         for v in state['items']:
-            if track.get()!='全部赛道' and v['track']!=track.get():continue
+            if track.get()!='全部赛道' and track_name(v['track'])!=track.get():continue
             if car.get()!='全部车辆' and v['vehicle']!=car.get():continue
             if source.get()!='全部来源' and v['source']!=source.get():continue
-            if q and q not in ' '.join(str(v[k]) for k in ('session_type','date','track','vehicle','driver','note')).casefold():continue
-            tree.insert('', 'end',iid=v['key'],values=(v['date'][:19].replace('T',' '),v['session_type'],v['track'],v['vehicle'],
+            if q and q not in (track_search(v['track'])+' '+' '.join(str(v[k]) for k in ('session_type','date','vehicle','driver','note'))).casefold():continue
+            tree.insert('', 'end',iid=v['key'],values=(v['date'][:19].replace('T',' '),v['session_type'],track_name(v['track']),v['vehicle'],
                 f"{v['time_s']:.3f}" if v['time_s'] else '—',f"{v['stability_s']:.3f}" if v['stability_s'] is not None else '未分析',
                 v['source'],v['status'],('交通 · ' if v['traffic'] else '')+v['note']))
         status.set(f"{tr('显示 ')}{len(tree.get_children())}{tr(' / 共 ')}{len(state['items'])}{tr(' 场；按 Ctrl 多选，最多六圈对比。')}")
@@ -104,7 +105,7 @@ def show_library(app,root,render_review,make_report):
         app.run_background(work,finish)
     def refresh():
         def done(items):
-            state['items']=items;trackbox['values']=['全部赛道',*sorted({v['track'] for v in items})];carbox['values']=['全部车辆',*sorted({v['vehicle'] for v in items})];fill()
+            state['items']=items;trackbox['values']=['全部赛道',*sorted({track_name(v['track']) for v in items})];carbox['values']=['全部车辆',*sorted({v['vehicle'] for v in items})];fill()
         background(lambda:inventory(root),done)
     def one():
         values=selected()
@@ -256,7 +257,7 @@ def show_lap_selection(app,root,folder):
     Label(window,textvariable=status,bg=T.BG,fg='#9dc7e9',anchor='nw',justify='left',wraplength=670).pack(fill='both',expand=True,padx=18,pady=12)
     for box in boxes.values():box.bind('<<ComboboxSelected>>',enable)
     def loaded(result):
-        metadata,scan=result;title.config(text=metadata.get('track', '') + ' · ' + metadata.get('vehicle', '') + '\n' + folder.name)
+        metadata,scan=result;title.config(text=track_name(metadata.get('track', '')) + ' · ' + metadata.get('vehicle', '') + '\n' + folder.name)
         labels=[]
         for v in scan['laps']:
             minutes=int(v['time_s']//60);seconds=v['time_s']-minutes*60

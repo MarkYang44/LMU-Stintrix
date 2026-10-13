@@ -25,7 +25,7 @@ def condition_check(a,b):
 
 def lap_conditions(rows,native=None,start=0,offset=0):
     result={}
-    for k in CONDITION_RULES:
+    for k in (*CONDITION_RULES,'tyre_rear_compound','tyre_front_name','tyre_rear_name','ambient_temp_c','rain','track_grip'):
         r=next((r for r in rows if k in r),None)
         if r:result[k]=r[k]
     if native:

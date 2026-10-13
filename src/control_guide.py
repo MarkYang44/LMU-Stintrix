@@ -171,7 +171,7 @@ class GuidePage:
     def jump(self,view,slug):
         target=self.center.guide_state.setdefault(view,{})
         target.update(query=self.library.data[view][slug]['name'],group='',car='',favorite='',page=0,mode='browse')
-        self.center.show_page(5 if view=='tracks' else 6,progressive=True)
+        self.center.show_page(4 if view=='tracks' else 5,progressive=True)
 
 
 def show(center,view):

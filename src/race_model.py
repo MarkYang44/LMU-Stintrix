@@ -102,6 +102,16 @@ def build_model(folder):
     if summary.get('recovered'):
         summary['impact_count']=sum(e['event']=='impact' for e in events)
         summary['offtrack_estimate_count']=sum(e['event']=='offtrack_estimate' for e in events)
+        first=next((e['data'] for e in events if e['event']=='recording_start' and 'class_place' in e['data']),None)
+        positions=[e['data'] for e in events if e['event'] in ('class_position','recording_end') and (
+            'to' in e['data'] or 'class_place' in e['data'])]
+        if first:
+            summary.update(start_class_place=first.get('class_place'),start_class_size=first.get('class_size'),vehicle_class=first.get('vehicle_class',''))
+            if first.get('position_display_version')==1:summary['position_display_version']=1
+        latest=positions[-1] if positions else first
+        if latest:
+            summary.update(finish_class_place=latest.get('to',latest.get('class_place')),class_size=latest.get('class_size'),
+                vehicle_class=latest.get('vehicle_class',''),class_position_available=bool(latest.get('to',latest.get('class_place'))))
     # Older CSVs can recover lap boundaries and pit/invalidated markers only.
     # Missing scoring, collisions or sectors are never invented.
     if not events:
@@ -143,6 +153,11 @@ def describe(event):
         flags=(' · 无效' if p.get('valid') is False else '')+(' · 部分记录' if p.get('partial') else '')
         return f"完成第 {p.get('num','?')} 圈 · {lap_time(p.get('time'))}"+flags+(' · 期间缺圈 '+str(p['missed_laps']) if p.get('missed_laps') else '')
     if name=='position':return f"名次变化 · P{p.get('from','?')} → P{p.get('to','?')}"
+    if name=='class_position':
+        from lap_identity import canonical_class
+        place=lambda n:'P'+str(n) if n else '未知'
+        size='/'+str(p['class_size']) if p.get('class_size') else ''
+        return f"{canonical_class(p.get('vehicle_class')) or '组别'} 组内名次 · {place(p.get('from'))} → {place(p.get('to'))}{size}"
     if name=='impact':return '发生碰撞 · 合并连续接触'
     if name=='offtrack_estimate':return '检测到持续越过估算边界 · 非官方警告'
     if name=='penalties':return f"待执行处罚数量变化 · {p.get('from','?')} → {p.get('to','?')}"

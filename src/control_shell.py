@@ -19,6 +19,8 @@ def symbol(canvas,kind,x,y,s,color):
     elif kind==5:line(3,16,0,9,4,0,14,2,23,13,18,22,6,20,3,16)
     elif kind==6:
         line(0,15,3,5,8,5,11,1,18,1,21,5,24,5,27,15,0,15);line(5,15,5,20,10,20,10,15);line(18,15,18,20,23,20,23,15)
+    elif kind==7:
+        line(5,0,19,0,18,13,12,17,6,13,5,0);line(5,3,0,3,1,10,6,12);line(19,3,24,3,23,10,18,12);line(12,17,12,22);line(6,22,18,22)
     else:
         line(0,5,8,5,11,0,21,0,24,5,24,21,0,21,0,5);line(9,12,15,12);line(12,9,12,15)
 
@@ -58,7 +60,8 @@ class Navigation(tk.Canvas):
             y=i*self.step+self.step/2;color=T.FG if i==self.selected else T.MUTED
             if i==self.hovered and i!=self.selected:
                 rounded(self,4*s,i*self.step+9*s,w-9*s,self.step-18*s,8*s,fill=T.HOVER,outline='');color=T.FG
-            symbol(self,i,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
+            kind={'运行与 HUD':0,'赛事复盘':1,'采样与遥测':3,'图像与数据':4,'赛道指南':5,'车型图鉴':6,'个人赛道纪录':7}.get(name,i)
+            symbol(self,kind,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
             self.create_text(57*s,y,text=tr(name),anchor='w',fill=color,font=(T.FONT,11,'bold' if i==self.selected else 'normal'))
             self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
 
@@ -85,7 +88,7 @@ class Shell:
         self.navigation=Navigation(side,names,command);self.navigation.pack(fill='x',padx=round(16*s))
         foot=tk.Frame(side,bg=T.RAIL);foot.pack(side='bottom',fill='x',padx=round(25*s),pady=round(26*s))
         Label(foot,text='●  LOCAL & PRIVATE',bg=T.RAIL,fg=T.ACCENT,font=('Segoe UI',9,'bold'),anchor='w').pack(fill='x')
-        Label(foot,text='排位 / 正赛自动记录\n练习 / Warmup 仅实时显示',bg=T.RAIL,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left',pady=12,wraplength=self.rail_width-round(50*s)).pack(fill='x')
+        Label(foot,text='排位 / 正赛自动记录\n练习完整记录可在设置中开启',bg=T.RAIL,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left',pady=12,wraplength=self.rail_width-round(50*s)).pack(fill='x')
         self.footer=foot;side.bind('<Configure>',self.layout_sidebar)
         self.main=main=tk.Frame(root,bg=T.BG);main.pack(side='left',fill='both',expand=True,padx=round(28*s),pady=(round(26*s),round(14*s)))
         self.motion=Motion(main)

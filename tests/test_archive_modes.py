@@ -70,11 +70,11 @@ class ArchiveModeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory,patch('control_center.ROOT',Path(directory)):
             center=ControlCenter();errors=[];center.root.report_callback_exception=lambda *args:errors.append(args)
             try:
-                center.show_page(4);center.root.update()
+                center.show_page(3);center.root.update()
                 self.assertFalse(center.archive_verify.get());self.assertEqual(center.archive_format.get(),'ZIP')
                 self.assertNotEqual(i18n.catalog()['导入时完整校验'],'导入时完整校验')
                 archive_preferences.save(directory,'7z',True)
-                center.show_page(0);center.show_page(4);center.root.update()
+                center.show_page(0);center.show_page(3);center.root.update()
                 self.assertTrue(center.archive_verify.get());self.assertEqual(center.archive_format.get(),'7z')
             finally:center.close()
             self.assertFalse(errors,errors)

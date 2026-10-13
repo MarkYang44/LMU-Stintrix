@@ -84,7 +84,7 @@ class MemoryTests(unittest.TestCase):
                     if condition():return
                 self.fail('Guide image did not settle')
             try:
-                center.show_page(6);center.scroll.yview_moveto(.25)
+                center.show_page(5);center.scroll.yview_moveto(.25)
                 pictures=[w for w in walk(center.content) if isinstance(w,Picture)]
                 wait(lambda:any(p.photo for p in pictures));center.hide();center.root.update()
                 self.assertTrue(all(p.photo is None and p.loading is None for p in pictures))

@@ -38,6 +38,12 @@ def main():
     for name in archive.toc:
         if name.endswith('.pyz'):modules.update(archive.open_embedded_archive(name).toc)
     assert {'library','laps','session_archive','sevenzip','archive_preferences'}<=modules
+    assert {'control_lap_pair','lap_comparison','lap_identity','personal_records','control_records','recording_policy'}<=modules
+    assert {'track_names','record_presentation','control_metrics'}<=modules
+    assert 'class_positions' in modules
+    assert {'podium_records','control_podiums'}<=modules
+    assert 'control_record_art' in modules
+    assert {'review_filters','control_review_filters','lmu_mark'}<=modules
     from sevenzip import SHA256
     assert hashlib.sha256((bundle/'_internal/src/tools/7zr.exe').read_bytes()).hexdigest()==SHA256
     assert not any(name.split('.')[0] in {'doctor','release_smoke','tests','tools'} for name in modules)

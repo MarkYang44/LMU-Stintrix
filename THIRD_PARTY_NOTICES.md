@@ -34,6 +34,8 @@ The charcoal, warm off-white and yellow-green palettes reference [MarkYang44/End
 
 ## GTD circuit guide and car catalog
 
+The Run & HUD card displays the LMU mark from the [official Le Mans Ultimate website](https://lemansultimate.com/wp-content/themes/motorsport-games/build/img/lm-logo.svg). The original vector paths are drawn by `src/lmu_mark.py`; the mark remains the property of its rights holders and does not imply endorsement.
+
 At the project owner's request, the editorial GTD guide snapshot `2026.09.22.1` is adapted into an independent Stintrix offline interface. The 18 circuits, 24 cars, 144 recommendations, source notes, dates, and unverified build-evidence markers retain their original meaning. GTD is credited to [MarkYang44/GTD](https://github.com/MarkYang44/GTD). GTD download services, backend dependencies and user preferences are not imported.
 
 The 42 WebP images are exact copies of GTD's existing public guide artwork from Le Mans Ultimate / Studio 397. Original official image URLs and page links are retained in `src/guide/provenance.json`; each reviewed asset has an exact SHA256 allowlist entry in `tools/guide_assets.py`. Those artworks and trademarks remain with their respective rights holders; the Stintrix source license does not assert ownership of them. Private RaceCom artwork and personal racing records remain excluded.

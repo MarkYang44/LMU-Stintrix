@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import font as tkfont
 from control_theme import T
 from control_widgets import px, scale, rounded
-from control_motion import Motion, blend
+from control_motion import Motion, blend,keyboard_action
 
 
 class Field(tk.Canvas):
@@ -30,16 +30,15 @@ class Field(tk.Canvas):
         if self.focused:target=1
         start=self.amount
         def frame(t):self.amount=start+(target-start)*t;self.paint()
-        self.motion.animate('surface',frame,145)
+        self.motion.animate('surface',frame,125,curve='hover')
     def paint(self):
         w=self.winfo_width();h=self.winfo_height();s=self.s
-        self.delete('surface')
-        rounded(self,1,1,w-2,h-2,6*s,fill=T.FIELD,
-            outline=blend(T.EDGE,T.ACCENT,self.amount),tags='surface')
-        self.create_line(12*s,h-2,12*s+(w-24*s)*self.amount,h-2,
-                         fill=T.ACCENT,width=s,tags='surface')
-        self.tag_lower('surface');self.coords(self.item,14*s,h/2)
-        self.itemconfigure(self.item,width=max(1,w-28*s))
+        if not hasattr(self,'surface'):
+            self.surface=rounded(self,0,0,1,1,1,tags='surface');self.underline=self.create_line(0,0,1,1,tags='surface')
+        from control_widgets import polygon_points
+        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=T.FIELD,outline=blend(T.EDGE,T.ACCENT,self.amount))
+        self.coords(self.underline,12*s,h-2,12*s+(w-24*s)*self.amount,h-2);self.itemconfigure(self.underline,fill=T.ACCENT,width=s)
+        self.tag_lower('surface');self.coords(self.item,14*s,h/2);self.itemconfigure(self.item,width=max(1,w-28*s))
     def get(self):return self.entry.get()
     def focus_set(self):self.entry.focus_set()
 
@@ -65,7 +64,7 @@ class Select(tk.Canvas):
                 fg=T.FG,insertbackground=T.ACCENT,relief='flat',highlightthickness=0,borderwidth=0)
             self.edit_item=self.create_window(14*self.s,21*self.s,anchor='w',window=self.edit)
             self.edit.bind('<FocusIn>',lambda _:self.focus(True));self.edit.bind('<FocusOut>',lambda _:self.focus(False))
-            self.edit.bind('<Alt-Down>',lambda _:self.open())
+            self.edit.bind('<Alt-Down>',lambda _:keyboard_action(self,self.open))
         self.trace=self.variable.trace_add('write',lambda *_:self.paint())
         self.bind('<Configure>',self.resized);self.bind('<Enter>',lambda _:self.hover(1))
         self.bind('<Leave>',lambda _:self.hover(0));self.bind('<Button-1>',self.toggle)
@@ -106,16 +105,18 @@ class Select(tk.Canvas):
         if self.focused or self.popup:target=1
         start=self.amount
         def frame(t):self.amount=start+(target-start)*t;self.paint()
-        self.motion.animate('surface',frame,140)
+        self.motion.animate('surface',frame,125,curve='hover')
     def paint(self):
-        self.delete('surface');w=self.winfo_width();h=self.winfo_height();s=self.s
+        w=self.winfo_width();h=self.winfo_height();s=self.s
+        if not hasattr(self,'surface'):
+            self.surface=rounded(self,0,0,1,1,1,tags='surface');self.divider=self.create_line(0,0,1,1,tags='surface');self.arrow=self.create_line(0,0,1,1,tags='surface')
+            self.caption=self.create_text(0,0,anchor='w',font=self.font,tags='surface') if not self.edit else None
+        from control_widgets import polygon_points
         disabled=self.state=='disabled';foreground=T.MUTED if disabled else T.FG
-        rounded(self,1,1,w-2,h-2,6*s,fill=blend(T.FIELD,T.HOVER,self.amount*.45),
-            outline=T.EDGE if disabled else blend(T.EDGE,T.ACCENT,self.amount),tags='surface')
-        self.create_line(w-39*s,11*s,w-39*s,h-11*s,fill=T.EDGE,tags='surface')
+        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=blend(T.FIELD,T.HOVER,self.amount*.45),outline=T.EDGE if disabled else blend(T.EDGE,T.ACCENT,self.amount))
+        self.coords(self.divider,w-39*s,11*s,w-39*s,h-11*s);self.itemconfigure(self.divider,fill=T.EDGE)
         direction=-1 if self.popup else 1
-        self.create_line(w-27*s,h/2-2*s*direction,w-22*s,h/2+3*s*direction,w-17*s,h/2-2*s*direction,
-            fill=T.ACCENT if self.popup else T.MUTED,width=1.5*s,tags='surface')
+        self.coords(self.arrow,w-27*s,h/2-2*s*direction,w-22*s,h/2+3*s*direction,w-17*s,h/2-2*s*direction);self.itemconfigure(self.arrow,fill=T.ACCENT if self.popup else T.MUTED,width=1.5*s)
         if self.edit:
             self.coords(self.edit_item,14*s,h/2);self.itemconfigure(self.edit_item,width=max(1,w-60*s));self.tag_lower('surface')
         else:
@@ -123,7 +124,7 @@ class Select(tk.Canvas):
             if self.font.measure(text)>maximum:
                 while text and self.font.measure(text+'…')>maximum:text=text[:-1]
                 text+='…'
-            self.create_text(14*s,h/2,text=text,anchor='w',fill=foreground,font=self.font,tags='surface')
+            self.coords(self.caption,14*s,h/2);self.itemconfigure(self.caption,text=text,fill=foreground)
     def toggle(self,_=None):
         if self.state=='disabled':return 'break'
         if self.popup:self.close()
@@ -157,8 +158,8 @@ class Select(tk.Canvas):
         self.highlight_y=px(self,6)+(self.active-self.offset)*self.row_h
         self.paint();self.paint_options()
         def frame(t):
-            h=max(2,round(self.full_h*(.3+.7*t)));y=self.edge-h if self.above else self.edge
-            self.popup.place(x=x,y=max(0,y),width=width,height=h);self.popup.lift()
+            h=self.full_h;travel=px(self,6)*(1-t);y=self.edge-h+travel if self.above else self.edge-travel
+            self.popup.place(x=x,y=max(0,round(y)),width=width,height=h);self.popup.lift()
         self.popup_motion.animate('reveal',frame,150)
         self.popup.focus_set()
         return 'break'
@@ -232,6 +233,8 @@ class Select(tk.Canvas):
         self.popup_motion.cancel('selection');self.highlight_y=px(self,6)+(self.active-self.offset)*self.row_h
         self.paint_options();return 'break'
     def key(self,event):
+        return keyboard_action(self,lambda:self.keyboard(event))
+    def keyboard(self,event):
         key=event.keysym
         if key=='Escape':return self.close()
         if self.state=='disabled':return 'break'

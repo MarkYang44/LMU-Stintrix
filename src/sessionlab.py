@@ -138,4 +138,6 @@ def analyze_session(folder):
         stable_reference_file=name,conditions_unknown=condition_check(latest,latest)['unknown'],
         metrics={k:spread([i[k] for i in training if i[k] is not None]) for k in ('minimum_speed','first_brake_m','first_full_m')},
         note='最近最多五个完整圈；明确条件不同的圈排除。稳定参考为实测中位附近的一圈；不足三圈不生成。交通需人工标记。动作计数是阈值统计，不自动认定驾驶错误。')
-    write_json(folder/'session_analysis.json',detail);return detail
+    write_json(folder/'session_analysis.json',detail)
+    from analysis_headers import save as save_headers
+    save_headers(folder,detail);return detail

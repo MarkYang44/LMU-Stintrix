@@ -4,12 +4,14 @@ from pathlib import Path
 from control_theme import T
 from control_widgets import GlassCard,px
 from paths import ASSETS
+from i18n import tr
+from control_feedback import ImageSurface
 
 
-class Picture(tk.Canvas):
+class Picture(ImageSurface):
     """Decode only visible images, release on scroll-away; no global image cache."""
     def __init__(self,parent,center,item):
-        super().__init__(parent,bg=T.FIELD,highlightthickness=0,height=px(parent,210))
+        super().__init__(parent,height=210)
         self.center=center;self.item=item;self.photo=None;self.size=None;self.job=None;self.error='';self.loading=None;self.revision=0
         self.pack(fill='x',pady=(0,px(parent,16)))
         self.bind('<Configure>',self.changed);self.bind('<Destroy>',self.dispose,add='+')
@@ -23,15 +25,16 @@ class Picture(tk.Canvas):
         if width>1:
             height=round(min(1200,width)*9/16)
             if int(self.cget('height'))!=height:self.configure(height=height)
+        self.coords(self.hint,max(1,width)/2,max(1,self.winfo_height())/2)
         if self.job is None and self.winfo_exists():self.job=self.after(90,self.render)
     def release(self,event=None):
         if self.job:
             try:self.after_cancel(self.job)
             except tk.TclError:pass
         self.job=None;self.revision+=1;self.loading=None
-        try:self.delete('image')
+        try:self.motion.cancel();self.itemconfigure(self.bitmap,state='hidden')
         except tk.TclError:pass
-        self.photo=None;self.size=None
+        self.photo=None;self.image=None;self.size=None
     def dispose(self,event):
         if event.widget is not self:return
         self.release()
@@ -51,13 +54,14 @@ class Picture(tk.Canvas):
         top=self.winfo_rooty();viewport=self.center.scroll
         visible=self.winfo_ismapped() and top+height>=viewport.winfo_rooty()-80 and top<=viewport.winfo_rooty()+viewport.winfo_height()+80
         if not visible:
-            if self.photo is not None:self.delete('image');self.photo=None;self.size=None
+            if self.photo is not None:self.itemconfigure(self.bitmap,state='hidden');self.photo=None;self.image=None;self.size=None
             return
         if self.size==(width,height):return
         if self.loading==(width,height):return
         path=(ASSETS/'guide'/self.item['image']).resolve()
         if not path.is_relative_to((ASSETS/'guide/media').resolve()):self.error='Invalid guide image path';return
         self.revision+=1;revision=self.revision;self.loading=(width,height)
+        self.itemconfigure(self.hint,text=tr('正在加载图片…'),state='normal')
         def decode():
             from PIL import Image,WebPImagePlugin
             with Image.open(path,formats=['WEBP']) as original:
@@ -67,13 +71,11 @@ class Picture(tk.Canvas):
             if not self.winfo_exists() or revision!=self.revision:return
             self.loading=None
             if error:
-                self.error=error;self.delete('all');self.create_text(self.winfo_width()/2,height/2,text='图片暂不可用',fill=T.MUTED);return
+                self.error=error;self.itemconfigure(self.hint,text=tr('图片暂不可用'),state='normal');return
             if not self.winfo_ismapped():return
             top=self.winfo_rooty();viewport=self.center.scroll
             if top+height<viewport.winfo_rooty()-80 or top>viewport.winfo_rooty()+viewport.winfo_height()+80:return
-            from PIL import ImageTk
-            self.error='';self.photo=ImageTk.PhotoImage(image,master=self)
-            self.size=(width,height);self.delete('all');self.create_image(self.winfo_width()/2,height/2,image=self.photo,tags='image')
+            self.error='';self.size=(width,height);self.show(image)
         self.center.run_background(decode,ready)
 
 

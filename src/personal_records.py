@@ -31,13 +31,20 @@ def summary_for(root,folder):
     return summary,cache
 
 
-def records(root):
-    root=Path(root).resolve();winners={}
+def entries(root):
+    """All verified session bests, also used for chronological PB history."""
+    root=Path(root).resolve();result=[]
+    from race_mode import overlay,annotate,mode
+    modes=overlay(root)
+    from session_groups import superseded
+    hidden=superseded(root)
     for category in ('Logs','ImportedLogs','RecoveredLogs'):
         for path in (root/category).glob('*/session.json'):
             try:
+                if path.parent.resolve() in hidden:continue
                 if not path.parent.resolve().is_relative_to(root):continue
                 meta=json.loads(path.read_text(encoding='utf-8'))
+                if isinstance(meta,dict):meta=annotate(meta,path.parent,modes)
                 if not isinstance(meta,dict):continue
                 if meta.get('status') in ('recording','write_error'):continue
                 if text(meta.get('source'))=='synthetic demo' or meta.get('demo') is True:continue
@@ -54,11 +61,24 @@ def records(root):
                 group=vehicle_class(session)
                 # Include the recorded length even when names are identical.
                 key=(text(track),text(layout or track),round(length),text(group))
-                entry=dict(session=session,lap=lap,conditions=summary.get('conditions',{}),
+                entry=dict(race_mode=mode(session),session=session,lap=lap,conditions=summary.get('conditions',{}),
                     track=track,layout=layout,vehicle_class=group,file=str(file),folder=str(path.parent),
                     time_s=duration,length_m=length)
-                if key not in winners or duration<winners[key]['time_s']:winners[key]=entry
+                entry['identity']=key;result.append(entry)
             except (OSError,ValueError,KeyError,TypeError):continue
+    return result
+
+
+def records(root,race_mode=''):
+    return select_records(entries(root),race_mode)
+
+def select_records(values,race_mode=''):
+    from race_mode import mode
+    winners={}
+    for entry in values:
+        if race_mode and mode(entry)!=race_mode:continue
+        key=entry['identity']
+        if key not in winners or entry['time_s']<winners[key]['time_s']:winners[key]=entry
     return sorted(winners.values(),key=lambda v:(text(v['track']),text(v['layout']),text(v['vehicle_class'])))
 
 

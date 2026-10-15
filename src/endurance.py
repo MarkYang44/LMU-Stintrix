@@ -176,7 +176,8 @@ def analyze(folder):
     path=folder/'vehicle.csv';config=settings(meta.get('endurance_settings'));monitor=Monitor(config)
     if not path.exists():return dict(version=1,available=False,note='此记录没有进站／天气附加遥测。')
     analysis_path=folder/'session_analysis.json'
-    source=json.loads(analysis_path.read_text(encoding='utf-8')).get('laps',[]) if analysis_path.exists() else []
+    from analysis_headers import load as analysis_headers
+    source=analysis_headers(folder).get('laps',[]) if analysis_path.exists() else []
     targets=deque(sorted(source,key=lambda l:l['start_time_s']));contexts={};previous_point=None
     with path.open(encoding='utf-8-sig',newline='') as f:
         reader=csv.DictReader(f);available=False;last_t=None;history=iter(sorted(meta.get('endurance_settings_history',[]),key=lambda c:c['time_s']));change=next(history,None)

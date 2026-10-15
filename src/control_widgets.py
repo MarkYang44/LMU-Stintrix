@@ -4,7 +4,7 @@ import ctypes
 import tkinter as tk
 from control_theme import T
 from tkinter import font as tkfont
-from control_motion import Motion,blend
+from control_motion import Motion,blend,keyboard_action
 
 
 
@@ -27,11 +27,11 @@ class Pill(tk.Canvas):
         self.s=scale(parent);self.font=tkfont.Font(parent,family=T.FONT,size=10,weight='bold')
         width=max(width*self.s,self.font.measure(tr(text))+36*self.s)
         super().__init__(parent,width=round(width),height=px(parent,46),bg=parent.cget('bg'),highlightthickness=0,cursor='hand2',takefocus=True)
-        self.primary=primary;self.command=command;self.label=text;self.amount=0;self.pressed=False;self.focused=False;self.motion=Motion(self)
+        self.primary=primary;self.command=command;self.label=text;self.amount=0;self.pressed=False;self.press_amount=0.;self.focused=False;self.motion=Motion(self)
         self.bind('<Configure>',lambda _:self.paint())
         self.bind('<Enter>',lambda _:self.hover(1));self.bind('<Leave>',lambda _:self.hover(0))
         self.bind('<ButtonPress-1>',self.press);self.bind('<ButtonRelease-1>',self.release)
-        self.bind('<Return>',lambda _:self.command());self.bind('<space>',lambda _:self.command())
+        self.bind('<Return>',lambda _:keyboard_action(self,self.command));self.bind('<space>',lambda _:keyboard_action(self,self.command))
         self.bind('<FocusIn>',lambda _:self.focus(True));self.bind('<FocusOut>',lambda _:self.focus(False))
         self.bind('<Destroy>',self.dispose,add='+')
     def dispose(self,event):
@@ -40,19 +40,32 @@ class Pill(tk.Canvas):
     def hover(self,target):
         start=self.amount
         def paint(t):self.amount=start+(target-start)*t;self.paint()
-        self.motion.animate('hover',paint,160)
-    def press(self,_):self.pressed=True;self.focus_set();self.paint()
+        self.motion.animate('hover',paint,125,curve='hover')
+    def press(self,_):
+        self.pressed=True;self.focus_set();self.press_to(1,100);self.paint()
+    def press_to(self,target,duration):
+        start=self.press_amount
+        def frame(t):self.press_amount=start+(target-start)*t;self.paint()
+        self.motion.animate('press',frame,duration)
     def release(self,event):
         fire=self.pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height()
-        self.pressed=False;self.paint()
+        self.pressed=False;self.press_to(0,160);self.paint()
         if fire:self.command()
     def paint(self):
-        self.delete('all');s=self.s;w=self.winfo_width();h=self.winfo_height();shift=2*s if self.pressed else 0
+        s=self.s;w=self.winfo_width();h=self.winfo_height();shift=self.press_amount*s;inset=w*.015*self.press_amount
         base=T.BUTTON if self.primary else T.FIELD;over=T.BUTTON_HOVER if self.primary else T.HOVER;color=blend(base,over,self.amount)
-        rounded(self,2*s,4*s,w-4*s,h-7*s,7*s,fill=T.BG,outline='')
-        rounded(self,2*s,2*s+shift,w-4*s,h-7*s,7*s,fill=color,outline=T.ACCENT if self.focused else (T.ACCENT if self.primary else T.EDGE))
-        if not self.primary:self.create_line(10*s,3*s+shift,30*s+24*s*self.amount,3*s+shift,fill=T.ACCENT,width=2*s)
-        self.create_text(w/2,h/2-1*s+shift,text=tr(self.label),fill=T.INK if self.primary else T.FG,font=self.font)
+        if not hasattr(self,'surface'):
+            self.shadow=rounded(self,0,0,1,1,1,fill=T.BG,outline='')
+            self.surface=rounded(self,0,0,1,1,1,fill=color,outline=T.EDGE)
+            self.accent=self.create_line(0,0,1,0,fill=T.ACCENT)
+            self.caption=self.create_text(0,0,font=self.font)
+        self.coords(self.shadow,*polygon_points(2*s,4*s,w-4*s,h-7*s,7*s));self.itemconfigure(self.shadow,fill=T.BG)
+        self.coords(self.surface,*polygon_points(2*s+inset,2*s+shift,w-4*s-2*inset,h-7*s,7*s))
+        self.itemconfigure(self.surface,fill=color,outline=T.ACCENT if self.focused or self.primary else T.EDGE)
+        self.coords(self.accent,10*s+inset,3*s+shift,30*s+24*s*self.amount+inset,3*s+shift)
+        self.itemconfigure(self.accent,fill=T.ACCENT,width=2*s,state='hidden' if self.primary else 'normal')
+        self.coords(self.caption,w/2,h/2-s+shift);self.itemconfigure(self.caption,text=tr(self.label),fill=T.INK if self.primary else T.FG,font=self.font)
+
 
 
 class GlassCard(tk.Canvas):
@@ -75,29 +88,54 @@ class GlassCard(tk.Canvas):
 
 
 class Switch(tk.Canvas):
-    """Label and animated toggle; keyboard activation and external state updates."""
+    """Pointer feedback, velocity-preserving thumb travel, and retained artwork."""
     def __init__(self,parent,text,variable,command):
-        self.s=scale(parent);self.variable=variable;self.command=command;self.text=text;self.value=float(variable.get());self.motion=None
+        self.s=scale(parent);self.variable=variable;self.command=command;self.text=text
+        self.value=float(variable.get());self.press_amount=0.;self.amount=0.;self.pressed=False;self.motion=None
         super().__init__(parent,height=px(parent,48),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
-        self.motion=Motion(self);self.bind('<Configure>',lambda _:self.paint());self.bind('<Button-1>',lambda _:self.toggle())
-        self.bind('<Return>',lambda _:self.toggle());self.bind('<space>',lambda _:self.toggle())
+        self.motion=Motion(self);self.bind('<Configure>',lambda _:self.paint())
+        self.bind('<ButtonPress-1>',self.press);self.bind('<ButtonRelease-1>',self.release)
+        self.bind('<Return>',lambda _:keyboard_action(self,self.toggle));self.bind('<space>',lambda _:keyboard_action(self,self.toggle))
+        self.bind('<Enter>',lambda _:self.hover(1));self.bind('<Leave>',lambda _:self.hover(0))
         self.bind('<FocusIn>',lambda _:self.paint());self.bind('<FocusOut>',lambda _:self.paint())
         self.trace=variable.trace_add('write',self.changed);self.bind('<Destroy>',self.cleanup,add='+')
     def cleanup(self,event):
         if event.widget is self:
             try:self.variable.trace_remove('write',self.trace)
-            except tk.TclError:pass
+            except (tk.TclError,AttributeError):pass
+            self.variable=None;self.command=None
+    def hover(self,target):
+        start=self.amount
+        def frame(t):self.amount=start+(target-start)*t;self.paint()
+        self.motion.animate('hover',frame,125,curve='hover')
+    def pressure(self,target):
+        start=self.press_amount
+        def frame(t):self.press_amount=start+(target-start)*t;self.paint()
+        self.motion.animate('press',frame,100 if target else 160)
+    def press(self,_):
+        self.winfo_toplevel()._motion_keyboard_until=0
+        self.pressed=True;self.focus_set();self.pressure(1);self.paint()
+    def release(self,event):
+        commit=self.pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height()
+        self.pressed=False;self.pressure(0)
+        if commit:self.toggle()
     def toggle(self):self.focus_set();self.variable.set(not self.variable.get());self.command()
     def changed(self,*_):
-        start=self.value;target=float(self.variable.get())
-        def frame(t):self.value=start+(target-start)*t;self.paint()
-        self.motion.animate('toggle',frame,190)
+        def paint(value):self.value=value;self.paint()
+        self.motion.spring('toggle',paint,self.value,float(self.variable.get()),response=.28)
     def paint(self):
-        self.delete('all');s=self.s;w=self.winfo_width();h=self.winfo_height();x=w-54*s;y=(h-25*s)/2
-        self.create_text(0,h/2,text=tr(self.text),anchor='w',font=(T.FONT,10),fill=T.FG)
-        rounded(self,x,y,48*s,25*s,4*s,fill=blend(T.FIELD,T.SELECT,self.value),outline=T.ACCENT if self.focus_get() is self else T.EDGE)
-        cx=x+(13+22*self.value)*s
-        self.create_rectangle(cx-8*s,y+4*s,cx+8*s,y+21*s,fill=blend(T.MUTED,T.ACCENT,self.value),outline='')
+        s=self.s;w=self.winfo_width();h=self.winfo_height();x=w-56*s;y=(h-28*s)/2
+        if not hasattr(self,'track'):
+            self.caption=self.create_text(0,0,anchor='w',font=(T.FONT,10))
+            self.track=rounded(self,0,0,1,1,1,outline=T.EDGE)
+            self.thumb=rounded(self,0,0,1,1,1,outline='')
+        self.coords(self.caption,0,h/2);self.itemconfigure(self.caption,text=tr(self.text),fill=T.FG)
+        self.coords(self.track,*polygon_points(x,y,52*s,28*s,5*s))
+        rail=blend(T.FIELD,T.SELECT,self.value)
+        self.itemconfigure(self.track,fill=blend(rail,T.HOVER,self.amount*.18),outline=T.ACCENT if self.focus_get() is self else blend(T.EDGE,T.MUTED,self.amount*.35))
+        cx=x+(14+24*self.value)*s;half=(9+1.5*self.press_amount)*s
+        self.coords(self.thumb,*polygon_points(cx-half,y+4*s,half*2,20*s,3*s))
+        self.itemconfigure(self.thumb,fill=blend(T.MUTED,T.ACCENT,self.value))
 
 
 class CardGrid(tk.Frame):

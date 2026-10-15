@@ -17,33 +17,43 @@ def make_report(folder,isolated=None):
     if use_worker:
         from report_worker import run
         return run(folder,ROOT)
-    try:analyze_session(folder)
-    except Exception as e:(folder/'analysis_error.txt').write_text(str(e),encoding='utf-8')
-    try:endurance.analyze(folder)
-    except Exception as e:(folder/'endurance_error.txt').write_text(str(e),encoding='utf-8')
-    fastest = None
-    try:
-        library = folder.parent
-        _,fastest = export_fastest(folder,ASSETS/'compare.html',library)
-        if library in (ROOT/'Logs',ROOT/'DemoLogs',ROOT/'ImportedLogs'):
-            selection = library_laps(library)
-            write_compare(ROOT/('DemoFastestLapCompare.html' if library.name=='DemoLogs' else
-                               'FastestLapCompare.html'),ASSETS/'compare.html',selection)
-    except Exception as error:
-        (folder/'fastest_lap_error.txt').write_text(str(error),encoding='utf-8')
-    try:render_review(folder, fastest)
-    finally:
-        # Separate from HTML generation: a review-page failure must not prevent
-        # native race images, and an image error must leave existing reports intact.
+    from report_state import plan,save,begin_step,ERRORS,DEPENDENCIES,invalidate
+    from report_worker import ReportDeferred
+    steps=plan(folder)
+    invalidate(steps)
+    from race_model import read_json
+    fastest=read_json(folder/'fastest_lap_summary.json',None) if steps['fastest'].get('state')=='ready' else None
+    for name in steps:
+        if steps[name].get('state')=='ready':continue
+        blocked=[d for d in DEPENDENCIES.get(name,()) if steps[d].get('state')!='ready']
+        if blocked:
+            steps[name].update(state='blocked',waiting_for=blocked);save(folder,steps);continue
+        begin_step(folder,name,steps)
         try:
-            from race_report import generate
-            generate(folder)
+            if name=='analysis':analyze_session(folder)
+            elif name=='endurance':endurance.analyze(folder)
+            elif name=='fastest':
+                library=folder.parent
+                _,fastest=export_fastest(folder,ASSETS/'compare.html',library)
+                if library in (ROOT/'Logs',ROOT/'DemoLogs',ROOT/'ImportedLogs'):
+                    selection=library_laps(library)
+                    write_compare(ROOT/('DemoFastestLapCompare.html' if library.name=='DemoLogs' else 'FastestLapCompare.html'),ASSETS/'compare.html',selection)
+            elif name=='review':render_review(folder,fastest)
+            elif name=='images':
+                from race_report import generate
+                generate(folder)
+            elif name=='compression':
+                from session_compression import after_report
+                after_report(folder)
+        except ReportDeferred as error:
+            steps[name].update(state='deferred',error=str(error));save(folder,steps,reason=error);raise
         except Exception as error:
-            from report_worker import ReportDeferred
-            if isinstance(error,ReportDeferred):raise
-            (folder/'race_images_error.txt').write_text(str(error),encoding='utf-8')
-        from session_compression import after_report
-        after_report(folder)
+            steps[name].update(state='error',error=str(error))
+            if name in ERRORS:(folder/ERRORS[name]).write_text(str(error),encoding='utf-8')
+        else:steps[name].update(state='ready');steps[name].pop('error',None)
+        save(folder,steps)
+    return save(folder,steps)
+
 
 
 def render_review(folder, fastest=None):

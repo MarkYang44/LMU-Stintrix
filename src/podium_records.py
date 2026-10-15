@@ -38,12 +38,18 @@ def result_summary(folder):
 
 def index(root):
     root=Path(root).resolve();winners={};conflicts=set();missing=0
+    from race_mode import overlay,annotate,mode
+    modes=overlay(root)
+    from session_groups import superseded
+    hidden=superseded(root)
     for category in CATEGORIES:
         for path in (root/category).glob('*/session.json'):
             folder=path.parent.resolve()
+            if folder in hidden:continue
             if not folder.is_relative_to(root):continue
             try:
                 meta=read_json(path,{})
+                if isinstance(meta,dict):meta=annotate(meta,folder,modes)
                 if not isinstance(meta,dict) or session_label(meta.get('session'))!='Race':continue
                 if meta.get('demo') is True or text(meta.get('source'))=='synthetic demo':continue
                 if meta.get('status') not in ('complete','completed','finished','imported','recovered'):continue
@@ -64,12 +70,19 @@ def index(root):
                 lap=fastest.get('lap',{})
                 if not isinstance(lap,dict):lap={}
                 best=numeric(lap.get('time_s')) if fastest.get('status')=='saved' and lap.get('validity')=='verified' else None
-                winners[key]=dict(folder=str(folder),session=meta,summary=s,place=place,vehicle_class=group,
+                winners[key]=dict(race_mode=mode(meta),folder=str(folder),session=meta,summary=s,place=place,vehicle_class=group,
                     track=meta.get('track',''),layout=meta.get('track_layout') or meta.get('track',''),
                     length_m=numeric(meta.get('track_length')) or numeric(lap.get('track_length_m')),fastest_s=best,
                     started_utc=meta.get('started_utc',''),team=s.get('team') or meta.get('team',''))
             except (OSError,ValueError,TypeError,AttributeError):continue
-    entries=[v for v in winners.values() if v['place'] in (1,2,3)]
+    from official_results import podium_entries,load as official_load
+    blocked={r.get('linked_folder') for r in official_load(root)['entries'] if r.get('link_status')=='conflict'}
+    entries=[v for v in winners.values() if v['place'] in (1,2,3) and v['folder'] not in blocked]
+    for official in podium_entries(root):
+        copies=set(official['official_result'].get('match_candidates',[]))
+        entries=[e for e in entries if e['folder'] not in copies]
+        entries.append(official)
+    conflicts.update(('official',p) for p in blocked if p)
     entries.sort(key=lambda e:e['started_utc'],reverse=True);entries.sort(key=lambda e:e['place'])
     return dict(entries=entries,counts={p:sum(e['place']==p for e in entries) for p in (1,2,3)},missing_class_results=missing,conflicts=len(conflicts))
 
@@ -83,6 +96,9 @@ def samples(path):
         yield from csv.DictReader(stream)
 
 def detail(entry):
+    if entry.get('xml_only'):
+        from official_results import xml_detail
+        return xml_detail(entry)
     folder=Path(entry['folder']).resolve();start={};end={};first=None;last=None;wear_start={};wear_end={}
     for filename in ('inputs.csv','vehicle.csv'):
         path=folder/filename

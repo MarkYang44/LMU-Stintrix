@@ -30,7 +30,9 @@ class PageDeck:
         def open_page():
             self.pending=None
             if not self.owner.closing:self.owner.show_page(index,progressive=True)
-        self.pending=self.owner.root.after(16,open_page)
+        cached=self.pages.get(index)
+        if cached is not None and cached.complete:open_page()
+        else:self.pending=self.owner.root.after(16,open_page)
     def cancel_build(self):
         if self.job is not None:self.owner.root.after_cancel(self.job);self.job=None
         if self.generator is not None:self.generator.close();self.generator=None
@@ -41,7 +43,7 @@ class PageDeck:
             changed=False
             if widget.__class__.__name__=='Switch':
                 value=float(widget.variable.get());changed=widget.value!=value;widget.value=value
-            for name,value in (('amount',0),('focused',False),('pressed',False)):
+            for name,value in (('amount',0),('focused',False),('pressed',False),('press_amount',0)):
                 if hasattr(widget,name):
                     changed=changed or getattr(widget,name)!=value;setattr(widget,name,value)
             if changed and hasattr(widget,'paint'):widget.paint()

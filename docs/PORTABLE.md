@@ -36,3 +36,6 @@ Qualify / Race 自动记录；可在 **采样与遥测 → 记录练习赛** 开
 图像与数据页可选择 ZIP / 7z 导出，并一次导入多个赛事包。默认快速导入不进行逐文件 SHA-256 核对，每次新建赛事；如需完整校验和重复记录识别，开启“导入时完整校验”。路径、大小上限和解压 CRC 检查保留。既有 ZIP 不需要重新打包。7z 精简工具随便携版包含，不需要额外安装。
 
 **Archive options:** Select ZIP or 7z for export. Fast import is the default and creates a new session each time. Turn on Verify content when importing for full SHA-256 verification and duplicate detection. Path checks and decompression CRC remain enabled. Legacy ZIP packages work without repacking.
+
+
+0.2.29：个人赛道纪录新增“官方战绩”，支持只读同步游戏结果 XML 与明确的同组领奖台；训练报告增加可编辑距离区间、实测轨迹 / 距离分段和 ABS/TC 统计；同条件进步分析提供实测圈速与波动曲线。采样与遥测新增接口诊断。详细数据边界见随包使用说明。

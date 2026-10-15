@@ -60,7 +60,7 @@ class ReviewLayoutTests(unittest.TestCase):
                 labels={w.label for w in walk(center.content) if isinstance(w,Pill)}
                 self.assertTrue({'赛事 Review','圈 A / 圈 B 选择器','跨场最快圈对比','查看最快圈','导出赛事包'}.issubset(labels))
                 center.search.set('蒙扎');center.populate();self.assertEqual(len(center.tree.get_children()),1)
-                self.assertEqual(center.tree.rows['0'][2],'蒙扎国家赛车场')
+                self.assertEqual(center.tree.rows['0'][center.tree.columns.index('track')],'蒙扎国家赛车场')
                 center.search.set('Monza');center.populate();self.assertEqual(len(center.tree.get_children()),1)
                 center.show_page(6);wait(lambda:'条个人赛道纪录' in center.status.get())
                 grids=[w for w in walk(center.content) if isinstance(w,Metrics)]

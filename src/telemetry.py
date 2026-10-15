@@ -36,6 +36,8 @@ def extract(data, race_cache=None):
             'vehicle_class':decode(player.mVehicleClass),
             'vehicle': decode(car.mVehicleModel) or decode(car.mVehicleName), 'session': int(info.mSession),
             'player_id': int(player.mID), 'et': float(car.mElapsedTime),
+            'session_clock':float(info.mCurrentET),'race_mode': 'online' if int(info.mGameMode)==2 else 'unknown',
+            'game_mode_raw':int(info.mGameMode),
             'lap': int(car.mLapNumber), 'distance': float(player.mLapDist),
             'controls': values, 'position':position if all(math.isfinite(v) for v in position) else None,
             'speed': math.sqrt(sum(float(getattr(car.mLocalVel, a)) ** 2
@@ -88,6 +90,8 @@ class SharedReader:
         self.cached_sample = None
         self.cached_at = 0
         self.race_cache = None
+        from telemetry_contract import ReaderMonitor,EventPresence
+        self.monitor=ReaderMonitor();self.events=EventPresence(self.kernel) if map_name=='LMU_Data' else None
 
     def read(self):
         if (self.cached_sample is not None and time.monotonic()-self.cached_at < 0.25
@@ -101,7 +105,12 @@ class SharedReader:
             ctypes.memmove(ctypes.addressof(self.verification),self.pointer,self.size)
             if self.compare(ctypes.addressof(self.snapshot),ctypes.addressof(self.verification),self.size)==0:
                 data = self.snapshot
+                # Bounds validation precedes decoding any variable-size vehicle inventory.
+                if not 0<=int(data.scoring.scoringInfo.mNumVehicles)<=104 or not 0<=int(data.telemetry.activeVehicles)<=104:
+                    self.monitor.observe(data,None);return None
                 sample = extract(data,getattr(self,'race_cache',None))
+                self.monitor.observe(data,sample)
+                if sample is not None:sample['interface']=dict(game_version=self.monitor.last_version,sdk_commit='6cef58e22bf025268acee93e9e5ea4f569939c1b',snapshot='stable_double_copy',event_gate=False,event_notifications=bool(self.events and self.events.handles))
                 self.race_cache = sample.get('race_state') if sample else None
                 self.cached_sample = sample
                 self.cached_at = time.monotonic()
@@ -119,9 +128,14 @@ class SharedReader:
                     field = next(entry[1] for entry in info_type._fields_ if entry[0]=='mInRealtime')
                     self.cached_realtime = field.from_address(address+info_type.mInRealtime.offset)
                 return sample
+        self.monitor.torn+=1
         return None
 
+    def interface_status(self):
+        return dict(self.monitor.snapshot(),event_gate=False,event_notifications=bool(self.events and self.events.handles),lock_present=bool(self.events and self.events.lock_present),synchronization='stable snapshots; notifications not consumed')
+
     def close(self):
+        if getattr(self,'events',None):self.events.close()
         self.cached_sample=None;self.race_cache=None
         self.snapshot=None;self.verification=None
         if getattr(self, 'pointer', None):

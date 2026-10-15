@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 from pathlib import Path
 from i18n import tr
 from control_theme import T
+from control_feedback import VictoryBadge,new_champions
 from control_fields import Field
 from control_list import SessionList
 from control_metrics import Metrics
@@ -12,6 +13,11 @@ from record_presentation import number,tire
 from race_model import lap_time,elapsed
 from track_names import display,search_text,layout
 from control_record_art import RecordHeader
+
+from race_mode import mode,LABELS as MODE_LABELS
+from control_mode_filters import ModeControls
+from control_event_filters import replace_rows,edit_note
+from event_catalog import attach
 
 LABELS={1:'冠军',2:'亚军',3:'季军'}
 
@@ -31,10 +37,13 @@ def show(app):
     generation=app.scan_generation;state=dict(entries=[],selected=None,request=0,category=0,data=None)
     body=app.card('同组领奖台','仅收录已确认同组完赛前三的正赛；排位、退赛、取消资格与演示不计入')
     filters=app.row(body);buttons={}
+    victory=VictoryBadge(body);victory.pack(fill='x')
     query=tk.StringVar(app.root);note=tk.StringVar(app.root,value=tr('正在读取领奖台赛事…'))
     row=app.row(body);Field(row,textvariable=query).pack(side='left',fill='x',expand=True)
-    table=SessionList(body,columns=('award','date','track','class','car','start','finish','lap'),height=7,selectmode='browse')
-    for key,title,width in [('award','成绩',85),('date','比赛时间 (UTC)',175),('track','赛道',180),('class','组别',95),('car','车辆',225),('start','同组发车',95),('finish','同组完赛',95),('lap','最快圈',100)]:
+    modes=ModeControls(body,app,lambda:populate(),'podium_mode_filters')
+    modes.bind_query(query)
+    table=SessionList(body,columns=('award','date','track','class','mode','car','start','finish','lap'),height=7,selectmode='browse')
+    for key,title,width in [('award','成绩',85),('date','比赛时间 (UTC)',175),('track','赛道',180),('class','组别',75),('mode','参赛方式',90),('car','车辆',225),('start','同组发车',95),('finish','同组完赛',95),('lap','最快圈',100)]:
         table.heading(key,text=title);table.column(key,width=width,minwidth=70,stretch=key in ('track','car'))
     table.pack(fill='x',pady=8);app.label(body,note,9,T.MUTED).pack(fill='x',pady=4)
     info=app.card('赛事详情','成绩、比赛进程、赛道条件与车辆条件分区展示')
@@ -60,7 +69,7 @@ def show(app):
     def draw(_=None):
         pace.delete('all');inputs.delete('all');data=state['data']
         if not data:return
-        duration=data['recorded_s'] or 1;points=data['pace'];left=78;right=max(left+50,pace.winfo_width()-25)
+        duration=data['recorded_s'] or max((p['time_s'] for p in data['pace']),default=1);points=data['pace'];left=78;right=max(left+50,pace.winfo_width()-25)
         times=[p['lap_s'] for p in points];lo=max(0,min(times)-2) if times else 0;hi=max(times)+2 if times else 1
         for i in range(4):
             y=22+i/3*207;v=hi-i/3*(hi-lo)
@@ -80,6 +89,7 @@ def show(app):
             for i,low,high in data['inputs']:
                 x=left+i/599*(right-left);coords.extend((x,top+65*(1-low[lane]),x,top+65*(1-high[lane])))
             if len(coords)>3:inputs.create_line(*coords,fill=color,width=1.5)
+        if data.get('xml_only'):inputs.create_text(width/2,110,text=tr('仅官方圈计时，未记录油门 / 刹车曲线'),fill=T.MUTED)
         for i in range(5):inputs.create_text(left+i/4*(right-left),207,text=elapsed(duration*i/4),fill=T.MUTED,anchor='w' if i==0 else 'e' if i==4 else 'center')
     pace.bind('<Configure>',draw);inputs.bind('<Configure>',draw)
     def inspect(event):
@@ -90,8 +100,8 @@ def show(app):
     def selected(_=None):
         ids=table.selection()
         if not ids:return
-        entry=state['entries'][int(ids[0])];state['selected']=entry;state['request']+=1;request=state['request'];state['data']=None
-        s=entry['summary'];hero.configure(text=tr(LABELS[entry['place']])+' · '+display(entry['track']))
+        entry=state['entries'][int(ids[0])];modes.describe(entry);state['selected']=entry;state['request']+=1;request=state['request'];state['data']=None
+        s=entry['summary'];hero.configure(text=tr(LABELS[entry['place']])+' · '+display(entry['track'])+' · '+tr(MODE_LABELS[mode(entry)]))
         header.show_vehicle(entry['session'].get('vehicle',''))
         results.set(dict(date=date(entry['started_utc']),grid=place(s.get('grid_place')),finish=place(s.get('finish_place')),class_grid=place(s.get('grid_class_place')),class_finish=place(entry['place']),count=str(s['class_size']) if rank(s.get('class_size')) else tr('未知'),best=lap_time(entry.get('fastest_s'))))
         identity.set(dict(vehicle=entry['session'].get('vehicle') or tr('未知'),team=entry['team'] or tr('未知'),**{'class':entry['vehicle_class']}))
@@ -106,21 +116,24 @@ def show(app):
             def compound(axle):
                 x,y=tire(a,axle),tire(b,axle);return x if x==y else x+' → '+y
             car.set(dict(fuel=span(a,b,'fuel_l',' L'),front=compound('front'),rear=compound('rear'),wear=span(a,b,'remaining',' %'),tc=span(a,b,'tc_level',digits=0),abs=span(a,b,'abs_level',digits=0),energy=span(a,b,'virtual_energy_pct',' %'),battery=span(a,b,'battery_soc_pct',' %')))
-            message.set(tr('中途开始记录：曲线仅覆盖已记录区间，缺失数据不补造。') if data['partial'] else tr('条件显示记录起点至终点；缺失值显示未知。'));draw()
+            if data.get('xml_only'):
+                message.set(tr('仅官方成绩与圈计时；没有油刹、燃油或赛道条件遥测，灰色圈不代表处罚。'));draw();header.arrive();return
+            message.set(tr('中途开始记录：曲线仅覆盖已记录区间，缺失数据不补造。') if data['partial'] else tr('条件显示记录起点至终点；缺失值显示未知。'));draw();header.arrive()
         app.run_background(lambda:detail(entry),done)
     table.bind('<<TreeviewSelect>>',selected)
     def populate():
         if not alive():return
+        modes.describe()
         term=query.get().strip().casefold();rows=[]
-        for i,e in enumerate(state['entries']):
+        for i,e in modes.pairs(state['entries'],query.get()):
             if state['category'] and state['category']!=e['place']:continue
-            if term and term not in ' '.join((search_text(e['track']),search_text(e['layout']),e['started_utc'],e['vehicle_class'],e['team'],e['session'].get('vehicle',''))).casefold():continue
-            rows.append((str(i),(tr(LABELS[e['place']]),date(e['started_utc']).replace(' UTC',''),display(e['track']),e['vehicle_class'],e['session'].get('vehicle',''),place(e['summary'].get('grid_class_place')),place(e['place']),lap_time(e.get('fastest_s')))))
-        table.replace(rows,());state['selected']=None;state['request']+=1;state['data']=None;hero.configure(text='尚无选择');message.set('');hover.set('')
+            rows.append((str(i),(tr(LABELS[e['place']]),date(e['started_utc']).replace(' UTC',''),display(e['track']),e['vehicle_class'],tr(MODE_LABELS[mode(e)]),e['session'].get('vehicle',''),place(e['summary'].get('grid_class_place')),place(e['place']),lap_time(e.get('fastest_s')))))
+        old_folder=(state['selected'] or {}).get('folder');old_id=next((str(i) for i,e in enumerate(state['entries']) if e['folder']==old_folder),None)
+        replace_rows(table,rows,(old_id,) if old_id else ());state['selected']=None;state['request']+=1;state['data']=None;hero.configure(text='尚无选择');message.set('');hover.set('')
         header.show_vehicle()
         for grid in (results,identity,track,car):grid.set()
         draw()
-        if rows:table.selection_set((rows[0][0],))
+        if rows:table.selection_set((old_id,) if old_id and table.exists(old_id) else (rows[0][0],))
     def choose(category):
         state['category']=category
         for p,button in buttons.items():button.primary=p==category;button.paint()
@@ -131,11 +144,16 @@ def show(app):
         def done(result,error):
             if not alive():return
             if error:note.set(error);return
-            state['entries']=result['entries']
+            baseline,new=new_champions(result['entries'],getattr(app,'champion_baseline',None));app.champion_baseline=baseline
+            if new and not getattr(app,'champion_celebrated',False):
+                app.champion_celebrated=True;victory.celebrate()
+            state['entries']=result['entries'];modes.update_options(state['entries'])
             for p,button in buttons.items():button.label=tr(LABELS[p] if p else '全部')+' · '+str(result['counts'][p] if p else len(result['entries']));button.paint()
             note.set(tr('没有同组结果的旧记录无法自动认定领奖台')+' · '+str(result['missing_class_results'])+' / '+tr('冲突记录')+' '+str(result['conflicts']))
             populate();app.status.set(str(len(result['entries']))+' '+tr('场同组领奖台赛事'))
-        app.run_background(lambda:index(app.data_path),done)
+        def work():
+            result=index(app.data_path);result['entries']=attach(app.data_path,result['entries']);return result
+        app.run_background(work,done)
     app.button(row,'刷新记录',refresh,False,112)
     actions=app.row(info)
     app.button(actions,'打开赛事复盘',lambda:os.startfile(str(Path(state['selected']['folder'])/'review.html')) if state['selected'] and (Path(state['selected']['folder'])/'review.html').is_file() else None,True,160)
@@ -143,6 +161,8 @@ def show(app):
     def open_report(name):
         entry=state['selected']
         if not entry:app.status.set(tr('请选择 1 场赛事记录'));return
+        if entry.get('xml_only'):
+            app.status.set(tr('仅有官方 XML 成绩；请在官方战绩查看圈计时和原文件'));return
         folder=Path(entry['folder']);path=folder/name
         if path.is_file():os.startfile(str(path));return
         def build():
@@ -153,4 +173,9 @@ def show(app):
         app.work(build,os.startfile)
     app.button(actions,'查看圈速单',lambda:open_report('圈速单.png'),False,140)
     app.button(actions,'查看比赛日志',lambda:open_report('比赛日志.png'),False,150)
+    def card():
+        from control_achievement import show
+        show(app,state['selected'])
+    app.button(actions,'生成个人战绩卡',card,False,170)
+    notes_row=app.row(info);app.button(notes_row,'收藏与标签',lambda:edit_note(app,state['selected'],refresh),False,135)
     refresh()

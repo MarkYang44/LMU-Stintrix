@@ -53,7 +53,10 @@ class MemoryTests(unittest.TestCase):
             with patch('recorder.make_report',side_effect=report_worker.ReportDeferred('memory')):Recorder._report(folder)
             self.assertTrue((folder/'report_pending.json').exists());self.assertFalse((folder/'report_error.txt').exists())
             with patch('report_worker.can_report',return_value=False):self.assertEqual(report_worker.resume_pending(root),0)
-            with patch('report_worker.can_report',return_value=True),patch('session_reports.make_report') as make:
+            def complete(path,**kwargs):
+                from report_state import save,STEPS
+                save(path,{k:dict(state='ready') for k in STEPS})
+            with patch('report_worker.can_report',return_value=True),patch('session_reports.make_report',side_effect=complete) as make:
                 self.assertEqual(report_worker.resume_pending(root),1);make.assert_called_once_with(folder,isolated=True)
             self.assertFalse((folder/'report_pending.json').exists());self.assertEqual((folder/'inputs.csv').read_bytes(),b'original')
     def test_real_isolated_worker_generates_complete_reports_and_exits(self):

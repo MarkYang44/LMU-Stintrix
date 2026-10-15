@@ -1,6 +1,5 @@
 """Plugin-local inventory and notes. Never edits original session metadata."""
 import json
-from json_store import load as load_json
 from pathlib import Path
 from storage import atomic_json
 
@@ -20,18 +19,25 @@ def session_label(value):
 
 def inventory(root):
     root=Path(root).resolve();out=[]
+    from race_mode import overlay,annotate,mode
+    modes=overlay(root)
+    from event_catalog import snapshot
+    catalog=snapshot(root)
+    from session_groups import superseded
+    hidden=superseded(root)
     try:notes=json.loads((root/'library_notes.json').read_text(encoding='utf-8'))
     except (OSError,ValueError):notes={}
     for name in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs'):
         for meta_path in (root/name).glob('*/session.json'):
             folder=meta_path.parent.resolve()
+            if folder in hidden:continue
             if not folder.is_relative_to(root):continue
             try:
-                meta=json.loads(meta_path.read_text(encoding='utf-8'));summary={};analysis={}
+                meta=annotate(json.loads(meta_path.read_text(encoding='utf-8')),folder,modes);summary={};analysis={}
                 for file,target in [('fastest_lap_summary.json',summary),('session_analysis.json',analysis)]:
                     path=folder/file
-                    if path.exists():target.update(load_json(path,fields=('stable_reference_file','recent_stability')) if file=='session_analysis.json' else json.loads(path.read_text(encoding='utf-8')))
-                key=str(folder.relative_to(root));note=notes.get(key)
+                    if path.exists() and file!='session_analysis.json':target.update(json.loads(path.read_text(encoding='utf-8')))
+                key=str(folder.relative_to(root));note=notes.get(key,notes.get(folder.relative_to(root).as_posix()))
                 if note is None:
                     try:note=json.loads((folder/'_archive_note.json').read_text(encoding='utf-8'))
                     except (OSError,ValueError):note={}
@@ -39,11 +45,11 @@ def inventory(root):
                 out.append(dict(key=key,folder=str(folder),track=meta.get('track',''),vehicle=meta.get('vehicle',''),
                     track_layout=meta.get('track_layout') or meta.get('track',''),
                     track_length_m=lap.get('track_length_m') or meta.get('track_length'),
-                    date=meta.get('started_utc',''),driver=meta.get('driver',''),status=meta.get('status',''),source=name,
+                    date=meta.get('started_utc',''),driver=meta.get('driver',''),status=meta.get('status',''),source=name,race_mode=mode(meta),
                     session_type=session_label(meta.get('session')),
                     lap=lap.get('number'),time_s=lap.get('time_s'),fastest_file=summary.get('file'),
-                    stable_file=analysis.get('stable_reference_file'),stability_s=stable.get('std'),
-                    note=str(note.get('text','')),traffic=bool(note.get('traffic',False)),
+                    stable_file=catalog.get(str(folder),{}).get('stable_file'),stability_s=catalog.get(str(folder),{}).get('stability_s'),
+                    _facets=catalog.get(str(folder),{}),favorite=bool(note.get('favorite')),tags=note.get('tags',[]),note=str(note.get('text','')),traffic=bool(note.get('traffic',False)),
                     size_mb=(folder/'inputs.csv').stat().st_size/1048576 if (folder/'inputs.csv').exists() else 0))
             except (OSError,ValueError,TypeError):continue
     return sorted(out,key=lambda x:x['date'],reverse=True)
@@ -54,4 +60,4 @@ def save_note(root,key,text,traffic=False):
     if not path.is_relative_to(root):raise ValueError('记录不在插件目录')
     try:notes=json.loads((root/'library_notes.json').read_text(encoding='utf-8'))
     except (OSError,ValueError):notes={}
-    notes[key]=dict(text=str(text)[:2000],traffic=bool(traffic));atomic_json(root/'library_notes.json',notes)
+    notes[key]={**notes.get(key,{}),**dict(text=str(text)[:2000],traffic=bool(traffic))};atomic_json(root/'library_notes.json',notes)

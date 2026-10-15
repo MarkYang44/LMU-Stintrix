@@ -33,6 +33,7 @@ class Recorder:
         self.meta_lock = threading.RLock()
         self.meta_io_lock = threading.Lock()
         self.race_journal = None
+        self.report_state='idle';self.report_folder=None
 
     def start(self, sample, settings=None, target_hz=None):
         self.batch=None
@@ -45,11 +46,14 @@ class Recorder:
         self.meta = {k: sample[k] for k in ('track', 'driver', 'vehicle', 'session', 'player_id')}
         self.meta.update({k:sample.get(k,'') for k in ('track_layout','vehicle_class','track_length')})
         self.meta.update(started_utc=datetime.now(timezone.utc).isoformat(), status='recording',
+                         telemetry_gap_count=0,telemetry_gaps=[],
                          input_units='Throttle/brake 0..1; steering -1..1 left to right',
                          position_units='LMU world XYZ in metres; top-down map uses XZ',
                          nominal_poll_hz=POLL_HZ, nominal_draw_hz=DRAW_HZ,
                          source=('Synthetic demo' if sample.get('demo') else
                                  'LMU_Data / pyLMUSharedMemory'))
+        if sample.get('interface'):self.meta['interface']=dict(sample['interface'])
+        self.meta.update(race_mode=sample.get('race_mode','unknown'),race_mode_source='SDK client' if sample.get('race_mode')=='online' else '',game_mode_raw=sample.get('game_mode_raw'))
         self.origin = sample['et']
         self.meta['endurance_settings']=dict(self.endurance_settings)
         self.meta['endurance_units']=dict(speed='km/h',rain='severity 0..1, not mm/h',wetness='path statistics 0..1',
@@ -154,11 +158,22 @@ class Recorder:
         folder = self.folder
         # Reporting is independent from sampling and retains the full CSV.
         if not error:
-            self.report_thread = threading.Thread(target=self._report, args=(folder,), daemon=False)
+            self.report_state='queued';self.report_folder=str(folder)
+            self.report_thread = threading.Thread(target=self._report_tracked, args=(folder,), daemon=False)
             self.pending_reports=[t for t in self.pending_reports if t.is_alive()]+[self.report_thread]
             self.report_thread.start()
         else:(folder/'report_error.txt').write_text(error,encoding='utf-8')
         return folder
+
+    def _report_tracked(self,folder):
+        if self.report_folder==str(folder):self.report_state='building'
+        state='error'
+        try:
+            self._report(folder)
+            from report_state import current
+            state=current(folder)['state']
+        finally:
+            if self.report_folder==str(folder):self.report_state=state
 
     def retry_reports(self,now):
         if now-self.retry_at<5:return
@@ -166,10 +181,19 @@ class Recorder:
         if self.retry_thread and self.retry_thread.is_alive():return
         from report_worker import pending,resume_pending
         root=self.output.parent
-        if self.output.name not in ('Logs','DemoLogs','ImportedLogs','RecoveredLogs') or next(pending(root),None) is None:return
-        self.retry_thread=threading.Thread(target=resume_pending,args=(root,),daemon=False)
+        if self.output.name not in ('Logs','DemoLogs','ImportedLogs','RecoveredLogs'):return
+        self.retry_thread=threading.Thread(target=self._resume_reports,args=(root,),daemon=False)
         self.pending_reports=[t for t in self.pending_reports if t.is_alive()]+[self.retry_thread]
         self.retry_thread.start()
+
+    def _resume_reports(self,root):
+        from report_worker import resume_pending
+        resume_pending(root)
+        folder=self.report_folder
+        if folder:
+            from report_state import current
+            state=current(folder).get('state')
+            if self.report_folder==folder and state:self.report_state=state
 
     @staticmethod
     def _report(folder):

@@ -148,10 +148,10 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
                 replacement=next(widget for widget in walk(center.guide_page.results) if isinstance(widget,Sources) and widget.flag==flag)
                 self.assertTrue(replacement.opened);self.assertEqual([url for _,url in replacement.pairs],[url for _,url in pairs])
                 self.assertIn('Sources',replacement.heading.label)
-                replacement.toggle();self.assertFalse(replacement.panel.winfo_manager())
+                replacement.toggle();self.assertFalse(replacement.panel.winfo_manager());retained=replacement
                 center.set_theme('dark');center.root.update_idletasks()
                 replacement=next(widget for widget in walk(center.guide_page.results) if isinstance(widget,Sources) and widget.flag==flag)
-                self.assertFalse(replacement.opened);self.assertFalse(replacement.built)
+                self.assertIs(replacement,retained);self.assertFalse(replacement.opened);self.assertTrue(replacement.built)
                 center.show_page(4);center.root.update_idletasks()
                 self.assertTrue(all(not widget.opened for widget in walk(center.guide_page.results) if isinstance(widget,Sources)))
                 browser.assert_not_called();self.assertFalse(errors,errors)

@@ -154,7 +154,10 @@ class Tests(unittest.TestCase):
             self.assertEqual([v['id'] for v in lap_export.library_laps(temp)],[other['id']])
 
     def test_recorder_finish_automatically_exports_fastest_lap(self):
-        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temp:
+        # Image rendering has separate native tests; never invoke the personal
+        # external RaceCom installation from this bounded recorder fixture.
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as temp,patch('race_report.generate'):
             source = self.lap_csv(Path(temp)/'source')
             recorder = app.Recorder(Path(temp)/'output')
             for row in lap_export.read_rows(source/'inputs.csv'):

@@ -1,5 +1,5 @@
 """Transparent per-file Windows compression; original paths and bytes survive."""
-import ctypes,hashlib,json,os,subprocess
+import ctypes,json,os,subprocess
 from pathlib import Path
 from storage import atomic_json,process_alive
 import reporting
@@ -29,12 +29,6 @@ def ntfs(path):
     if not kernel.GetVolumePathNameW(str(Path(path).resolve()),volume,len(volume)):return False
     return bool(kernel.GetVolumeInformationW(volume.value,None,0,None,None,None,filesystem,len(filesystem))) and filesystem.value=='NTFS'
 
-def digest(path):
-    h=hashlib.sha256()
-    with Path(path).open('rb') as stream:
-        for block in iter(lambda:stream.read(1048576),b''):h.update(block)
-    return h.hexdigest()
-
 @reporting.serialized
 def compress(folder):
     folder=Path(folder)
@@ -50,7 +44,7 @@ def compress(folder):
         except (OSError,ValueError,KeyError):raise ValueError('压缩锁无效，请稍后重试') from None
         if process_alive(pid):raise ValueError('该赛事正在压缩，请稍后重试')
         lock.unlink()
-    result=dict(version=1,method='Windows per-file LZX',supported=True,files=[],saved_bytes=0,errors=[])
+    result=dict(version=2,method='Windows per-file LZX',supported=True,files=[],saved_bytes=0,errors=[])
     with lock.open('x',encoding='utf-8') as out:json.dump({'pid':os.getpid()},out)
     try:
         executable=str(Path(os.environ['SystemRoot'])/'System32'/'compact.exe')
@@ -62,15 +56,15 @@ def compress(folder):
                 candidates.append(file)
         for file in sorted(candidates):
             try:
-                stat=file.stat();before=physical_size(file);sha=digest(file)
+                stat=file.stat();before=physical_size(file)
                 child=subprocess.run([executable,'/c','/exe:LZX','/q',str(file)],capture_output=True,
                     creationflags=subprocess.CREATE_NO_WINDOW|subprocess.BELOW_NORMAL_PRIORITY_CLASS,timeout=180)
                 after=physical_size(file);check=file.stat()
-                if stat.st_size!=check.st_size or stat.st_mtime_ns!=check.st_mtime_ns or sha!=digest(file):
+                if stat.st_size!=check.st_size or stat.st_mtime_ns!=check.st_mtime_ns:
                     raise OSError('压缩期间记录内容发生变化')
                 if child.returncode:raise OSError('Windows compact returned '+str(child.returncode))
                 entry=dict(file=file.relative_to(folder).as_posix(),logical_bytes=stat.st_size,
-                    physical_bytes=after,sha256=sha,saved_bytes=max(0,before-after))
+                    physical_bytes=after,source_mtime_ns=stat.st_mtime_ns,saved_bytes=max(0,before-after))
                 result['files'].append(entry);result['saved_bytes']+=entry['saved_bytes']
             except (OSError,subprocess.SubprocessError) as error:
                 result['errors'].append(dict(file=file.relative_to(folder).as_posix(),error=str(error)))
@@ -79,9 +73,13 @@ def compress(folder):
     finally:lock.unlink(missing_ok=True)
 
 def after_report(folder):
-    """Best effort after all writers/generators finish, never on the sample thread."""
+    """Report failures to the step receipt; never run on the sample thread."""
     folder=Path(folder)
     if not enabled(folder.parent.parent):return
-    try:compress(folder)
+    try:
+        value=compress(folder)
+        if value.get('errors'):raise OSError('; '.join(v['file']+': '+v['error'] for v in value['errors']))
+        return value
     except (OSError,ValueError) as error:
         (folder/'storage_compression_error.txt').write_text(str(error),encoding='utf-8')
+        raise

@@ -8,7 +8,7 @@ import math
 import tkinter as tk
 from control_theme import T
 from tkinter import ttk,font as tkfont
-from control_motion import Motion,SmoothScroll,blend
+from control_motion import Motion,SmoothScroll,blend,keyboard_action
 from control_widgets import scale
 
 
@@ -19,7 +19,7 @@ class SessionList(tk.Frame):
         self.checkboxes=bool(checkboxes and self.multiple);self.gutter=32*s if self.checkboxes else 0
         self.widths={key:100*s for key in columns};self.minimum={key:60*s for key in columns}
         self.stretch=set();self.labels={key:key for key in columns};self.rows={};self.order=[];self.indices={}
-        self.chosen=set();self.previous=set();self.anchor=None;self.cursor=None;self.fade=1.;self.offset=0.;self.xoffset=0.
+        self.chosen=set();self.previous=set();self.anchor=None;self.cursor=None;self.fade=1.;self.arrival=0.;self.offset=0.;self.xoffset=0.
         self.pending=None;self.textcache={};self.header_key=None;self.font=tkfont.Font(self,family=T.FONT,size=9)
         self.small=tkfont.Font(self,family='Segoe UI',size=9);self.bold=tkfont.Font(self,family=T.FONT,size=9,weight='bold')
         self.header=tk.Canvas(self,height=round(36*s),bg=T.FIELD,highlightthickness=0);self.header.grid(row=0,column=0,sticky='ew')
@@ -64,7 +64,7 @@ class SessionList(tk.Frame):
         if not self.multiple and len(selected)>1:selected={next(i for i in self.order if i in selected)}
         self.previous=self.chosen.copy();self.chosen=selected;self.fade=0.
         def frame(t):self.fade=t;self.paint()
-        self.motion.animate('selection',frame,180)
+        self.motion.animate('selection',frame,125,curve='hover')
         self.viewport.event_generate('<<TreeviewSelect>>')
     def delete(self,*items):
         removed=set(items)
@@ -82,11 +82,18 @@ class SessionList(tk.Frame):
         self.schedule();return iid
     def replace(self,rows,selected=()):
         """Replace a filtered inventory in one transaction, retaining stable IDs."""
+        rows=list(rows)
+        changed=bool(self.order) and [(i,self.rows[i]) for i in self.order]!=[(str(i),tuple(v)) for i,v in rows]
         self.motion.cancel();self.rows={str(i):tuple(values) for i,values in rows};self.order=list(self.rows)
         self.chosen={str(i) for i in selected if str(i) in self.rows};self.previous=self.chosen.copy();self.fade=1.
         if self.cursor not in self.rows:self.cursor=None
         if self.anchor not in self.rows:self.anchor=None
         self.scroller.cancel();self.schedule()
+        if changed:
+            start=self.arrival or 3*self.s
+            def frame(t):self.arrival=start*(1-t);self.paint()
+            self.motion.animate('inventory',frame,120)
+        else:self.arrival=0.
     def schedule(self):
         if self.pending is None:self.pending=self.after_idle(self.layout)
     def layout(self):
@@ -145,6 +152,8 @@ class SessionList(tk.Frame):
         if self.multiple:self.selection_set(self.order)
         return 'break'
     def key(self,event,key):
+        return keyboard_action(self,lambda:self.keyboard(event,key))
+    def keyboard(self,event,key):
         if not self.order:return 'break'
         index=self.indices.get(self.cursor,-1 if key=='Down' else 0);page=max(1,int(self.viewport.winfo_height()/self.rowheight)-1)
         index={'Up':index-1,'Down':index+1,'Home':0,'End':len(self.order)-1,'Prior':index-page,'Next':index+page}[key]
@@ -195,7 +204,7 @@ class SessionList(tk.Frame):
                 if x+width>0 and x<w:
                     font=self.small if key in ('date','lap') else self.font
                     fg=T.ACCENT if key=='lap' and iid in self.chosen else (T.MUTED if key=='date' else T.FG)
-                    c.create_text(x+12*s,y+self.rowheight/2,text=self.fit(value,max(0,width-24*s),font),anchor='w',font=font,fill=fg)
+                    c.create_text(x+12*s,y+self.rowheight/2+self.arrival,text=self.fit(value,max(0,width-24*s),font),anchor='w',font=font,fill=fg)
                 x+=width
             if self.checkboxes:
                 c.create_rectangle(0,y,self.gutter,y+self.rowheight,fill=color,outline='')

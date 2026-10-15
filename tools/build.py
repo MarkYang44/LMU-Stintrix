@@ -1,4 +1,5 @@
 """Independent Windows bundle: public assets only, never local racing data."""
+import argparse
 import hashlib
 import importlib.metadata as metadata
 import json
@@ -33,12 +34,13 @@ def bundle_audit(folder):
     return True
 
 def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--no-checksums',action='store_true',help='Local build: use file sizes, skip file hashes');options=parser.parse_args()
     if sys.platform!='win32' or sys.version_info[:2]!=(3,13) or struct.calcsize('P')!=8:
         raise SystemExit('Build requires Windows x64 and CPython 3.13. Run tools/Build.cmd.')
-    subprocess.run([sys.executable,str(ROOT/'tools'/'audit_publication.py'),'--working-tree'],cwd=ROOT,check=True)
+    subprocess.run([sys.executable,str(ROOT/'tools'/'audit_publication.py'),'--working-tree',*(['--no-checksums'] if options.no_checksums else [])],cwd=ROOT,check=True)
     sys.path.insert(0,str(ROOT))
     from tools.install_7zip import install
-    console=install()
+    console=install(no_checksums=options.no_checksums)
     version=(ROOT/'VERSION').read_text(encoding='utf-8').strip()
     build_id=uuid.uuid4().hex[:12]
     work=ROOT/'_local'/'build'/build_id;stage=ROOT/'dist'/('stage-'+build_id)
@@ -84,9 +86,9 @@ def main():
                 if source.is_file():shutil.copy2(source,licenses/(name+'-'+source.name))
     bundle_audit(bundle)
     manifest={'project':'LMU-Stintrix','version':version,'python':sys.version.split()[0],
-        'platform':'windows-x64','dependencies':dependencies,'files':{}}
+        'platform':'windows-x64','dependencies':dependencies,'files':{},'file_metadata':'size' if options.no_checksums else 'sha256'}
     for file in sorted(bundle.rglob('*')):
-        if file.is_file():manifest['files'][file.relative_to(bundle).as_posix()]=hashlib.sha256(file.read_bytes()).hexdigest()
+        if file.is_file():manifest['files'][file.relative_to(bundle).as_posix()]=file.stat().st_size if options.no_checksums else hashlib.sha256(file.read_bytes()).hexdigest()
     (bundle/'build-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
     archive=ROOT/'dist'/f'LMU-Stintrix-v{version}-windows-x64.zip'
     pending=archive.with_name(archive.name+'.pending')
@@ -94,8 +96,10 @@ def main():
         for file in sorted(bundle.rglob('*')):
             if file.is_file():output.write(file,Path('LMU-Stintrix')/file.relative_to(bundle))
     pending.replace(archive)
-    digest=hashlib.sha256(archive.read_bytes()).hexdigest()
-    archive.with_suffix('.zip.sha256').write_text(digest+'  '+archive.name+'\n',encoding='ascii')
-    print('Portable bundle: '+str(archive));print('SHA256: '+digest)
+    print('Portable bundle: '+str(archive))
+    if not options.no_checksums:
+        digest=hashlib.sha256(archive.read_bytes()).hexdigest()
+        archive.with_suffix('.zip.sha256').write_text(digest+'  '+archive.name+'\n',encoding='ascii')
+        print('SHA256: '+digest)
 
 if __name__=='__main__':main()

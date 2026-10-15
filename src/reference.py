@@ -149,10 +149,13 @@ class DistanceAligner:
 
 def best_reference(root, sample, current=None,kind='fastest'):
     """Read summaries first; load only the winning compatible lap."""
+    from session_groups import superseded
+    hidden=superseded(root)
     found = []
     folders=('DemoLogs',) if sample.get('demo') else ('Logs','ImportedLogs','RecoveredLogs')
     for folder in folders:
         for path in (Path(root)/folder).glob('*/'+('session_analysis.json' if kind=='stable' else 'fastest_lap_summary.json')):
+            if path.parent.resolve() in hidden:continue
             try:
                 v = load_json(path,fields=('stable_reference_file',)) if kind=='stable' else json.loads(path.read_text(encoding='utf-8'))
                 if kind=='stable':

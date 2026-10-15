@@ -9,6 +9,7 @@ from library import inventory
 from lap_comparison import valid_laps,export_pair
 from management import panel
 from paths import ASSETS
+from control_feedback import StatusFeedback
 from track_names import display
 
 
@@ -25,6 +26,7 @@ def show(app,root,initial=()):
     def refresh():
         ready=not state['busy'] and not state['loading'] and all(numbers[k].get() in state['laps'][k] for k in ('A','B'))
         button.configure(state='normal' if ready else 'disabled')
+        feedback.busy('scan',bool(state['loading']) or state['busy'])
     def scan(key):
         label=events[key].get();event=state['events'].get(label)
         if event is None:return
@@ -69,9 +71,10 @@ def show(app,root,initial=()):
         app.run_background(lambda:export_pair(root,selections,ASSETS/'compare.html'),done)
     button=tk.Button(window,text=tr('提取两圈并对比'),command=compare,state='disabled',bg=T.ACCENT,fg=T.BG)
     button.pack(anchor='w',padx=20,pady=12)
-    Label(window,textvariable=status,bg=T.BG,fg=T.MUTED,wraplength=940,justify='left').pack(fill='x',padx=20)
+    feedback=StatusFeedback(window,status);feedback.pack(fill='x',padx=20);feedback.busy('inventory')
     def loaded(result,error):
         if app.closing or not window.winfo_exists():return
+        feedback.busy('inventory',False)
         if error:status.set(error);return
         values={}
         for event in result:

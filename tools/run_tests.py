@@ -17,8 +17,9 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--quick',action='store_true');args=parser.parse_args()
     modules=['tests.test_distribution'] if args.quick else ['tests.test_core','tests.test_upgrades','tests.test_laplab','tests.test_selected_laps','tests.test_vehicle','tests.test_endurance','tests.test_distribution','tests.test_lightweight','tests.test_archives','tests.test_modularity','tests.test_race_images','tests.test_control_center']
     if not args.quick:modules.extend(['tests.test_desktop','tests.test_guide','tests.test_desktop_controls','tests.test_language','tests.test_navigation','tests.test_session_delete','tests.test_maps','tests.test_memory','tests.test_lossless_storage','tests.test_archive_modes','tests.test_personal_records','tests.test_review_layout','tests.test_class_positions','tests.test_podium_records'])
-    if not args.quick:modules.append('tests.test_review_filters')
+    if not args.quick:modules.extend(['tests.test_review_filters','tests.test_record_intelligence','tests.test_motion','tests.test_feedback','tests.test_career_analysis','tests.test_telemetry_continuity','tests.test_race_modes','tests.test_event_catalog','tests.test_event_filter_ui'])
     names=[case.id() for module in modules for case in flatten(unittest.defaultTestLoader.loadTestsFromName(module))]
+    if not args.quick:names.extend(case.id() for case in flatten(unittest.defaultTestLoader.loadTestsFromName('tests.test_workflow_polish')))
     failed=[]
     for name in names:
         result=subprocess.run([sys.executable,'-m','unittest',name,'-q'],cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180)

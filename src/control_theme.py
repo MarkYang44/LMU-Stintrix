@@ -52,8 +52,26 @@ def recolor(widget,previous):
                 'insertbackground','disabledbackground','disabledforeground'):
         if key in options:
             current=str(widget.cget(key))
-            if current in mapping:widget.configure(**{key:mapping[current]})
+            color=mapping.get(current)
+            if 'background' in key and current==PALETTES[previous]['BG']:color=T.BG
+            if 'foreground' in key and current==PALETTES[previous]['ACCENT']:color=T.ACCENT
+            if 'foreground' in key and current==PALETTES[previous]['INK']:color=T.INK
+            if color:widget.configure(**{key:color})
+    import tkinter as tk
+    if isinstance(widget,tk.Canvas):
+        for item in widget.find_all():
+            for key in ('fill','outline'):
+                try:current=widget.itemcget(item,key)
+                except tk.TclError:continue
+                if current in mapping:
+                    color=mapping[current]
+                    if current==PALETTES[previous]['ACCENT']:color=T.ACCENT
+                    if widget.type(item)=='text' and current==PALETTES[previous]['INK']:color=T.INK
+                    widget.itemconfigure(item,**{key:color})
     for child in widget.winfo_children():recolor(child,previous)
+    if widget.__class__.__name__ in ('Field','Select','Switch','Pill','Navigation','LaunchArtwork','SessionList'):
+        widget.paint()
+
 
 
 def web_script(assets):

@@ -145,6 +145,7 @@ class FuelPlanner:
     def __init__(self,config=None):
         self.config=settings(config);self.key=None;self.group=None;self.previous=None;self.history=deque(maxlen=20)
         self.baseline_et=None;self.revision=0
+        self.estimate_cache=None;self.estimate_at=-math.inf;self.estimate_key=None
 
     def configure(self,config):
         self.config=settings(config);self.baseline_et=None;self.revision+=1
@@ -154,6 +155,7 @@ class FuelPlanner:
         key=(s.get('track'),name,s.get('session'),s.get('driver'),s.get('player_id'))
         if self.key!=key or self.previous and s['et']<self.previous['et']:
             self.key=key;self.group=None;self.previous=None;self.history.clear();self.baseline_et=None
+            self.revision+=1
         if self.previous and self.previous['et']==s['et']:return
         if self.baseline_et is None:self.baseline_et=s['et']
         start=s.get('lap_start');length=s.get('track_length',0)
@@ -167,6 +169,7 @@ class FuelPlanner:
             if complete and not g['bad'] and start>g['start'] and fuel_used is not None and fuel_used>0:
                 self.history.append(dict(number=g['number'],time_s=start-g['start'],fuel_used_l=fuel_used,
                     energy_used_pct=energy_used if energy_used is not None and energy_used>0 and not g['energy_reset'] else None))
+                self.revision+=1
             self.group=None
         if self.group is None:
             initial=[self.previous,s] if self.previous else [s]
@@ -180,6 +183,7 @@ class FuelPlanner:
             for field,flag,tolerance in [('fuel_l','bad',.2),('virtual_energy_pct','energy_reset',.5)]:
                 a=self.previous.get('vehicle',{}).get(field);b=s.get('vehicle',{}).get(field)
                 if a is not None and b is not None and b>a+tolerance:g[flag]=True
+                if field=='fuel_l' and a is not None and b is not None and b>a+.02:self.revision+=1
         d=s.get('distance',0)
         near=-20<=d<=min(80,length*.05)
         if near and not g['near_start']:g['distance']=0
@@ -188,6 +192,14 @@ class FuelPlanner:
             g['distance']=max(g['distance'],d)
         g['near_start']|=near
         g['count']+=1;g['tail'].append(s);self.previous=s
+
+    def estimate_cached(self,s):
+        """10 Hz display prediction; every input still reaches update/recording."""
+        v=s.get('vehicle',{});t=s['et']
+        key=(self.key,self.revision,s.get('lap_start'),s.get('finish'),s.get('in_pits'),v.get('pit_state'),v.get('max_laps'),tuple(self.config[k] for k in ('target_mode','target_value','reserve_l','rate_mode','history_laps','extra_finish_laps')))
+        if self.estimate_cache is None or key!=self.estimate_key or t<self.estimate_at or t-self.estimate_at>=.1-1e-8:
+            self.estimate_cache=self.estimate(s);self.estimate_at=t;self.estimate_key=key
+        return self.estimate_cache
 
     def estimate(self,s):
         v=s.get('vehicle',{});recent=list(self.history)[-self.config['history_laps']:]

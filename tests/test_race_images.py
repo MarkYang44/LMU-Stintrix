@@ -12,11 +12,13 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
 from race_journal import RaceJournal,capture
 from race_model import build_model,lap_time
-from race_report import digest,generate as generate_report
+from race_report import generate as generate_report
 from race_art import select_car
 from tests import test_core
 
 def generate(*args,**kwargs):return generate_report(*args,**kwargs,renderer='native')
+
+def digest(path):return Path(path).read_bytes()  # Exact fixture bytes, no runtime checksum.
 
 
 def sample(et=0,lap=0,start=0,completed=0,**updates):
@@ -177,7 +179,9 @@ class RaceImageTests(unittest.TestCase):
         import session_reports
         f=self.folder()
         with patch('session_reports.analyze_session'),patch('session_reports.endurance.analyze'),patch('session_reports.export_fastest',return_value=(None,None)),patch('session_reports.render_review',side_effect=OSError('HTML failed')),patch('race_report.generate') as render:
-            with self.assertRaises(OSError):session_reports.make_report(f)
+            result=session_reports.make_report(f)
+            self.assertEqual(result['state'],'partial')
+            self.assertEqual(result['steps']['review']['state'],'error')
         render.assert_called_once_with(f)
 
     def test_engine_final_scoring_same_et_still_gets_recorded(self):

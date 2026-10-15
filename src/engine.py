@@ -52,6 +52,7 @@ class Engine:
         self.status = 'DEMO · synthetic input' if demo else 'Waiting for LMU · 自动记录'
         self.latest = None
         self.last_folder = None
+        self.last_fresh_at=None
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
@@ -138,6 +139,8 @@ class Engine:
         last_received_perf = None
         ended_key = None
         key = None
+        gap_started = None
+        last_session_clock = None
         start = time.monotonic()
         config = self.settings
         sampler = AdaptiveSampler(config, start)
@@ -171,6 +174,7 @@ class Engine:
                         reader = self.reader_factory()
                     read_started=time.perf_counter()
                     sample = reader.read()
+                    self.interface_status=reader.interface_status() if hasattr(reader,'interface_status') else {}
                     self.diagnostics.note('read',time.perf_counter()-read_started)
                 with self.lock:
                     self.poll_times.append((now,))
@@ -178,12 +182,15 @@ class Engine:
                 self.target_hz = sampler.rate(now, sample is not None and now-last_fresh <= 3)
                 self.reason = sampler.reason
                 if sample is not None:
-                    next_key = tuple(sample[k] for k in ('track', 'session', 'driver', 'player_id'))
-                    reset = last_seen_et is not None and sample['et'] < last_seen_et - 0.5
+                    next_key = tuple(sample[k] for k in ('track', 'session', 'driver', 'vehicle'))
+                    clock=sample.get('session_clock')
+                    clock=clock if isinstance(clock,(int,float)) and math.isfinite(clock) and clock>0 else sample['et']
+                    reset = last_session_clock is not None and clock < last_session_clock - 0.5
                     if next_key != key or reset:
                         self.finish_recording('session changed')
                         self.recording_failure=None
                         ended_key = None
+                        gap_started = None
                         key = next_key
                         # A new session may begin with the same elapsed time as
                         # its predecessor. Its first frame is still new data.
@@ -198,10 +205,19 @@ class Engine:
                             self.plot_points.clear()
                             self.plot_revision += 1
                             self.sample_times.clear()
-                    fresh = sample['et'] != last_seen_et
-                    last_seen_et = sample['et']
+                    last_session_clock=clock if last_session_clock is None or reset or next_key!=key else max(clock,last_session_clock)
+                    fresh = last_seen_et is None or sample['et'] > last_seen_et
+                    if fresh:last_seen_et = sample['et']
                     if fresh:
+                        if gap_started is not None and self.recorder.file is not None:
+                            with self.recorder.meta_lock:
+                                gaps=self.recorder.meta.setdefault('telemetry_gaps',[])
+                                gaps.append(dict(after_session_s=last_seen_before_gap,resumed_session_s=sample['et'],wall_duration_s=now-gap_started))
+                                self.recorder.meta['telemetry_gap_count']=self.recorder.meta.get('telemetry_gap_count',0)+1
+                                if len(gaps)>64:del gaps[:-64]
+                            gap_started=None
                         last_fresh = now
+                        self.last_fresh_at=now
                         last_received_perf=time.perf_counter()
                     sample=dict(sample,_received_perf=last_received_perf)
                     recording=should_record(sample['session'],self.demo,self.practice_enabled)
@@ -224,7 +240,7 @@ class Engine:
                             self.endurance_monitor.update(vehicle_sample)
                             self.fuel_planner.update(vehicle_sample)
                             self.vehicle_latest=sample.get('vehicle_data')
-                            self.vehicle_estimate=self.fuel_planner.estimate(vehicle_sample)
+                            self.vehicle_estimate=self.fuel_planner.estimate_cached(vehicle_sample)
                             self.add_plot_point(now, sample['controls'])
                             aligned=self.aligner.update(sample,self.reference) if self.reference_enabled else None
                             self.reference_state=self.aligner.state if self.reference_enabled else {'mode':'关闭','confidence':0}
@@ -258,8 +274,12 @@ class Engine:
                         ended_key = key
                         self.status = 'SAVED · 比赛记录已保存'
                 if now - last_fresh > 3:
-                    self.finish_recording('left session / data timeout')
-                    self.status = 'Waiting for fresh telemetry · 记录已保存' if self.last_folder else 'Waiting for LMU'
+                    # Missing/frozen frames are not evidence of a new race.
+                    # Retain the writer and identity until explicit phase/reset,
+                    # finish or shutdown. Realtime exit alone can be a garage/pit pause.
+                    if self.recorder.file is not None and gap_started is None:
+                        gap_started=last_fresh;last_seen_before_gap=last_seen_et
+                    self.status = 'Waiting for fresh telemetry · 保留同场记录' if self.recorder.file is not None else 'Waiting for LMU'
                     with self.lock:
                         self.latest = None
                         self.vehicle_latest=None
@@ -283,7 +303,10 @@ class Engine:
                 deadline=time.perf_counter()
             except Exception as error:
                 self.status = 'ERROR · ' + str(error)[:110]
-                self.finish_recording('reader error')
+                # Retry decoding without turning a transient reader error into
+                # a new recording. StorageError above still closes failed writes.
+                if self.recorder.file is not None and gap_started is None:
+                    gap_started=last_fresh;last_seen_before_gap=last_seen_et
                 if reader:
                     reader.close()
                     reader = None

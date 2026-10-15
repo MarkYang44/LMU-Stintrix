@@ -45,11 +45,13 @@ def fixture(path,explicit=False,missing=False):
             elif 'Brake' in name:v=80 if .15<p<.3 else 0
             else:v=100 if p<.15 or p>.32 else 5
             rows.append(([t] if explicit else [])+[v+k*.1 for k in range(ncols)])
-        db.executemany('INSERT INTO '+native.quote(name)+' VALUES ('+','.join('?' for _ in rows[0])+')',rows)
+        # Numeric fixture generation avoids optional NumPy/Pandas discovery per
+        # bound value on minimal portable Python environments.
+        db.execute('INSERT INTO '+native.quote(name)+' VALUES '+','.join('('+','.join(repr(v) for v in row)+')' for row in rows))
     for name,values in {'Lap':[(0,1),(20,2),(40,3),(60,4)],'ABS':[(0,0),(5,1),(6,0)],'In Pits':[(0,0)]}.items():
         db.execute('INSERT INTO eventsList VALUES (?,?)',[name,''])
         db.execute('CREATE TABLE '+native.quote(name)+' (ts DOUBLE,value DOUBLE)')
-        db.executemany('INSERT INTO '+native.quote(name)+' VALUES (?,?)',[(t+(0 if explicit else 100),v) for t,v in values])
+        db.execute('INSERT INTO '+native.quote(name)+' VALUES '+','.join(f'({t+(0 if explicit else 100)},{v})' for t,v in values))
     db.execute('COMMIT')
     db.close()
 

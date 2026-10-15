@@ -3,9 +3,10 @@ from i18n import tr,Label
 import tkinter as tk
 from control_theme import T
 from tkinter import ttk,font as tkfont
-from control_motion import Motion,SmoothScroll
+from control_motion import Motion,SmoothScroll,keyboard_action
 from control_widgets import rounded,polygon_points,scale,px,Pill
 import branding
+from control_feedback import StatusFeedback
 
 
 def symbol(canvas,kind,x,y,s,color):
@@ -30,8 +31,8 @@ class Navigation(tk.Canvas):
         self.s=scale(parent);self.step=68*self.s;self.names=names;self.command=command;self.selected=0;self.position=0;self.marker_amount=1.;self.hovered=-1;self.paint_key=None
         super().__init__(parent,bg=T.RAIL,height=round(self.step*len(names)),highlightthickness=0,takefocus=True,cursor='hand2')
         self.motion=Motion(self);self.bind('<Configure>',lambda _:self.paint());self.bind('<Motion>',self.hover);self.bind('<Leave>',self.leave)
-        self.bind('<Button-1>',self.click);self.bind('<Up>',lambda _:self.command(max(0,self.selected-1)))
-        self.bind('<Down>',lambda _:self.command(min(len(names)-1,self.selected+1)))
+        self.bind('<Button-1>',self.click);self.bind('<Up>',lambda _:keyboard_action(self,lambda:self.command(max(0,self.selected-1))))
+        self.bind('<Down>',lambda _:keyboard_action(self,lambda:self.command(min(len(names)-1,self.selected+1))))
     def click(self,event):
         index=int(event.y//self.step)
         if 0<=index<len(self.names):self.focus_set();self.command(index)
@@ -42,9 +43,10 @@ class Navigation(tk.Canvas):
     def select(self,index):
         # Commit the selected row immediately; animate only its accent, never
         # slide a stale highlight across the previously selected menu entries.
-        self.position=index;self.selected=index;self.marker_amount=.25;self.paint()
-        def frame(t):self.marker_amount=.25+.75*t;self.paint()
-        self.motion.animate('selection',frame,140)
+        if self.selected==index:return
+        self.position=index;self.selected=index;start=self.marker_amount if self.motion.jobs else .25;self.marker_amount=start;self.paint()
+        def frame(t):self.marker_amount=start+(1-start)*t;self.paint()
+        self.motion.animate('selection',frame,125)
     def paint(self):
         import i18n
         s=self.s;w=self.winfo_width();top=self.position*self.step+6*s
@@ -104,8 +106,11 @@ class Shell:
         self.subtitle=Label(head,font=(T.FONT,10),bg=T.BG,fg=T.MUTED,anchor='w');self.subtitle.pack(fill='x')
         self.subtitle.bind('<Configure>',lambda e:self.subtitle.configure(wraplength=e.width))
         footer=tk.Frame(main,bg=T.BG);footer.pack(side='bottom',fill='x',pady=(round(12*s),0))
-        Label(footer,textvariable=status,font=(T.FONT,9),bg=T.BG,fg=T.MUTED,anchor='w').pack(side='left',fill='x',expand=True)
-        Label(footer,text='STINTRIX  //  LOCAL',font=('Consolas',8),bg=T.BG,fg=T.MUTED).pack(side='right')
+        self.status_feedback=StatusFeedback(footer,status);self.status_feedback.pack(side='left',fill='x',expand=True)
+        from paths import APP_ROOT
+        try:version=(APP_ROOT/'VERSION').read_text(encoding='utf-8').strip()
+        except OSError:version='?'
+        Label(footer,text='STINTRIX  v'+version,font=('Consolas',8),bg=T.BG,fg=T.MUTED).pack(side='right')
         viewport=tk.Frame(main,bg=T.BG);viewport.pack(fill='both',expand=True)
         self.scroll=tk.Canvas(viewport,bg=T.BG,highlightthickness=0)
         self.scroller=SmoothScroll(self.scroll,lambda:self.scroll.canvasy(0),
@@ -118,6 +123,8 @@ class Shell:
         # The animation translates the window, not the scrollable document origin.
         self.content.bind('<Configure>',lambda e:self.scroll.configure(scrollregion=(0,0,e.width,e.height)))
         self.covering=False
+        self.scroll.bind('<Destroy>',lambda e:self.scroll.after_cancel(self.placeholder_job) if e.widget is self.scroll and getattr(self,'placeholder_job',None) else None,add='+')
+        self.placeholder=self.scroll.create_text(round(24*s),round(32*s),text=tr('正在准备页面…'),anchor='nw',fill=T.MUTED,font=(T.FONT,11),state='hidden')
     def release_brand(self,event):
         if event.widget is self.brand:
             self.logo=None;self.brand_font.__del__();self.brand_font.delete_font=False
@@ -144,11 +151,19 @@ class Shell:
         self.covering=True;self.scroller.cancel();self.motion.cancel('page')
         self.title.configure(fg=T.FG)
         self.scroll.itemconfigure(self.item,state='hidden')
+        self.scroll.itemconfigure(self.placeholder,state='hidden');self.scroll.coords(self.placeholder,24*self.s,self.scroll.canvasy(0)+32*self.s)
+        def hint():
+            self.placeholder_job=None
+            if self.covering:self.scroll.itemconfigure(self.placeholder,state='normal',text=tr('正在准备页面…'))
+        self.placeholder_job=self.scroll.after(150,hint)
         # Hide the embedded document itself. The existing opaque canvas clears
         # the old pixels; no overlapping native window or second rendering layer.
     def reveal_page(self):
-        self.scroll.itemconfigure(self.item,state='normal');self.covering=False
+        if getattr(self,'placeholder_job',None):self.scroll.after_cancel(self.placeholder_job);self.placeholder_job=None
+        self.scroll.itemconfigure(self.placeholder,state='hidden');self.scroll.itemconfigure(self.item,state='normal');self.covering=False
         self.root.update_idletasks()
+        def frame(t):self.scroll.coords(self.item,0,round(6*self.s*(1-t)))
+        self.motion.animate('page',frame,160)
     def select(self,index):
         self.navigation.select(index);self.breadcrumb.configure(text=f'STINTRIX  / 0{index + 1}')
         self.scroll.coords(self.item,0,0)

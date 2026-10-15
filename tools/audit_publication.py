@@ -37,10 +37,11 @@ def allowed(name):
     if len(path.parts)==1:return name in ROOT_FILES
     return (path.parts[0]=='src' and path.suffix in ('.py','.js','.html','.css','.json','.txt')) or (path.parts[0]=='tools' and path.suffix in ('.py','.ps1','.cmd')) or (path.parts[0]=='tests' and path.suffix=='.py') or (path.parts[0]=='docs' and path.suffix=='.md') or (path.parts[0]=='.github' and path.suffix in ('.yml','.yaml','.md'))
 
-def audit(files,read):
+def audit(files,read,no_checksums=False):
     failures=[];total=0
     for name in files:
         if not allowed(name):failures.append(name+': outside publication allowlist');continue
+        if name in PUBLIC_ASSETS and no_checksums:continue
         blob=read(name);total+=len(blob)
         if name in PUBLIC_ASSETS:
             if hashlib.sha256(blob).hexdigest()!=PUBLIC_ASSETS[name]:failures.append(name+': reviewed asset checksum mismatch')
@@ -54,14 +55,14 @@ def audit(files,read):
     return dict(ok=not failures,files=len(files),bytes=total,failures=failures)
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--working-tree',action='store_true');parser.add_argument('--json',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--working-tree',action='store_true');parser.add_argument('--json',action='store_true');parser.add_argument('--no-checksums',action='store_true');args=parser.parse_args()
     if args.working_tree:
         files=[p.relative_to(ROOT).as_posix() for p in ROOT.rglob('*') if p.is_file() and not any(part in ('.git','.venv','_local','dist','build','data','__pycache__') for part in p.relative_to(ROOT).parts) and allowed(p.relative_to(ROOT).as_posix())]
         read=lambda name:(ROOT/name).read_bytes()
     else:
         files=subprocess.check_output(git_command('ls-files','-z'),cwd=ROOT).decode('utf-8').split('\0');files=[f for f in files if f]
         read=lambda name:subprocess.check_output(git_command('show',':'+name),cwd=ROOT)
-    result=audit(files,read);print(json.dumps(result,indent=2) if args.json else f"Publication audit: {'PASS' if result['ok'] else 'FAIL'}; {result['files']} public files, {result['bytes']} bytes"+('\n'+'\n'.join(result['failures']) if result['failures'] else ''))
+    result=audit(files,read,args.no_checksums);print(json.dumps(result,indent=2) if args.json else f"Publication audit: {'PASS' if result['ok'] else 'FAIL'}; {result['files']} public files, {result['bytes']} bytes"+('\n'+'\n'.join(result['failures']) if result['failures'] else ''))
     return 0 if result['ok'] else 1
 
 if __name__=='__main__':raise SystemExit(main())

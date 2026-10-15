@@ -281,8 +281,11 @@ def library_laps(root, current=None):
     roots=[root]
     if root.name in ('Logs','ImportedLogs','RecoveredLogs'):
         roots=[root.parent/n for n in ('Logs','ImportedLogs','RecoveredLogs')]
+    from session_groups import superseded
+    hidden=superseded(root.parent) if root.name in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs') else set()
     for path in (p for folder in roots for p in folder.glob('*/fastest_lap_summary.json')):
         try:
+            if path.parent.resolve() in hidden:continue
             value = json.loads(path.read_text(encoding='utf-8'))
             if value.get('status')=='saved':
                 summaries.append((path.parent/value['file'],value))

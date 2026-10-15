@@ -1,6 +1,6 @@
 # LMU Stintrix
 
-v0.2.33：新增报告分步重试、训练目标跟进和安全缓存管理；训练分析默认按参赛方式与阶段隔离，按需加载单圈曲线。操作入口见 [使用说明](docs/USAGE.md)。
+v0.2.34：修复云端 Windows 关闭系统动画时的测试兼容性；保留 v0.2.33 的报告分步重试、训练目标跟进、安全缓存管理与分析优化。操作入口见 [使用说明](docs/USAGE.md)。
 
 Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windows x64.
 

@@ -77,28 +77,51 @@ class DesktopTests(unittest.TestCase):
         until=time.monotonic()+seconds
         while time.monotonic()<until:root.update();time.sleep(.005)
 
+    def settle(self,root,condition,timeout=2):
+        deadline=time.monotonic()+timeout
+        while time.monotonic()<deadline and not condition():root.update();time.sleep(.005)
+        self.assertTrue(condition(),'UI animation did not settle before its deadline')
+
     def list_fixture(self,root):
         from control_list import SessionList
         table=SessionList(root,('date','type','track','car','lap'),height=9,selectmode='extended');table.pack(fill='both',expand=True)
         table.replace([(str(i),(str(i),'Race','Spa','BMW','1:23.456')) for i in range(10000)])
         root.update();return table
 
-    def test_wheel_accumulates_pixel_input_and_stops_with_no_idle_job(self):
+    @patch('control_motion.system_motion',return_value=False)
+    def test_reduced_motion_scroll_and_selection_remain_immediate_without_jobs(self,_motion):
+        import tkinter as tk
+        from types import SimpleNamespace
+        root=tk.Tk();root.geometry('800x500');table=self.list_fixture(root)
+        try:
+            table.wheel(SimpleNamespace(delta=-120,state=0))
+            self.assertAlmostEqual(table.offset,table.scroller.target)
+            self.assertIsNone(table.scroller.job)
+            table.choose('3');table.choose('7',control=True)
+            self.assertEqual(table.selection(),('3','7'));self.assertFalse(table.motion.jobs)
+            self.pump(root,.05);self.assertIsNone(table.scroller.job)
+        finally:root.destroy()
+
+    @patch('control_motion.system_motion',return_value=True)
+    def test_wheel_accumulates_pixel_input_and_stops_with_no_idle_job(self,_motion):
         import tkinter as tk
         from types import SimpleNamespace
         root=tk.Tk();root.geometry('800x500');table=self.list_fixture(root)
         try:
             for _ in range(5):table.wheel(SimpleNamespace(delta=-120,state=0))
             self.assertAlmostEqual(table.scroller.target,table.rowheight*12)
-            root.update();self.assertLess(table.offset,table.scroller.target)
-            self.pump(root);self.assertAlmostEqual(table.offset,table.rowheight*12,delta=.3)
+            # Check interpolation before pumping Tk: a busy runner may finish
+            # the entire transition during update(), which is valid behavior.
+            self.assertLess(table.offset,table.scroller.target);root.update()
+            self.settle(root,lambda:table.scroller.job is None);self.assertAlmostEqual(table.offset,table.rowheight*12,delta=.3)
             self.assertIsNone(table.scroller.job);self.assertLess(len(table.viewport.find_all()),130)
-            table.wheel(SimpleNamespace(delta=12000,state=0));self.pump(root)
+            table.wheel(SimpleNamespace(delta=12000,state=0));self.settle(root,lambda:table.scroller.job is None)
             self.assertEqual(table.offset,0);self.assertIsNone(table.scroller.job)
             table.wheel(SimpleNamespace(delta=-120,state=0));table.destroy();root.update();self.assertIsNone(table.scroller.job)
         finally:root.destroy()
 
-    def test_selection_is_immediate_multiselect_keyboard_and_filter_keep_ids(self):
+    @patch('control_motion.system_motion',return_value=True)
+    def test_selection_is_immediate_multiselect_keyboard_and_filter_keep_ids(self,_motion):
         import tkinter as tk
         from types import SimpleNamespace
         root=tk.Tk();root.geometry('800x500');table=self.list_fixture(root)

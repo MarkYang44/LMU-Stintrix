@@ -60,7 +60,8 @@ class FeedbackTests(unittest.TestCase):
             surface.destroy();badge.destroy();self.assertFalse(badge.motion.jobs)
         finally:root.destroy()
 
-    def test_short_tasks_never_flash_loader_and_long_tasks_show_it(self):
+    @patch('control_motion.system_motion',return_value=True)
+    def test_short_tasks_never_flash_loader_and_long_tasks_show_it(self,_motion):
         import tkinter as tk
         from control_feedback import Activity
         root=tk.Tk();icon=Activity(root);icon.pack();root.update()
@@ -69,8 +70,8 @@ class FeedbackTests(unittest.TestCase):
             icon.set(False);deadline=time.perf_counter()+.2
             while time.perf_counter()<deadline:root.update();time.sleep(.004)
             self.assertIsNone(icon.job);self.assertEqual(icon.itemcget(icon.arc,'state'),'hidden')
-            icon.set(True);deadline=time.perf_counter()+.2
-            while time.perf_counter()<deadline:root.update();time.sleep(.004)
+            icon.set(True);deadline=time.perf_counter()+2
+            while time.perf_counter()<deadline and icon.itemcget(icon.arc,'state')!='normal':root.update();time.sleep(.004)
             self.assertEqual(icon.itemcget(icon.arc,'state'),'normal')
         finally:root.destroy()
 

@@ -5,6 +5,13 @@ from i18n import tr
 from track_names import display,layout
 
 
+def session_type(value):
+    from library import session_label
+    known={'practice':'Practice','qualify':'Qualify','qualifying':'Qualify','race':'Race','warmup':'Warmup'}
+    kind=known.get(str(value).strip().casefold(),session_label(value)) if not isinstance(value,bool) else 'Unknown'
+    return tr({'Practice':'练习','Qualify':'排位','Race':'正赛','Warmup':'暖胎'}.get(kind,'赛事类型未知'))
+
+
 def number(value,unit='',digits=1):
     if not isinstance(value,(int,float)) or isinstance(value,bool) or not math.isfinite(value):return tr('未知')
     return f'{value:.{digits}f}{unit}'
@@ -34,7 +41,7 @@ def present(entry,detail):
         if isinstance(value,(int,float)) and math.isfinite(value) and 0<=value<=1:remaining.append(value)
     return dict(track=display(entry['track']),time=f'{int(duration//60)}:{duration%60:06.3f}',
         car=entry['vehicle_class']+' · '+str(session.get('vehicle','')),
-        context=tr('第 ')+str(lap['number'])+tr(' 圈')+'   ·   '+date,
+        context=tr('第 ')+str(lap['number'])+tr(' 圈')+'   ·   '+date,session_type=session_type(session.get('session')),
         track_metrics={'layout':layout(entry['track'],entry['layout'],entry['length_m']),
             'track_temp':number(c.get('track_temp_c'),' °C'),'air_temp':number(c.get('ambient_temp_c'),' °C'),
             'wetness':road,'rain':rain_label},

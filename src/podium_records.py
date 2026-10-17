@@ -1,6 +1,6 @@
 """Verified class podiums and bounded race-time charts; historical data is read-only."""
 import csv,json,math
-from pathlib import Path
+from telemetry_file import Path
 from library import session_label
 from lap_identity import canonical_class,text
 from race_model import read_json,build_model

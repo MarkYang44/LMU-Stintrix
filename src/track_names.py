@@ -14,7 +14,7 @@ NAMES=(
     ('英特拉格斯赛道',('Interlagos','Autódromo José Carlos Pace')),
     ('卢赛尔国际赛道',('Lusail International Circuit','Lusail','Losail International Circuit')),
     ('蒙扎国家赛车场',('Monza','Autodromo Nazionale Monza')),
-    ('波尔蒂芒赛道',('Portimão','Portimao','Autódromo Internacional do Algarve')),
+    ('波尔蒂芒赛道',('Portimão','Portimao','Autódromo Internacional do Algarve','Algarve International Circuit','Algarve International','Algarve')),
     ('赛百灵国际赛道',('Sebring International Raceway','Sebring')),
     ('银石国际布局',('Silverstone International','Silverstone International Circuit')),
     ('银石赛道',('Silverstone','Silverstone Circuit','Silverstone Grand Prix')),

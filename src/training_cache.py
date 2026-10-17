@@ -1,7 +1,7 @@
 """Per-lap curve files and a lightweight index, keyed by metadata without hashing."""
 import json
 from functools import wraps
-from pathlib import Path
+from telemetry_file import Path
 from uuid import uuid4
 from race_model import read_json
 from storage import atomic_json
@@ -32,7 +32,10 @@ def path(root,folder):
     return base/token/'profiles.json'
 
 class Laps:
-    def __init__(self,base,headers):self.base=base.resolve();self.headers=headers
+    def __init__(self,base,headers):
+        self.base=base.resolve();self.headers=headers
+        from cache_budget import hold,touch
+        hold(self,self.base);touch(self.base)
     def __len__(self):return len(self.headers)
     def __iter__(self):return self.selected()
     def selected(self,numbers=None):

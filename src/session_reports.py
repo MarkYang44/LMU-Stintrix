@@ -52,10 +52,12 @@ def make_report(folder,isolated=None):
             if name in ERRORS:(folder/ERRORS[name]).write_text(str(error),encoding='utf-8')
         else:steps[name].update(state='ready');steps[name].pop('error',None)
         save(folder,steps)
+    from cache_budget import enforce
+    enforce(folder.parent.parent)
     return save(folder,steps)
 
 
 
 def render_review(folder, fastest=None):
     """Upgrade a review page without rewriting its CSV or lap exports."""
-    reporting.render_review(folder,ASSETS,track_script(ASSETS),fastest)
+    reporting.render_review(folder,ASSETS,track_script(ASSETS),fastest,local=True)

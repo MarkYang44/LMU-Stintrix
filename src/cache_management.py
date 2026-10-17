@@ -4,7 +4,7 @@ from pathlib import Path
 from threading import RLock
 LOCK=RLock()
 CACHES={'training':('训练曲线缓存','PersonalRecords/TrainingCache'),'records':('派生最快圈缓存','PersonalRecords/Cache'),'catalog':('赛事摘要索引','EventCatalog/index.json')}
-READONLY={'cards':('用户导出战绩卡','PersonalRecords/AchievementCards'),'reports':('用户导出训练报告','PersonalRecords/TrainingReports'),'comparable':('用户导出进步报告','PersonalRecords/ComparableReports'),'goals':('训练目标与基准','PersonalRecords/TrainingGoals'),'races':('原始赛事（保留）','Logs'),'imported':('导入赛事（保留）','ImportedLogs'),'recovered':('恢复赛事（保留）','RecoveredLogs')}
+READONLY={'video':('视频提取结果（保留）','VideoCurves'),'cards':('用户导出战绩卡','PersonalRecords/AchievementCards'),'reports':('用户导出训练报告','PersonalRecords/TrainingReports'),'comparable':('用户导出进步报告','PersonalRecords/ComparableReports'),'goals':('训练目标与基准','PersonalRecords/TrainingGoals'),'races':('原始赛事（保留）','Logs'),'imported':('导入赛事（保留）','ImportedLogs'),'recovered':('恢复赛事（保留）','RecoveredLogs')}
 
 def target(root,key):
     root=Path(root).resolve()

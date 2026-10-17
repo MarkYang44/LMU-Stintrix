@@ -46,6 +46,12 @@
 **/recording_settings.json
 **/LapComparisons/
 **/PersonalRecords/
+**/VideoCurves/
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.avi
 **/reference_settings.json
 **/vehicle_settings.json
 **/endurance_settings.json
@@ -96,3 +102,10 @@
 **/archive_settings.json
 **/storage_settings.json
 **/storage_compression.json
+
+# Local column storage and immutable report resources
+*.stc
+**/.stintrix-assets/
+**/ReportAssets/
+**/ExportCache/
+**/cache_tokens.json

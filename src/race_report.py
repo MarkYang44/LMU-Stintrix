@@ -1,7 +1,7 @@
 """Independent, cached and atomic native race report generation."""
 import json
 import shutil
-from pathlib import Path
+from telemetry_file import Path
 import threading
 from race_art import select_car
 from race_images import pages

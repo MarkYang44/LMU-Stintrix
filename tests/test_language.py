@@ -52,7 +52,7 @@ class LanguageTests(unittest.TestCase):
             self.assertEqual(restored['status'],'imported')
             target=Path(restored['folder'])
             for file in session.rglob('*'):
-                if file.is_file():self.assertEqual(file.read_bytes(),(target/file.relative_to(session)).read_bytes())
+                if file.is_file() and file.name not in packages.LOCAL_FILES:self.assertEqual(file.read_bytes(),(target/file.relative_to(session)).read_bytes())
 
     def test_html_rebrand_preserves_compressed_and_inline_driver_payloads(self):
         from tools.migrate_brand import update_html

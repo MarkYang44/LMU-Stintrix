@@ -2,7 +2,7 @@
 import csv
 import json
 import math
-from pathlib import Path
+from telemetry_file import Path
 from library import session_label
 
 

@@ -30,14 +30,14 @@ def ntfs(path):
     return bool(kernel.GetVolumeInformationW(volume.value,None,0,None,None,None,filesystem,len(filesystem))) and filesystem.value=='NTFS'
 
 @reporting.serialized
-def compress(folder):
+def compress(folder,columnar=False):
     folder=Path(folder)
     if folder.is_symlink() or folder.is_junction():raise ValueError('记录路径无效')
     folder=folder.resolve()
     metadata=json.loads((folder/'session.json').read_text(encoding='utf-8-sig'))
     if metadata.get('status') not in ('finished','complete','completed','recovered','imported'):
         raise ValueError('请等记录完整保存后再压缩')
-    if not ntfs(folder):return dict(supported=False,files=[],saved_bytes=0,errors=[])
+    if not ntfs(folder) and not columnar:return dict(supported=False,files=[],saved_bytes=0,errors=[])
     lock=folder/LOCK
     if lock.exists():
         try:pid=json.loads(lock.read_text(encoding='utf-8'))['pid']
@@ -48,13 +48,21 @@ def compress(folder):
     with lock.open('x',encoding='utf-8') as out:json.dump({'pid':os.getpid()},out)
     try:
         executable=str(Path(os.environ['SystemRoot'])/'System32'/'compact.exe')
+        if columnar:
+            from column_store import convert,cleanup_pending
+            cleanup_pending(folder)
+            result['method']='STX lossless column blocks + Windows LZX reports'
+            for name in ('inputs.csv','vehicle.csv'):
+                if (folder/name).is_file():
+                    item=convert(folder/name,replace=True)
+                    if item['converted']:result['files'].append(dict(file=name+'.stc',**item));result['saved_bytes']+=item['saved_bytes']
         candidates=[]
         for file in folder.rglob('*'):
             if file.is_symlink() or file.is_junction() or not file.resolve().is_relative_to(folder):
                 raise ValueError('赛事包含链接，不能压缩')
             if file.is_file() and file.suffix.lower() in TEXT and file.name!='storage_compression.json' and file.stat().st_size>=MIN_BYTES:
                 candidates.append(file)
-        for file in sorted(candidates):
+        for file in sorted(candidates) if ntfs(folder) else ():
             try:
                 stat=file.stat();before=physical_size(file)
                 child=subprocess.run([executable,'/c','/exe:LZX','/q',str(file)],capture_output=True,
@@ -77,9 +85,14 @@ def after_report(folder):
     folder=Path(folder)
     if not enabled(folder.parent.parent):return
     try:
-        value=compress(folder)
+        value=compress(folder,columnar=column_enabled(folder.parent.parent))
         if value.get('errors'):raise OSError('; '.join(v['file']+': '+v['error'] for v in value['errors']))
         return value
     except (OSError,ValueError) as error:
         (folder/'storage_compression_error.txt').write_text(str(error),encoding='utf-8')
         raise
+
+
+def column_enabled(root):
+    try:return json.loads((Path(root)/'storage_settings.json').read_text(encoding='utf8')).get('columnar',True) is True
+    except (OSError,ValueError,AttributeError):return True

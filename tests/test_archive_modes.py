@@ -12,18 +12,19 @@ class ArchiveModeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory:
             data,folder=fixtures.ArchiveTests().fixture(directory);before=fixtures.ArchiveTests().hashes(folder)
             package=packs.export_session(data,'Logs/Fixture',Path(directory)/'out')['path'];target=Path(directory)/'import'
-            with patch.object(packs,'_matches',side_effect=AssertionError('existing hash scan')),patch.object(packs,'_digest',side_effect=AssertionError('file hash')),patch.object(packs,'_identity',side_effect=AssertionError('manifest hash')),patch.object(packs.hashlib,'sha256',side_effect=AssertionError('sample hash')):
+            with patch('hashlib.sha256',side_effect=AssertionError('sample hash')):
                 result=packs.import_session(target,package,verify=False)
             restored=Path(result['folder']);actual=fixtures.ArchiveTests().hashes(restored)
             self.assertEqual({n:actual[n] for n in before},before)
-            self.assertEqual(json.loads((restored/'_archive_receipt.json').read_text())['verification'],'fast')
-            again=packs.import_session(target,package,verify=False);self.assertNotEqual(again['folder'],result['folder'])
+            self.assertEqual(json.loads((restored/'_archive_receipt.json').read_text())['verification'],'none')
+            again=packs.import_session(target,package,verify=False);self.assertEqual(again['folder'],result['folder']);self.assertEqual(again['status'],'skipped')
             self.assertEqual(fixtures.ArchiveTests().hashes(folder),before)
-    def test_optional_full_verification_rejects_wrong_manifest_digest_but_fast_does_not(self):
+    def test_legacy_verify_argument_never_enables_content_hashing(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory:
             data,_=fixtures.ArchiveTests().fixture(directory);package=packs.export_session(data,'Logs/Fixture',Path(directory)/'out')['path']
             modified=fixtures.ArchiveTests().rewrite(package,Path(directory)/'modified.zip',lambda n,b:b.replace(b'fixture',b'changed') if n=='session/review.html' else b)
-            with self.assertRaisesRegex(ValueError,'校验失败'):packs.import_session(Path(directory)/'full',modified,verify=True)
+            full=packs.import_session(Path(directory)/'full',modified,verify=True)
+            self.assertEqual(json.loads((Path(full['folder'])/'_archive_receipt.json').read_text())['verification'],'none')
             result=packs.import_session(Path(directory)/'fast',modified,verify=False)
             self.assertIn('changed',(Path(result['folder'])/'review.html').read_text())
     def test_fast_path_still_rejects_traversal_links_unknown_files_and_bad_metadata(self):
@@ -56,7 +57,7 @@ class ArchiveModeTests(unittest.TestCase):
     def test_preferences_default_fast_and_zip_and_roundtrip(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory:
             root=Path(directory);self.assertEqual(archive_preferences.load(root),dict(format='zip',verify=False))
-            archive_preferences.save(root,'7z',True);self.assertEqual(archive_preferences.load(root),dict(format='7z',verify=True))
+            archive_preferences.save(root,'7z',True);self.assertEqual(archive_preferences.load(root),dict(format='7z',verify=False))
             with self.assertRaises(ValueError):archive_preferences.save(root,'rar',False)
     def test_untrusted_sevenzip_tool_is_never_executed(self):
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as directory:
@@ -75,6 +76,6 @@ class ArchiveModeTests(unittest.TestCase):
                 self.assertNotEqual(i18n.catalog()['导入时完整校验'],'导入时完整校验')
                 archive_preferences.save(directory,'7z',True)
                 center.show_page(0);center.show_page(3);center.root.update()
-                self.assertTrue(center.archive_verify.get());self.assertEqual(center.archive_format.get(),'7z')
+                self.assertFalse(center.archive_verify.get());self.assertEqual(center.archive_format.get(),'7z')
             finally:center.close()
             self.assertFalse(errors,errors)

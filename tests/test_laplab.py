@@ -9,6 +9,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
+from telemetry_file import Path
 from reference import ReferenceLap
 import telemetry_import as native
 import laps
@@ -102,7 +103,7 @@ class UpgradeTests(unittest.TestCase):
                 self.assertIn('ABS',fastest['native_context']['channels'])
                 self.assertEqual(len(fastest['native_context']['channels']['Tyres Wear']['data'][0]),5)
                 inputscope.render_review(output,summary)
-                self.assertIn('Fuel Level',(output/'review.html').read_text(encoding='utf8'))
+                self.assertIn('Fuel Level',__import__('report_assets').standalone(output/'review.html'))
 
     def test_native_missing_raw_rejected_without_fake_samples(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as temp:

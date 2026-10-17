@@ -1,8 +1,16 @@
 """Metadata-only personal best index, separated by layout and vehicle class."""
-import json,math,hashlib
-from pathlib import Path
+import json,math
+from telemetry_file import Path
 from json_store import load
 from lap_identity import text,vehicle_class
+
+class CacheRecord(dict):
+    __slots__=('__weakref__',)
+    def copy(self):
+        result=CacheRecord(self)
+        from cache_budget import hold
+        hold(result,Path(self['file']).parent)
+        return result
 
 
 def summary_for(root,folder):
@@ -14,11 +22,14 @@ def summary_for(root,folder):
     # Missing reports must not hide a valid record. Derive only in a private cache.
     files=[folder/name for name in ('inputs.csv','session.json','vehicle.csv','native_channels.json')]
     signature=[(str(p),p.stat().st_size,p.stat().st_mtime_ns) for p in files if p.exists()]
-    key=hashlib.sha256(repr(signature).encode()).hexdigest()[:24]
+    from cache_tokens import token
+    key=token(root,'record-cache',signature)
     cache=root/'PersonalRecords'/'Cache'/key;cached=cache/'summary.json'
     try:
         value=json.loads(cached.read_text(encoding='utf-8'))
-        if isinstance(value,dict):return value,cache
+        if isinstance(value,dict):
+            from cache_budget import touch
+            touch(cache);return value,cache
     except (OSError,ValueError):pass
     from laps import extract_best,lap_record,write_json
     best,candidates,error=extract_best(folder/'inputs.csv')
@@ -28,7 +39,8 @@ def summary_for(root,folder):
         cache.mkdir(parents=True,exist_ok=True);write_json(cache/'record.lap.json',record)
         summary=dict(status='saved',file='record.lap.json',session=record['session'],lap=record['lap'],conditions=record['conditions'])
     cache.mkdir(parents=True,exist_ok=True);write_json(cached,summary)
-    return summary,cache
+    from cache_budget import enforce
+    enforce(root,keep=[cache]);return summary,cache
 
 
 def entries(root):
@@ -64,7 +76,11 @@ def entries(root):
                 entry=dict(race_mode=mode(session),session=session,lap=lap,conditions=summary.get('conditions',{}),
                     track=track,layout=layout,vehicle_class=group,file=str(file),folder=str(path.parent),
                     time_s=duration,length_m=length)
-                entry['identity']=key;result.append(entry)
+                entry['identity']=key
+                if base!=path.parent:
+                    from cache_budget import hold
+                    entry=CacheRecord(entry);hold(entry,base)
+                result.append(entry)
             except (OSError,ValueError,KeyError,TypeError):continue
     return result
 

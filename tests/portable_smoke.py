@@ -4,7 +4,7 @@ from ctypes import wintypes
 import csv
 import json
 import os
-from pathlib import Path
+from telemetry_file import Path
 import subprocess
 import time
 
@@ -88,19 +88,24 @@ def run(bundle,root):
         fresh_samples_preserved=rows==meta.get('samples') and rows>1000,
         complete_reference=summary.get('status')=='saved',session_phase_folder='_Race_' in folder.name)
     from library import inventory
-    from session_archive import export_session,import_session,_digest
+    from session_archive import export_session,import_session
+    def equal(a,b):
+        with a.open('rb') as left,b.open('rb') as right:
+            while chunk:=left.read(1048576):
+                if chunk!=right.read(len(chunk)):return False
+            return not right.read(1)
     package=export_session(root,str(folder.relative_to(root)),root/'SessionPackages')
     restored=import_session(root/'archive-test-import',package['path'])
     imported=Path(restored['folder']);items=inventory(root/'archive-test-import')
     checks.update(session_phase_archive='_Race_' in package['path'],
-        archive_roundtrip=all(_digest(folder/name)==_digest(imported/name) for name in required),
+        archive_roundtrip=all(equal(folder/name,imported/name) for name in required),
         archive_in_library=len(items)==1,
         session_phase_inventory=len(items)==1 and items[0]['session_type']=='Race',
         archive_duplicate=import_session(root/'archive-test-import',package['path'])['status']=='skipped')
     seven=export_session(root,str(folder.relative_to(root)),root/'SessionPackages',format='7z')
     fast=import_session(root/'archive-test-7z',seven['path'],verify=False)
-    checks['sevenzip_fast_roundtrip']=all(_digest(folder/name)==_digest(Path(fast['folder'])/name) for name in required)
-    checks['fast_mode_receipt']=json.loads((Path(fast['folder'])/'_archive_receipt.json').read_text())['verification']=='fast'
+    checks['sevenzip_fast_roundtrip']=all(equal(folder/name,Path(fast['folder'])/name) for name in required)
+    checks['fast_mode_receipt']=json.loads((Path(fast['folder'])/'_archive_receipt.json').read_text())['verification']=='none'
     result=dict(ok=all(checks.values()),checks=checks,synthetic_only=True,test_code_in_product=False)
     (root.parent/'portable-smoke.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
     if not result['ok']:raise RuntimeError('Portable smoke failed: '+str(checks))

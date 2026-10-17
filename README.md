@@ -1,6 +1,6 @@
 # LMU Stintrix
 
-v0.2.34：修复云端 Windows 关闭系统动画时的测试兼容性；保留 v0.2.33 的报告分步重试、训练目标跟进、安全缓存管理与分析优化。操作入口见 [使用说明](docs/USAGE.md)。
+v0.2.40：新增无损分块列式存储，按块 / 按列读取完整采样；可恢复普通 CSV 或独立导出。可重建缓存按容量整理，本地报告复用资源，同圈 CSV 与未变化的归档复用已有输出；赛事数据不计算内容哈希、不在导出后完整回读校验。旧记录继续兼容。详见 [存储优化与恢复说明](docs/STORAGE_OPTIMIZATION.md)。
 
 Local telemetry HUD, recorder and lap analysis for **Le Mans Ultimate** on Windows x64.
 

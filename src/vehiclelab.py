@@ -4,7 +4,7 @@ from collections import deque
 import csv
 import json
 import math
-from pathlib import Path
+from telemetry_file import Path
 import statistics
 from buffers import NullableTable
 

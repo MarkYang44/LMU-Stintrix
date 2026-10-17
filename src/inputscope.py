@@ -29,6 +29,9 @@ def __getattr__(name):
 
 
 def main():
+    if '--analyze-video' in sys.argv:
+        from video_cli import main as video_main
+        raise SystemExit(video_main(sys.argv[sys.argv.index('--analyze-video')+1:]))
     if '--report-worker' in sys.argv:
         index=sys.argv.index('--report-worker')
         if index+1>=len(sys.argv):raise ValueError('Missing completed session directory')

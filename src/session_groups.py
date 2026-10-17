@@ -1,5 +1,5 @@
 """Hide source fragments only while a complete, provenance-linked merge exists."""
-from pathlib import Path
+from telemetry_file import Path
 from race_model import read_json
 
 def superseded(root):

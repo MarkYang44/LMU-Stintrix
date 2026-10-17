@@ -3,7 +3,7 @@ from collections import deque
 import csv
 import json
 import math
-from pathlib import Path
+from telemetry_file import Path
 import statistics
 from storage import atomic_json
 from vehiclelab import number

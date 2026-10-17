@@ -14,6 +14,7 @@ class ReportDeferred(RuntimeError):pass
 def run(folder,data_root):
     if not can_report():raise ReportDeferred('系统内存紧张，报告等待可用内存；完整记录已保存')
     folder=Path(folder).resolve();environment=dict(os.environ,LMU_STINTRIX_DATA_DIR=str(Path(data_root).resolve()))
+    environment['LMU_STINTRIX_REPORT_WORKER']='1'
     from report_state import plan,save,current
     save(folder,plan(folder),active='worker')
     command=[sys.executable]

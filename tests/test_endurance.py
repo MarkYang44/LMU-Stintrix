@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
+from telemetry_file import Path
 import endurance as e,vehiclelab as v,inputscope as app,laps
 from tests.test_core import fixture
 
@@ -146,14 +147,14 @@ class EnduranceTests(unittest.TestCase):
 
     def test_offline_exports_stints_pit_loss_and_immutable_source(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as t:
-            folder=write_fixture(Path(t)/'session');p=json.loads((folder/'endurance_analysis.json').read_text(encoding='utf-8'))
+            folder=Path(write_fixture(Path(t)/'session'));p=json.loads((folder/'endurance_analysis.json').read_text(encoding='utf-8'))
             self.assertEqual(len(p['pits']),2);self.assertEqual(len(p['stints']),3)
             first=p['pits'][0];self.assertAlmostEqual(first['duration_s'],6);self.assertAlmostEqual(first['fuel_added_l'],11.88,places=2)
             self.assertAlmostEqual(first['estimated_loss_s'],4);self.assertGreaterEqual(len(first['baseline_laps']),3)
             self.assertTrue(p['weather_alerts']);self.assertGreaterEqual(p['stints'][1]['pace']['count'],6)
             original={x:hashlib.sha256(x.read_bytes()).hexdigest() for x in (folder/'inputs.csv',folder/'vehicle.csv',folder/'session.json')}
             result=laps.export_selected_laps(folder,[1,8],ROOT/'src/compare.html');record=json.loads(Path(result['exports'][0]['json']).read_text(encoding='utf-8'))
-            self.assertIn('rain_severity',record['vehicle_telemetry']['columns']);self.assertIn('InputScopeEndurance',(folder/'review.html').read_text(encoding='utf-8'))
+            self.assertIn('rain_severity',record['vehicle_telemetry']['columns']);self.assertIn('InputScopeEndurance',__import__('report_assets').standalone(folder/'review.html'))
             self.assertEqual({x:hashlib.sha256(x.read_bytes()).hexdigest() for x in original},original)
 
     def test_legacy_missing_and_write_error_records(self):

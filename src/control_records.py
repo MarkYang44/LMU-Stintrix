@@ -110,7 +110,7 @@ def show_best(app):
             if error:caption.set(error);return
             presentation=present(entry,result)
             track_title.configure(text=presentation['track']);time_label.configure(text=presentation['time'])
-            car_label.configure(text=presentation['car']);date_label.configure(text=presentation['context']+' · '+tr(LABELS[mode(entry)]))
+            car_label.configure(text=presentation['car']);date_label.configure(text=presentation['context']+' · '+tr(LABELS[mode(entry)])+' · '+presentation['session_type'])
             track_metrics.set(presentation['track_metrics']);car_metrics.set(presentation['car_metrics'])
             caption.set('');state['curve']=result['curve'];draw();header.arrive()
         app.run_background(lambda:detail(entry),done)

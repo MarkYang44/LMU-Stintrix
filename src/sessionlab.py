@@ -3,7 +3,7 @@ import bisect
 import json
 from json_store import load as load_json
 import math
-from pathlib import Path
+from telemetry_file import Path
 import statistics
 from laps import comparison_data,trajectory_data,extract_best,DATA_COLUMNS,FORMAT,write_json,safe_name
 

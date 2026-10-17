@@ -66,6 +66,11 @@ def main():
     assert {'official_results','control_official_results','telemetry_contract','control_interface','training_zones','control_zone_map','control_zone_editor','condition_match','comparable_progress','control_comparable','comparable_presentation'}<=set(modules)
     assert {'training_report','training_presentation','control_training','record_history','control_history','history_view','control_history_chart','achievement_card','control_achievement'}<=modules
     assert {'review_filters','control_review_filters','lmu_mark'}<=modules
+    assert {'control_video','video_cli','video_media','video_signal','video_alignment','video_analysis','video_ocr','video_report'}<=modules
+    assert {'control_video_layout','control_video_widgets'}<=modules
+    assert {'control_video_history','video_history'}<=modules
+    assert {'control_video_assist','video_preferences'}<=modules
+    assert {'column_store','telemetry_file','cache_budget','cache_tokens','report_assets','lap_exports','export_cache','storage_actions'}<=modules
     from sevenzip import SHA256
     if not args.no_checksums:assert hashlib.sha256((bundle/'_internal/src/tools/7zr.exe').read_bytes()).hexdigest()==SHA256
     assert not any(name.split('.')[0] in {'doctor','release_smoke','tests','tools'} for name in modules)

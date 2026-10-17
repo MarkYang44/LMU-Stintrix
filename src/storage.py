@@ -3,7 +3,6 @@ import csv
 import ctypes
 from datetime import datetime,timezone
 import gzip
-import hashlib
 import json
 import io
 import os
@@ -155,18 +154,13 @@ def recover_session(source,root):
 
 
 def compress_session(folder):
-    """Create and verify a gzip backup, leaving every original byte untouched."""
+    """Legacy gzip export; one streaming write, no hashing or verification pass."""
     folder=Path(folder);source=folder/'inputs.csv';target=folder/'inputs.csv.gz';pending=folder/'inputs.csv.gz.pending'
     meta=json.loads((folder/'session.json').read_text(encoding='utf-8'))
     if meta.get('status')=='recording':raise ValueError('请等记录结束后再压缩')
-    sha=hashlib.sha256()
     with source.open('rb') as f,gzip.open(pending,'wb',compresslevel=6) as out:
-        for b in iter(lambda:f.read(1048576),b''):sha.update(b);out.write(b)
-    check=hashlib.sha256()
-    with gzip.open(pending,'rb') as f:
-        for b in iter(lambda:f.read(1048576),b''):check.update(b)
-    if sha.digest()!=check.digest():raise OSError('压缩校验失败')
+        for b in iter(lambda:f.read(1048576),b''):out.write(b)
     pending.replace(target)
-    result=dict(source_sha256=sha.hexdigest(),source_bytes=source.stat().st_size,
+    result=dict(source_bytes=source.stat().st_size,
         compressed_bytes=target.stat().st_size,original_retained=True)
     atomic_json(folder/'compression.json',result);return result

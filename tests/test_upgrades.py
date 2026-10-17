@@ -162,7 +162,9 @@ class Upgrades(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as t:
             root=Path(t);folder=clean_session(root/'Logs'/'test');before=(folder/'session.json').read_bytes()
             stats=storage.compress_session(folder)
-            self.assertEqual(stats['source_sha256'],hashlib.sha256((folder/'inputs.csv').read_bytes()).hexdigest())
+            self.assertNotIn('source_sha256',stats)
+            import gzip
+            self.assertEqual(gzip.decompress((folder/'inputs.csv.gz').read_bytes()),(folder/'inputs.csv').read_bytes())
             library.save_note(root,str(folder.relative_to(root)),'练习',True);v=library.inventory(root)[0]
             self.assertEqual(v['note'],'练习');self.assertTrue(v['traffic']);self.assertEqual((folder/'session.json').read_bytes(),before)
             self.assertEqual(v['session_type'],'Race')

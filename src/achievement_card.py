@@ -2,7 +2,7 @@
 from pathlib import Path
 from datetime import datetime,timezone
 from uuid import uuid4
-from record_presentation import present,number,tire
+from record_presentation import number,tire,session_type
 from track_names import display,layout
 from i18n import tr
 
@@ -23,6 +23,7 @@ def payload(entry,details,show_name=False,show_date=False):
         summary=entry['summary'];result['result']=tr('同组发车名次')+' '+place(summary.get('grid_class_place'))+' / '+tr('同组完赛名次')+' '+place(entry['place'])
         result['context']=tr('官方 XML 成绩 · 无遥测条件') if entry.get('xml_only') else tr('比赛用时')+' '+(elapsed(details.get('race_s')) if details.get('race_s') is not None else tr('未知'))
     else:result['result']=tr('第 ')+str(entry['lap']['number'])+tr(' 圈');result['context']=tr('最快有效完整圈')
+    result['context']+=' · '+session_type(s.get('session'))
     if show_name:result['driver']=str(s.get('driver') or tr('未知'))
     if show_date:result['date']=str(s.get('started_utc') or tr('未知'))
     return result

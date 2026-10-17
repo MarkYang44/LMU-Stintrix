@@ -88,5 +88,11 @@ def caches(app):
         if ids:
             path=Path(state['items'][ids[0]]['path']);path=path if path.is_dir() else path.parent
             if path.is_dir():os.startfile(str(path))
-    actions=app.row(body);app.button(actions,'清理所选缓存',clean,False,155);app.button(actions,'打开目录',open_folder,False,125);app.button(actions,'刷新占用',refresh,False,125)
+    def organize():
+        if app.active() or app.tasks.busy:text.set(tr('请先停止 HUD 并等待分析任务结束，再清理缓存'));return
+        from cache_budget import enforce
+        def done(value,error):
+            if window.winfo_exists():text.set(error or tr('缓存已按容量上限整理'));refresh()
+        app.run_background(lambda:enforce(app.data_path,force=True),done)
+    actions=app.row(body);app.button(actions,'按上限整理',organize,False,135);app.button(actions,'清理所选缓存',clean,False,155);app.button(actions,'打开目录',open_folder,False,125);app.button(actions,'刷新占用',refresh,False,125)
     refresh();return window

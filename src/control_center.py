@@ -102,6 +102,8 @@ class ControlCenter:
         self.shell.theme_button.label='◐  浅色主题' if T.mode=='dark' else '◑  深色主题';self.shell.theme_button.paint()
         backdrop(self.root)
         if self.active():self.hud.apply_theme()
+        video=getattr(self,'video_window',None)
+        if video is not None and video.winfo_exists():video.video_wizard.refresh_palette()
 
     def toggle_language(self):
         import i18n
@@ -265,6 +267,10 @@ class ControlCenter:
     def start(self,demo=False):
         if self.active():self.hud.root.lift();self.status.set(tr('HUD 已在运行；请先停止后切换真实 / 演示模式'));return
         if self.hud is not None and self.hud.root.winfo_exists():self.status.set(tr('正在保存上一场记录，请稍候'));return
+        video=getattr(self,'video_window',None)
+        if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
+        history=getattr(self,'video_history_window',None)
+        if history is not None and history.winfo_exists():history.history_state['cancel'].set()
         from hud import App
         self.last_recording_status=None
         self.hud=App(demo,root=tk.Toplevel(self.root),on_menu=self.show)
@@ -518,6 +524,9 @@ class ControlCenter:
             ('wetness_change','湿度提醒阈值 / 0–1'),('temp_change_c','温度提醒阈值 / °C'),('alert_cooldown_s','提醒冷却 / 秒')])
 
     def data_page(self):
+        body=self.card('视频提取油刹曲线','三种输入：普通 POV、距离与计时 HUD、视频与同圈遥测；估算结果单独保存')
+        from control_video import show as video_analysis
+        self.button(self.row(body),'视频分析与标定',lambda:video_analysis(self,ROOT),True,190)
         body=self.card('报告与缓存维护','分步重试失败报告，查看缓存与用户导出文件占用')
         from control_maintenance import reports,caches
         actions=self.row(body);self.button(actions,'报告任务与分步重试',lambda:reports(self),False,190);self.button(actions,'缓存与导出文件',lambda:caches(self),False,175)
@@ -533,7 +542,7 @@ class ControlCenter:
             except (ValueError,OSError) as e:messagebox.showerror(tr('配置未保存'),str(e),parent=self.root)
         row=self.row(body);self.button(row,'选择生成器',choose,False,140);self.button(row,'保存配置',save,True,140)
         self.label(body,'racecom = 原版版式；native = Stintrix 兼容版式。\nGitHub 下载包不包含 RaceCom 程序、商标图片或个人记录。',9,T.MUTED).pack(anchor='w',pady=8)
-        body=self.card('赛事包 / ZIP · 7z','每场一个包；默认快速导入，也可开启完整校验')
+        body=self.card('赛事包 / ZIP · 7z','每场一个包；相同版本重复导出复用已有文件，不执行内容校验')
         import archive_preferences
         preferences=archive_preferences.load(ROOT)
         self.archive_format=tk.StringVar(self.root,value='ZIP' if preferences['format']=='zip' else '7z')
@@ -541,19 +550,44 @@ class ControlCenter:
         def save_archive():
             archive_preferences.save(ROOT,self.archive_format.get().lower(),self.archive_verify.get())
         self.choice(body,'导出格式',self.archive_format,['ZIP','7z'],save_archive)
-        Switch(body,'导入时完整校验',self.archive_verify,save_archive).pack(fill='x',pady=4)
-        self.label(body,'关闭时跳过 SHA-256 和已有记录比对，直接新建赛事；路径检查和解压 CRC 保留。',9,T.MUTED).pack(anchor='w',pady=4)
+        self.label(body,'不计算文件哈希、不在导出后重读整个包；保留正常解压与安全路径处理。',9,T.MUTED).pack(anchor='w',pady=4)
         self.sessions(body,True,True);row=self.row(body);self.button(row,'批量导出选中赛事',self.export_package,True,180);self.button(row,'导入赛事包',self.import_package,False,145)
         self.button(row,'导入官方遥测',self.import_native,False,155)
-        body=self.card('无损节省磁盘空间','赛后透明压缩 CSV 与报告；文件名、完整采样与图片质量保持不变')
+        body=self.card('无损节省磁盘空间','赛后无损存储完整采样与报告；保留图片质量，可导出或恢复 CSV')
         from session_compression import enabled
         self.storage_auto=tk.BooleanVar(self.root,value=enabled(ROOT))
+        from session_compression import column_enabled
+        from cache_budget import limit
+        self.storage_columnar=tk.BooleanVar(self.root,value=column_enabled(ROOT));self.cache_limit=tk.StringVar(self.root,value=str(limit(ROOT)))
         def save_storage():
             from storage import atomic_json
-            atomic_json(ROOT/'storage_settings.json',dict(auto_compress=self.storage_auto.get()))
+            from race_model import read_json
+            settings=read_json(ROOT/'storage_settings.json',{})
+            settings.update(auto_compress=self.storage_auto.get(),columnar=self.storage_columnar.get(),cache_limit_mb=int(self.cache_limit.get()))
+            atomic_json(ROOT/'storage_settings.json',settings)
         row=self.row(body);self.label(row,'赛后自动压缩',10,T.MUTED).pack(side='left')
         Switch(row,'',self.storage_auto,save_storage).pack(side='right',fill='x',expand=True)
-        self.button(self.row(body),'压缩选中赛事',self.compress_selected,False,165)
+        Switch(body,'新赛事使用分块列式存储',self.storage_columnar,save_storage).pack(fill='x',pady=4)
+        self.choice(body,'可重建缓存上限 / MiB',self.cache_limit,['128','256','512','1024','2048'],save_storage)
+        row=self.row(body);self.button(row,'压缩选中赛事',self.compress_selected,False,165)
+        self.button(row,'转换选中赛事为列式',lambda:self.storage_operation('columnar'),False,190)
+        row=self.row(body);self.button(row,'导出原始 CSV',lambda:self.storage_operation('csv'),False,165)
+        self.button(row,'导出独立复盘页',lambda:self.storage_operation('html'),False,175)
+        self.button(row,'恢复选中赛事为 CSV',lambda:self.storage_operation('restore'),False,195)
+
+    def storage_operation(self,kind):
+        if self.active():self.status.set(tr('请先停止 HUD，再整理或导出存储'));return
+        from session_archive import transfer_batch
+        from storage_actions import columnar,export,restore
+        def action(items):
+            destination=filedialog.askdirectory(parent=self.root,title=tr('选择导出目录')) if kind in ('csv','html') else None
+            if kind in ('csv','html') and not destination:return
+            folders=[item['folder'] for item in items]
+            def done(value):
+                self.status.set(f"{tr('已处理 ')}{len(value['items'])} · {tr('失败 ')}{len(value['errors'])}")
+                if value['errors']:messagebox.showwarning('Stintrix','\n'.join(v['error'] for v in value['errors'][:8]),parent=self.root)
+            self.work(lambda:transfer_batch(folders,lambda folder:columnar(folder) if kind=='columnar' else restore(folder) if kind=='restore' else export(folder,destination,kind)),done)
+        self.with_selection(action,None)
 
     def compress_selected(self):
         from session_compression import compress
@@ -626,6 +660,10 @@ class ControlCenter:
         for done,result,error in self.tasks.completions():
             try:done(result,error)
             except (OSError,ValueError,tk.TclError) as e:self.status.set(tr('操作未完成：') + str(e))
+        if not self.active() and not self.tasks.busy and now-getattr(self,'cache_budget_at',0)>60:
+            self.cache_budget_at=now
+            from cache_budget import enforce
+            self.run_background(lambda:enforce(ROOT),lambda result,error:None)
         if self.page==0 and self.hud and self.hud.root.winfo_exists():
             engine=self.hud.engine;poll,fresh=engine.actual_rates()
             from recording_status import snapshot
@@ -655,6 +693,10 @@ class ControlCenter:
 
     def close(self):
         if not self.closing:
+            video=getattr(self,'video_window',None)
+            if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
+            history=getattr(self,'video_history_window',None)
+            if history is not None and history.winfo_exists():history.history_state['cancel'].set()
             self.closing=True;self.presentation.cancel();self.pages.cancel_request();self.pages.cancel_build();self.tasks.close();self.root.after_cancel(self.job);self.shell.motion.cancel();self.shell.navigation.motion.cancel();self.shell.scroller.cancel()
             if self.active():self.hud.close()
         if self.tasks.busy or (self.hud and self.hud.root.winfo_exists()):self.root.after(50,self.close);return

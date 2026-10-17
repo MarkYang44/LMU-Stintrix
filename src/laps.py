@@ -5,7 +5,7 @@ import html
 import json
 from json_store import load as load_json
 import math
-from pathlib import Path
+from telemetry_file import Path
 import statistics
 import threading
 from buffers import CompactRow
@@ -248,7 +248,7 @@ def trajectory_data(best, data):
                 source='recorded_world_xz',max_gap_s=1.5,sample_target_hz=50)
 
 
-def write_compare(path, template, laps=(), status=None,reference_id=None,view_state=None):
+def write_compare(path, template, laps=(), status=None,reference_id=None,view_state=None,local=False):
     import reporting
     value = dict(laps=list(laps),status=status)
     if reference_id is not None:value['reference_id']=reference_id
@@ -264,6 +264,9 @@ def write_compare(path, template, laps=(), status=None,reference_id=None,view_st
     if '/*VEHICLE_VIEW_JS*/' in source:
         from vehiclelab import script
         source=source.replace('/*VEHICLE_VIEW_JS*/',script(template.parent))
+    if local:
+        from report_assets import prepare
+        source=prepare(path,source,template.parent,Path(path).parent.parent.parent)
     reporting.write_page(path,source,[('stintrix-laps',reporting.json_chunks(value))])
 
 
@@ -354,7 +357,7 @@ def lap_record(folder,best,metadata=None,native=None,kind='fastest'):
     return result
 
 
-def write_lap_csv(path,best,metadata,source=None):
+def _write_lap_csv(path,best,metadata,source=None):
     if source is not None:
         with Path(source).open(encoding='utf-8-sig',newline='') as stream,Path(path).open('w',encoding='utf-8',newline='') as output:
             reader=csv.DictReader(stream);basic={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc')}
@@ -372,6 +375,12 @@ def write_lap_csv(path,best,metadata,source=None):
         for row in best['rows']:
             if best['start_s']<=row['session_time_s']<best['end_s']:
                 writer.writerow(dict(**basic,lap_time_s=round(row['session_time_s']-best['start_s'],6),**row))
+
+
+def write_lap_csv(path,best,metadata,source=None):
+    path=Path(path);pending=path.with_name(path.name+'.'+str(threading.get_ident())+'.pending')
+    try:_write_lap_csv(pending,best,metadata,source);pending.replace(path)
+    finally:pending.unlink(missing_ok=True)
 
 
 def complete_laps(folder):
@@ -392,6 +401,9 @@ def export_selected_laps(folder,numbers,template=None):
         raise ValueError('请选择一个或两个非负整数圈号')
     if len(set(numbers))!=len(numbers):raise ValueError('圈 A 和圈 B 必须选择不同圈')
     folder=Path(folder);metadata=finished_metadata(folder);selected={};counts={}
+    from lap_exports import cached,remember,link_fastest
+    existing=cached(folder,numbers,template)
+    if existing:return existing
     def collect(best):
         if best['number'] in numbers:selected[best['number']]=best
     _,candidates,error=extract_best(folder/'inputs.csv',collect,include_flagged=True)
@@ -410,13 +422,15 @@ def export_selected_laps(folder,numbers,template=None):
     for n,value in zip(numbers,records):
         stem=f"Selected_Lap_{n}_{safe_name(metadata.get('vehicle'))}_{safe_name(metadata.get('track'))}"
         json_path=output/(stem+'.lap.json');csv_path=output/(stem+'.csv')
-        write_json(json_path,value);write_lap_csv(csv_path,selected[n],metadata,folder/'inputs.csv')
+        write_json(json_path,value)
+        if not link_fastest(folder,n,csv_path):write_lap_csv(csv_path,selected[n],metadata,folder/'inputs.csv')
         exports.append(dict(number=n,json=str(json_path),csv=str(csv_path)))
     page=None
     if template is not None:
         page=output/('Compare_Laps_'+('_'.join(map(str,numbers)))+'.html')
         write_compare(page,template,records,'selected_complete_laps',reference_id=records[0]['id'])
-    return dict(folder=str(output),exports=exports,comparison=str(page) if page else None)
+    result=dict(folder=str(output),exports=exports,comparison=str(page) if page else None)
+    remember(folder,numbers,template,result);return result
 
 
 def export_fastest(folder, template, library=None):
@@ -429,9 +443,12 @@ def export_fastest(folder, template, library=None):
         name = f"Fastest_Lap_{info['number']}_{safe_name(metadata['vehicle'])}_{safe_name(metadata['track'])}.lap.json"
         write_json(folder/name,result)
         write_lap_csv(folder/'fastest_lap.csv',best,metadata,folder/'inputs.csv')
+        from lap_exports import signature
+        from storage import atomic_json
+        atomic_json(folder/'_fastest_source.json',dict(number=info['number'],signature=signature(folder)))
         (folder/'fastest_lap.svg').write_text(curve_svg(result),encoding='utf-8')
         summary.update(file=name,lap=info,session=result['session'],conditions=result['conditions'])
     write_json(folder/'fastest_lap_summary.json',summary)
     selection = library_laps(library,result) if library and result else ([result] if result else [])
-    write_compare(folder/'fastest_lap.html',template,selection,summary['status'])
+    write_compare(folder/'fastest_lap.html',template,selection,summary['status'],local=True)
     return result,summary

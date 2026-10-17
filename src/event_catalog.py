@@ -1,6 +1,6 @@
 """Small, incremental event facets. Never opens raw CSV or rewrites race evidence."""
 import json, math, threading
-from pathlib import Path
+from telemetry_file import Path
 from storage import atomic_json
 from lap_identity import canonical_class, vehicle_class
 from race_model import read_json
@@ -161,7 +161,7 @@ def attach(root,entries):
     notes=read_json(Path(root)/'library_notes.json',{})
     for e in entries:
         folder=Path(e.get('folder') or e.get('linked_folder') or (Path(root)/'OfficialResults/events'/e['id'] if e.get('id') else '')).resolve();f=cache.get(str(folder),{})
-        item=dict(e,_facets=f)
+        item=e.copy();item['_facets']=f
         if 'source_xml' in e:item['folder']=str(folder)
         try:
             relative=folder.relative_to(Path(root).resolve());note=notes.get(str(relative),notes.get(relative.as_posix(),{}))

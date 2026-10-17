@@ -1,6 +1,6 @@
 """Explicit participation modes; unknowns are never inferred from field size."""
 import csv,json,math
-from pathlib import Path
+from telemetry_file import Path
 from datetime import datetime,timezone,timedelta
 from race_model import read_json
 from storage import atomic_json

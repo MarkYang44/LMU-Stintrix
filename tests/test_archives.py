@@ -31,7 +31,7 @@ class ArchiveTests(unittest.TestCase):
 
     def hashes(self,folder):
         return {p.relative_to(folder).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
-                for p in folder.rglob('*') if p.is_file()}
+                for p in folder.rglob('*') if p.is_file() and p.name not in packs.LOCAL_FILES}
 
     def rewrite(self,source,target,change=None,extras=()):
         with zipfile.ZipFile(source) as old,zipfile.ZipFile(target,'w',compression=zipfile.ZIP_DEFLATED) as new:
@@ -97,9 +97,9 @@ class ArchiveTests(unittest.TestCase):
     def test_corrupt_payload_rolls_back_and_batch_continues(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as t:
             data,_=self.fixture(t);good=Path(packs.export_session(data,'Logs/Fixture',Path(t)/'out')['path'])
-            bad=self.rewrite(good,Path(t)/'corrupt.zip',lambda name,b:b.replace(b'fixture',b'broken!') if name=='session/review.html' else b)
+            bad=self.rewrite(good,Path(t)/'corrupt.zip',lambda name,b:b'corrupt metadata' if name=='session/session.json' else b)
             target=Path(t)/'new'
-            with self.assertRaisesRegex(ValueError,'校验失败'):packs.import_session(target,bad)
+            with self.assertRaises(ValueError):packs.import_session(target,bad)
             self.assertEqual(list((target/'ImportedLogs').iterdir()),[])
             results=packs.transfer_batch([bad,good],lambda p:packs.import_session(target,p))
             self.assertEqual(len(results['errors']),1);self.assertEqual(len(results['items']),1)
@@ -132,10 +132,10 @@ class ArchiveTests(unittest.TestCase):
             package=Path(packs.export_session(data,'Logs/Fixture',out)['path'])
             def change(name,b):
                 if name=='manifest.json':
-                    m=json.loads(b);m['archive_id']='0'*64;return json.dumps(m).encode()
+                    m=json.loads(b);m['version']=999;return json.dumps(m).encode()
                 return b
             bad=self.rewrite(package,Path(t)/'manifest.zip',change)
-            with self.assertRaisesRegex(ValueError,'清单校验'):packs.import_session(Path(t)/'new',bad)
+            with self.assertRaisesRegex(ValueError,'版本'):packs.import_session(Path(t)/'new',bad)
             with patch.object(packs,'MAX_BYTES',100):
                 with self.assertRaisesRegex(ValueError,'32 GiB'):packs.import_session(Path(t)/'new',package)
             meta=json.loads((folder/'session.json').read_text());meta['status']='recording'

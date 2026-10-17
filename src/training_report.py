@@ -46,7 +46,9 @@ def profiles(root,folder):
     path.parent.mkdir(parents=True,exist_ok=True);write_json(path,value)
     write_json(path.with_name('index.json'),dict(laps=[{k:v for k,v in l.items() if k not in ('data','features')} for l in found],excluded=value['excluded'],error=value['error']))
     from training_cache import read
-    return read(path)
+    result=read(path)
+    from cache_budget import enforce
+    enforce(root,keep=[path.parent]);return result
 
 
 @serialized

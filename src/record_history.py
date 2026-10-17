@@ -38,6 +38,6 @@ def history(root,per_vehicle=False):
     for when,e in sorted(moments.values(),key=lambda pair:(pair[0],pair[1]['time_s'])):
         key=tuple(e['identity'])+(mode(e),)+((text(e['session'].get('vehicle')),) if per_vehicle else ());old=previous.get(key)
         if old is not None and e['time_s']>=old['time_s']-.0005:continue
-        result.append(dict(e,observed_utc=when.isoformat(),improvement_s=None if old is None else old['time_s']-e['time_s']))
+        item=e.copy();item.update(observed_utc=when.isoformat(),improvement_s=None if old is None else old['time_s']-e['time_s']);result.append(item)
         previous[key]=e
     return dict(entries=result,missing_dates=missing,conflicts=len(conflicts))

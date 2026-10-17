@@ -4,7 +4,7 @@ import csv
 from functools import wraps
 import json
 import math
-from pathlib import Path
+from telemetry_file import Path
 import struct
 import tempfile
 import threading
@@ -90,18 +90,17 @@ def json_chunks(value,open_object=False):
 
 def review_records(path):
     pack=struct.Struct('<13d');pending=bytearray()
-    with Path(path).open(encoding='utf-8-sig',newline='') as f:
-        reader=csv.DictReader(f)
-        for row in reader:
-            values=[float(row.get(k) or (0 if i<10 else 'nan')) for i,k in enumerate(REVIEW_COLUMNS)]
-            pending.extend(pack.pack(*values))
-            if len(pending)>=65536:yield pending;pending=bytearray()
+    from column_store import rows
+    for row in rows(path,REVIEW_COLUMNS):
+        values=[float(row.get(k) or (0 if i<10 else 'nan')) for i,k in enumerate(REVIEW_COLUMNS)]
+        pending.extend(pack.pack(*values))
+        if len(pending)>=65536:yield pending;pending=bytearray()
     if pending:yield pending
 
 
 def _block(out,identifier,chunks):
     compressor=zlib.compressobj(6,zlib.DEFLATED,31);size=0
-    with tempfile.SpooledTemporaryFile(max_size=1048576) as f:
+    with tempfile.SpooledTemporaryFile(max_size=1048576,dir=Path(out.name).parent if isinstance(getattr(out,'name',None),str) else None) as f:
         for chunk in chunks:
             size+=len(chunk);f.write(compressor.compress(chunk))
         f.write(compressor.flush());f.seek(0)
@@ -127,7 +126,7 @@ def script(assets):return (Path(assets)/'dataview.js').read_text(encoding='utf-8
 
 
 @serialized
-def render_review(folder,assets,track_js,fastest=None,output=None):
+def render_review(folder,assets,track_js,fastest=None,output=None,local=False):
     folder,assets=Path(folder),Path(assets)
     meta=json.loads((folder/'session.json').read_text(encoding='utf-8'))
     payload=dict(meta=meta,fastest=fastest)
@@ -143,4 +142,8 @@ def render_review(folder,assets,track_js,fastest=None,output=None):
         ('/*VEHICLE_VIEW_JS*/',(assets/'vehicleview.js').read_text(encoding='utf-8')),
         ('/*ENDURANCE_VIEW_JS*/',(assets/'enduranceview.js').read_text(encoding='utf-8')),
         ('/*SESSION_DATA*/null','await StintrixData.jsonBlock("stintrix-meta")')]:source=source.replace(marker,text)
-    write_page(output or folder/'review.html',source,[('stintrix-meta',json_chunks(payload)),('stintrix-inputs',review_records(folder/'inputs.csv'))])
+    target=output or folder/'review.html'
+    if local:
+        from report_assets import prepare
+        source=prepare(target,source,assets,folder.parent.parent)
+    write_page(target,source,[('stintrix-meta',json_chunks(payload)),('stintrix-inputs',review_records(folder/'inputs.csv'))])

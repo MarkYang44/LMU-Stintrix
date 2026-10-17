@@ -1,6 +1,6 @@
 """Plugin-local inventory and notes. Never edits original session metadata."""
 import json
-from pathlib import Path
+from telemetry_file import Path
 from storage import atomic_json
 
 

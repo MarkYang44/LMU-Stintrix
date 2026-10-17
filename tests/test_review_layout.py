@@ -18,6 +18,10 @@ class ReviewLayoutTests(unittest.TestCase):
             self.assertEqual(display(track['name'],'en'),track['name'])
         self.assertEqual(display('Autódromo José Carlos Pace','zh'),'英特拉格斯赛道')
         self.assertEqual(display('Michelin Raceway Road Atlanta','zh'),'亚特兰大之路赛道')
+        self.assertEqual(display('Algarve International Circuit','zh'),'波尔蒂芒赛道')
+        self.assertEqual(display('Algarve International Circuit','en'),'Algarve International Circuit')
+        self.assertEqual(layout('Algarve International Circuit','Algarve International Circuit',4653),'波尔蒂芒赛道 · 4.653 km')
+        self.assertEqual(layout('Algarve International Circuit','Algarve International Circuit GP',4653),'大奖赛布局 · 4.653 km')
         self.assertEqual(display('Unknown test circuit','zh'),'Unknown test circuit')
         self.assertEqual(layout('Monza','Monza',5780.6),'蒙扎国家赛车场 · 5.781 km')
 

@@ -10,6 +10,7 @@ import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from telemetry_file import Path
 import inputscope as app
 import laps as lap_export
 from pyLMUSharedMemory.lmu_data import LMUObjectOut
@@ -655,8 +656,8 @@ class Tests(unittest.TestCase):
             folder = self.lap_csv(Path(temp)/'session')
             before = (folder/'inputs.csv').read_bytes()
             app.make_report(folder)
-            review = (folder/'review.html').read_text(encoding='utf-8')
-            comparison = (folder/'fastest_lap.html').read_text(encoding='utf-8')
+            review = __import__('report_assets').standalone(folder/'review.html')
+            comparison = __import__('report_assets').standalone(folder/'fastest_lap.html')
             for document in (review,comparison):
                 self.assertIn('id="track-map"',document)
                 self.assertIn('class View',document)
@@ -702,7 +703,7 @@ class Tests(unittest.TestCase):
                 sample['et'] = 10 + i / 60
                 self.assertTrue(recorder.add(sample))
                 self.assertFalse(recorder.add(sample))
-            folder = recorder.finish('test completed')
+            folder = Path(recorder.finish('test completed'))
             recorder.report_thread.join(10)
             self.assertFalse(recorder.report_thread.is_alive())
             with (folder / 'inputs.csv').open() as stream:

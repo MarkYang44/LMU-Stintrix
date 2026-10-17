@@ -71,6 +71,15 @@ def main():
     assert {'control_video_history','video_history'}<=modules
     assert {'control_video_assist','video_preferences'}<=modules
     assert {'column_store','telemetry_file','cache_budget','cache_tokens','report_assets','lap_exports','export_cache','storage_actions'}<=modules
+    codec={};exec(embedded.extract('column_store'),codec)
+    assert codec['MAGIC']==b'STXCOL2\n' and codec['LEGACY_MAGIC']==b'STXCOL1\n','Shipping column format is stale'
+    values=[str(i).encode() for i in range(2048)]
+    assert codec['_decode'](codec['_encode'](values),len(values))==values,'Shipping compact column roundtrip failed'
+    video_methods={c.co_name for c in codes(embedded.extract('control_video'))}
+    assist_methods={c.co_name for c in codes(embedded.extract('control_video_assist'))}
+    assert {'manual_zoom','preview_resized'}<=video_methods and {'preview_stamp','remember_preview'}<=assist_methods,'Shipping video preview code is stale'
+    assert 'control_video_guide' in modules
+    assert {'primary_action','show_help','range_issue'}<={c.co_name for c in codes(embedded.extract('control_video_guide'))},'Shipping onboarding is stale'
     from sevenzip import SHA256
     if not args.no_checksums:assert hashlib.sha256((bundle/'_internal/src/tools/7zr.exe').read_bytes()).hexdigest()==SHA256
     assert not any(name.split('.')[0] in {'doctor','release_smoke','tests','tools'} for name in modules)

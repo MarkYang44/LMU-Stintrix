@@ -87,6 +87,19 @@ def run(bundle,root):
     checks.update(normal_shutdown=meta.get('status')=='complete',
         fresh_samples_preserved=rows==meta.get('samples') and rows>1000,
         complete_reference=summary.get('status')=='saved',session_phase_folder='_Race_' in folder.name)
+    from column_store import Reader,packed
+    checks['column_v2_created']=packed(folder/'inputs.csv').is_file() and Reader(packed(folder/'inputs.csv')).version==2
+    # Regenerate through the actual frozen worker after CSV retirement. This
+    # exercises the shipping v2 decoder, not only the source-side test adapter.
+    review_stamp=(folder/'review.html').stat().st_mtime_ns
+    status=json.loads((folder/'report_status.json').read_text(encoding='utf-8'))
+    status['steps']['review']['state']='pending'
+    (folder/'report_status.json').write_text(json.dumps(status),encoding='utf-8')
+    worker=subprocess.run([str(bundle/'LMU-Stintrix.exe'),'--report-worker',str(folder)],
+        cwd=bundle,env=dict(environment,LMU_STINTRIX_REPORT_WORKER='1'),startupinfo=startup,
+        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120)
+    status=json.loads((folder/'report_status.json').read_text(encoding='utf-8'))
+    checks['shipping_worker_reads_column_v2']=worker.returncode==0 and status['steps']['review']['state']=='ready' and (folder/'review.html').stat().st_mtime_ns!=review_stamp
     from library import inventory
     from session_archive import export_session,import_session
     def equal(a,b):

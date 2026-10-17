@@ -1,5 +1,5 @@
 """Lossless blocks, projected reads, legacy analysis, resource and cache lifetimes."""
-import csv,gc,io,json,os,sys,tempfile,time,unittest,zlib
+import csv,gc,io,json,os,random,struct,sys,tempfile,time,unittest,zlib
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
@@ -8,6 +8,75 @@ from telemetry_file import Path as ReadPath
 
 
 class StorageTests(unittest.TestCase):
+    def test_legacy_v1_container_and_both_legacy_column_encodings_still_read(self):
+        from column_store import HEAD,U32
+        header=b'time_s,notes\r\n'
+        times=[b'-0.0000',b'1.0000000000000002',b'1.0000000000000002']
+        notes=[b'""\r\n',b'"x\n""y"""\r\n',b'\r\n']
+        repeat=b''.join(U32.pack(1)+U32.pack(len(v))+v for v in times)
+        prefix=b''.join(U32.pack(0)+U32.pack(len(v))+v for v in notes)
+        original=header+b''.join(a+b','+b for a,b in zip(times,notes))
+        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as t:
+            path=Path(t)/'inputs.csv.stc';entries=[]
+            with path.open('wb') as f:
+                f.write(b'STXCOL1\n'+HEAD.pack(len(original),123,len(header),2)+header)
+                for kind,data in ((0,repeat),(1,prefix)):
+                    encoded=bytes([kind])+zlib.compress(data);entries.append([f.tell(),len(encoded)]);f.write(encoded)
+                index=json.dumps([dict(rows=3,columns=entries)],separators=(',',':')).encode()
+                f.write(index+struct.pack('<Q',len(index))+b'STXEND1\n')
+            reader=Reader(path);self.assertEqual(reader.version,1)
+            self.assertEqual(b''.join(reader.bytes()),original)
+            self.assertEqual(list(rows(Path(t)/'inputs.csv',['notes'],1,2)),[{'notes':'x\n"y"'}])
+
+    def test_v2_adaptive_columns_preserve_lexical_values_and_reduce_realistic_payloads(self):
+        from column_store import _encode,_decode,U32
+        rng=random.Random(41)
+        dictionary=[bytes(rng.randrange(32,127) for _ in range(100)) for _ in range(256)]
+        groups=[['中文,"A"\nB'.encode(),b'',b'-0.000000',b'1.0000000000000002']*512,
+            [f'{i*.010001:.6f}'.encode() for i in range(2048)],
+            [rng.choice(dictionary) for _ in range(2048)],
+            [b'a'*150+str(i).encode()+b'z'*150 for i in range(2048)],
+            [b'']*2048,[b'0.0']*2048]
+        selected=[]
+        for values in groups:
+            encoded=_encode(values);selected.append(encoded[0]);self.assertEqual(_decode(encoded,len(values)),values)
+            # Independent v1 candidates give a storage ceiling for every column.
+            runs=[];last=None;count=0;prefix=bytearray();previous=b''
+            for value in values:
+                if last is not None and value!=last:runs.append(U32.pack(count)+U32.pack(len(last))+last);count=0
+                count+=1;last=value;shared=0
+                while shared<min(len(previous),len(value)) and previous[shared]==value[shared]:shared+=1
+                suffix=value[shared:];prefix.extend(U32.pack(shared)+U32.pack(len(suffix))+suffix);previous=value
+            runs.append(U32.pack(count)+U32.pack(len(last))+last)
+            ceiling=min(len(zlib.compress(b''.join(runs))),len(zlib.compress(prefix)))+1
+            self.assertLessEqual(len(encoded),ceiling)
+        self.assertIn(2,selected);self.assertIn(4,selected)
+
+    def test_v2_mixed_line_endings_bom_and_final_row_without_newline(self):
+        original=b'\xef\xbb\xbftime_s,notes\r\n'+b''.join(
+            str(i).encode()+b',"quoted, \"\"text\"\""'+(b'\r\n' if i%2 else b'\n') for i in range(2600))+b'-0.0000,"last\nfield"'
+        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as t:
+            p=Path(t)/'inputs.csv';p.write_bytes(original);(p.parent/'session.json').write_text('{"status":"complete"}')
+            self.assertTrue(convert(p,replace=True)['converted']);reader=Reader(packed(p))
+            self.assertEqual(reader.version,2);self.assertEqual(b''.join(reader.bytes()),original)
+            self.assertEqual(list(rows(p,['notes'],2600,2601)),[{'notes':'last\nfield'}])
+
+    def test_new_column_encodings_and_malformed_blocks(self):
+        from column_store import _decode
+        # Handwritten wire fixtures are independent of the production encoder.
+        fixtures=[(2,b'\x00\x03abc\x02\x01d',[b'abc',b'abd']),
+            (3,b'\x00\x04-0.0',[b'',b'-0.0']),
+            (4,b'\x02\x00\x03abc\x01\x00\x01',[b'abc',b'',b'abc'])]
+        for kind,raw,expected in fixtures:
+            self.assertEqual(_decode(bytes([kind])+zlib.compress(raw),len(expected)),expected)
+        invalid=[(2,b'\x80',1),(2,b'\xff\xff\xff\xff\x1f',1),
+            (2,b'\x01\x00',1),(2,b'\x00\x02a',1),(3,b'\x00\x00',1),
+            (4,b'\x00',1),(4,b'\x02',1),(4,b'\x01\x02a',1),
+            (4,b'\x01\x00\x01',1),(4,b'\x01\x00\x00\x00',1)]
+        for kind,raw,count in invalid:
+            with self.subTest(kind=kind,raw=raw):
+                with self.assertRaises(ValueError):_decode(bytes([kind])+zlib.compress(raw),count)
+
     def fixture(self,root):
         root=Path(root);root.mkdir(parents=True,exist_ok=True);(root/'session.json').write_text('{"status":"complete"}')
         s=io.StringIO(newline='');w=csv.writer(s);w.writerow(['time_s','throttle','brake','notes'])

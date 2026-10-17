@@ -63,6 +63,32 @@ def fixture(folder, duration=15):
 
 
 class VideoTests(unittest.TestCase):
+    def test_dense_display_preserves_short_releases_extrema_and_gap_boundaries(self):
+        from video_report import sampled
+        rows=[dict(lap_time_s=i*.05,throttle=.8,brake=.7,native_throttle=.9,native_brake=.6,status='estimated') for i in range(2000)]
+        rows[12]['throttle']=0.;rows[13]['brake']=0.;rows[14]['native_throttle']=0.;rows[15]['native_brake']=0.
+        rows[20]['throttle']=1.;rows[21]['brake']=1.
+        for i in range(40,43):rows[i]['throttle']=None
+        output=sampled(rows,limit=120);by_time={r['lap_time_s']:r for r in output}
+        for i in (12,13,14,15,20,21,39,40,42,43):self.assertIn(rows[i]['lap_time_s'],by_time)
+        self.assertTrue(all('_source_gap_s' not in row for row in rows))
+        # Display reduction must not create fake missing-frame gaps.
+        self.assertTrue(all(row['_source_gap_s']<.051 for row in output))
+        rows[900]['lap_time_s']+=.4
+        self.assertGreater(max(r['_source_gap_s'] for r in sampled(rows,120)),.3)
+
+    def test_anchor_integer_variance_matches_population_stddev_threshold(self):
+        import random,statistics
+        from PIL import Image
+        rng=random.Random(42)
+        patterns=[[0,19]*256,[0,20]*256,[0,21]*256]+[[rng.randrange(256) for _ in range(512)] for _ in range(50)]
+        for pixels in patterns:
+            image=Image.new('L',(32,16));image.putdata(pixels);image=image.convert('RGB')
+            for shift in (0,34,35):
+                signature=[min(255,v+shift) for v in pixels]
+                expected=statistics.pstdev(pixels)>=10 and sum(abs(a-b) for a,b in zip(pixels,signature))/512<35
+                self.assertEqual(visible(image,[0,0,32,16],signature),expected)
+
     def test_times_and_ocr_units_are_explicit(self):
         self.assertEqual(clock('1:02.500'),62.5);self.assertEqual(ocr_number('1.234',unit='km'),1234)
         self.assertEqual(ocr_number('1:23.456',timer=True),83.456)

@@ -1,5 +1,5 @@
 """Fewer manual steps without guessing geometry, lap identity or session types."""
-import copy,json,os,sys,tempfile,time,unittest
+import copy,json,os,sys,tempfile,threading,time,unittest
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
@@ -61,6 +61,55 @@ class AssistUITests(unittest.TestCase):
             center.root.update();time.sleep(.01)
             if condition():return
         self.fail('Wizard did not settle')
+
+    def test_preview_reuses_probe_and_bounded_frames_but_invalidates_changed_file(self):
+        from PIL import Image
+        from control_center import ControlCenter
+        from control_video import show
+        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as scratch,patch('control_center.ROOT',Path(scratch)):
+            video=Path(scratch)/'source.mp4';video.write_bytes(b'fixture')
+            media=dict(path=str(video.resolve()),width=640,height=360,duration=10)
+            with patch('video_media.probe',return_value=media) as probe,patch('video_media.preview',side_effect=lambda *a:Image.new('RGB',(640,360),'#334455')) as preview:
+                app=ControlCenter();w=show(app,Path(scratch)).video_wizard
+                try:
+                    w.fields['video'].set(str(video))
+                    with patch.object(w.feedback,'success') as success:
+                        w.read_preview(False);self.pump(app,lambda:not w.busy)
+                        for seconds in (1,2,0):w.request_frame(seconds);self.pump(app,lambda:not w.busy)
+                        self.assertEqual(probe.call_count,1);self.assertEqual(preview.call_count,3);success.assert_not_called()
+                        self.assertFalse(w.bar.complete)
+                    w.zoom.set(2);w.manual_zoom()
+                    for seconds in (3,4,5):w.request_frame(seconds);self.pump(app,lambda:not w.busy)
+                    self.assertEqual(w.zoom.get(),2);self.assertFalse(w.preview_fit)
+                    self.assertLessEqual(len(w.preview_cache),3)
+                    self.assertLessEqual(sum(im.width*im.height*3 for _,im in w.preview_cache.values()),12*1024*1024)
+                    video.write_bytes(b'changed fixture');w.request_frame(5);self.pump(app,lambda:not w.busy)
+                    self.assertEqual(probe.call_count,2)
+                    w.close();self.assertFalse(w.preview_cache)
+                finally:app.close()
+
+    def test_queued_seek_commits_only_latest_frame(self):
+        from PIL import Image
+        from control_center import ControlCenter
+        from control_video import show
+        entered=threading.Event();release=threading.Event();calls=[]
+        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as scratch,patch('control_center.ROOT',Path(scratch)):
+            video=Path(scratch)/'source.mp4';video.write_bytes(b'fixture')
+            media=dict(path=str(video.resolve()),width=640,height=360,duration=10)
+            def preview(path,seconds,*args):
+                calls.append(seconds)
+                if seconds==1:entered.set();release.wait(5)
+                return Image.new('RGB',(640,360),'#334455')
+            with patch('video_media.probe',return_value=media),patch('video_media.preview',side_effect=preview):
+                app=ControlCenter();w=show(app,Path(scratch)).video_wizard
+                try:
+                    w.fields['video'].set(str(video));w.read_preview(False);self.pump(app,lambda:not w.busy)
+                    calls.clear();presented=[]
+                    with patch.object(w,'fit_preview',side_effect=lambda:presented.append(w.loaded_sample)):
+                        w.request_frame(1);self.pump(app,entered.is_set);w.request_frame(2);w.request_frame(3);release.set()
+                        self.pump(app,lambda:not w.busy and w.seek_job is None and w.loaded_sample==3)
+                    self.assertEqual(calls,[1,3]);self.assertTrue(presented);self.assertEqual(set(presented),{3});self.assertIsNone(w.poll_job)
+                finally:release.set();app.close()
 
     def test_select_auto_preview_range_identity_undo_and_reuse(self):
         from PIL import Image,ImageDraw,ImageFont

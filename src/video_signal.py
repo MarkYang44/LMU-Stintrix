@@ -1,6 +1,5 @@
 """Calibrated LMU pedal arcs; missing HUD is distinct from pedal zero."""
 import math
-import statistics
 
 
 def number(value, low=None, high=None):
@@ -61,8 +60,11 @@ def anchor_signature(image, box):
 def visible(image, box, signature):
     current=list(image.crop(box).convert('L').resize((32,16)).get_flattened_data())
     # A fixed label must remain legible; a black/covered HUD cannot be pedal zero.
-    if statistics.pstdev(current)<10:return False
-    return sum(abs(a-b) for a,b in zip(current,signature))/len(signature)<35
+    count=len(current);total=sum(current)
+    # Exact population-variance threshold on integer pixels; no Fraction/stddev
+    # work per frame, with the same threshold and anchor comparison as before.
+    if count*sum(v*v for v in current)-total*total<100*count*count:return False
+    return sum(abs(a-b) for a,b in zip(current,signature))<35*len(signature)
 
 
 def ocr_number(text, timer=False, unit='m'):

@@ -60,9 +60,15 @@ class ChoiceStrip(tk.Frame):
             for key,delta in (('<Left>',-1),('<Right>',1)):
                 button.bind(key,lambda _,index=i,d=delta:keyboard_action(self,lambda:self.arrow(index+d)))
     def arrow(self,index):
-        index=max(0,min(len(self.choices)-1,index));self.choose(self.choices[index][1]);list(self.buttons.values())[index].focus_set();return 'break'
+        current=next(i for i,(_,value) in enumerate(self.choices) if value==self.variable.get())
+        direction=1 if index>current else -1
+        while 0<=index<len(self.choices):
+            value=self.choices[index][1]
+            if self.buttons[value].enabled:self.choose(value);self.buttons[value].focus_set();break
+            index+=direction
+        return 'break'
     def choose(self,value):
-        if self.variable.get()==value:return
+        if not self.buttons[value].enabled or self.variable.get()==value:return
         self.variable.set(value);self.command()
     def refresh(self,animate=True):
         for value,button in self.buttons.items():button.configure(selected=value==self.variable.get())
@@ -100,14 +106,14 @@ class Steps(tk.Frame):
         if page is None:return str(self.pages[self.current]) if self.current is not None else ''
         index=page if isinstance(page,int) else next(i for i,p in enumerate(self.pages) if p==page or str(p)==str(page))
         if index==self.current:return str(self.pages[index])
-        start=self.offset if self.motion.jobs else px(self,5)
         self.motion.cancel('page')
         for p in self.pages:p.place_forget()
         self.current=index
         for i,button in enumerate(self.buttons):button.configure(selected=i==index)
         self.indicator.select(self.buttons[index],animate)
-        # Precision calibration stays still. Form pages get one small arrival only.
-        self.motion.animate('page',lambda t:self.place_page(index,start*(1-t)),160 if animate and index!=1 else 0)
+        # These pages are visited repeatedly. Keep fields and calibration fixed;
+        # the interruptible tab marker alone communicates the pointer action.
+        self.place_page(index,0)
         self.event_generate('<<NotebookTabChanged>>',when='tail')
         return str(self.pages[index])
 
@@ -124,7 +130,7 @@ class TaskProgress(tk.Canvas):
         target=max(0,min(100,float(value)))
         if target==self.target:return
         self.target=target;start=self.value
-        self.motion.animate('progress',lambda t:self.present(start+(target-start)*t),160 if target>=start else 0)
+        self.motion.animate('progress',lambda t:self.present(start+(target-start)*t),120 if target>=start else 0)
     def __getitem__(self,key):return self.target if key=='value' else super().__getitem__(key)
     def present(self,value):self.value=value;self.paint()
     def paint(self):

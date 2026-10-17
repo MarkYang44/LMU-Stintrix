@@ -1,5 +1,6 @@
 """Fail closed: only public source/documentation, never local racing data."""
 import argparse
+import ast
 import hashlib
 import json
 from pathlib import Path,PurePosixPath
@@ -8,7 +9,7 @@ import subprocess
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-ROOT_FILES={'.gitignore','.gitattributes','README.md','LICENSE','THIRD_PARTY_NOTICES.md','VERSION',
+ROOT_FILES={'.gitignore','.gitattributes','README.md','README.zh-CN.md','LICENSE','THIRD_PARTY_NOTICES.md','VERSION',
     'requirements.txt','requirements-build.txt','requirements-lock.txt','Setup.cmd','Start.cmd','Start Clean.cmd','Start Clean Controls.cmd','Start Demo.cmd','Demo.cmd'}
 PRIVATE_PARTS={'data','logs','demologs','importedlogs','recoveredlogs','selectedlaps','videocurves','diagnostics','_local','_backup','_verification','__pycache__','.venv','vendor','runtime','racecomrenderer','_racecom','_report_history'}
 PRIVATE_NAMES={'recording_settings.json','local_settings.json','settings.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json','session.json','recording_checkpoint.json','vehicle_checkpoint.json',
@@ -41,10 +42,14 @@ def audit(files,read,no_checksums=False):
     failures=[];total=0
     for name in files:
         if not allowed(name):failures.append(name+': outside publication allowlist');continue
-        if name in PUBLIC_ASSETS and no_checksums:continue
+        if name in PUBLIC_ASSETS and no_checksums and isinstance(PUBLIC_ASSETS[name],str):continue
         blob=read(name);total+=len(blob)
         if name in PUBLIC_ASSETS:
-            if hashlib.sha256(blob).hexdigest()!=PUBLIC_ASSETS[name]:failures.append(name+': reviewed asset checksum mismatch')
+            expected=PUBLIC_ASSETS[name]
+            if isinstance(expected,int):
+                # Newly reviewed documentation captures use file sizes, not hashes.
+                if len(blob)!=expected:failures.append(name+': reviewed capture size mismatch')
+            elif hashlib.sha256(blob).hexdigest()!=expected:failures.append(name+': reviewed asset checksum mismatch')
             continue
         try:blob.decode('utf-8-sig')
         except UnicodeError:failures.append(name+': non-text content');continue
@@ -62,6 +67,13 @@ def main():
     else:
         files=subprocess.check_output(git_command('ls-files','-z'),cwd=ROOT).decode('utf-8').split('\0');files=[f for f in files if f]
         read=lambda name:subprocess.check_output(git_command('show',':'+name),cwd=ROOT)
+        # Audit staged captures against their staged registry, even while the
+        # working tree is replacing an older screenshot set. Parse literals only.
+        registry=ast.parse(read('tools/readme_assets.py').decode('utf-8'))
+        assignment=next(node for node in registry.body if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='README_ASSETS' for target in node.targets))
+        staged_assets=ast.literal_eval(assignment.value)
+        for name in README_ASSETS:PUBLIC_ASSETS.pop(name,None)
+        PUBLIC_ASSETS.update(staged_assets)
     result=audit(files,read,args.no_checksums);print(json.dumps(result,indent=2) if args.json else f"Publication audit: {'PASS' if result['ok'] else 'FAIL'}; {result['files']} public files, {result['bytes']} bytes"+('\n'+'\n'.join(result['failures']) if result['failures'] else ''))
     return 0 if result['ok'] else 1
 

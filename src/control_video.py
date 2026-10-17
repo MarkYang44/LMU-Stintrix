@@ -10,6 +10,7 @@ from i18n import tr,Label
 from management import panel
 from video_signal import clock
 from control_video_assist import VideoAssist
+from control_video_guide import VideoGuide
 
 MODES={'普通 POV · 时间 / 地标':'time','距离 + 计时 HUD · OCR':'distance_hud','视频 + 同圈遥测 · 同步':'telemetry'}
 
@@ -22,19 +23,20 @@ def show(app,root):
     return window
 
 
-class VideoWizard(VideoAssist):
+class VideoWizard(VideoAssist,VideoGuide):
     def __init__(self,app,window,root):
         self.app=app;self.window=window;self.root=root;self.media=None;self.image=None;self.photo=None
         self.geometry={};self.calibration_size=None;self.clicks=[];self.drag=None;self.busy=False;self.cancel=threading.Event();self.progress=(0,'');self.result=None
-        self.fields={};self.zoom=tk.DoubleVar(window,value=1);self.target=tk.StringVar(window,value='throttle')
+        self.fields={};self.field_widgets={};self.zoom=tk.DoubleVar(window,value=1);self.target=tk.StringVar(window,value='throttle')
         self.mode=tk.StringVar(window,value=next(iter(MODES)));self.status=tk.StringVar(window,value='先选择视频，再读取标定帧。所有处理都在本机完成。')
         self.clockwise={k:tk.BooleanVar(window,value=True) for k in ('throttle','brake')}
         self.thickness=tk.StringVar(window,value='6');self.hz=tk.StringVar(window,value='20');self.unit=tk.StringVar(window,value='m')
-        self.init_assist()
+        self.init_assist();self.init_guidance()
         from control_video_layout import build
         from control_motion import Motion
-        self.motion=Motion(window);self.poll_job=None;self.preview_key=None;self.scroll_pages=[]
-        build(self,MODES);self.mode_changed();self.palette_roles=[]
+        self.motion=Motion(window);self.poll_job=None;self.preview_key=None;self.scroll_pages=[];self.fit_job=None;self.preview_fit=True
+        build(self,MODES);self.mode_changed();self.install_guidance();self.palette_roles=[]
+        window.retranslate=self.refresh_palette
         def remember(widget):
             if isinstance(widget,(tk.Label,tk.Entry,tk.Text)):
                 color=widget.cget('fg');role=next((key for key in ('FG','MUTED','ACCENT') if getattr(T,key)==color),None)
@@ -56,9 +58,13 @@ class VideoWizard(VideoAssist):
                         self.identities[label]=(track,layout,length)
                 self.identitybox.configure(values=list(self.identities))
                 self.infer_layout()
+            if not self.identities and not self.manual_body.winfo_manager():self.toggle_manual()
+            self.queue_guidance()
         app.run_background(lambda:inventory(root),loaded)
 
     def alive(self):return not self.app.closing and self.window.winfo_exists()
+
+    def mode_code(self):return MODES[self.mode.get()]
 
     def refresh_palette(self):
         from control_video_widgets import Action,TaskProgress
@@ -70,9 +76,12 @@ class VideoWizard(VideoAssist):
             if isinstance(widget,(Action,TaskProgress,Field,Select,Switch)):widget.paint()
             for child in widget.winfo_children():repaint(child)
         repaint(self.window)
+        self.status.set(tr(self.status.get()))
+        self.percent.configure(text=tr(self.percent.cget('text')))
         for strip in (self.tabs,self.targets):
             if strip is self.tabs:strip.indicator.select(strip.buttons[strip.current],False)
             else:strip.refresh(False)
+        self.queue_guidance()
 
     def entry(self,parent,title,key,default='',browse=None):
         from control_video_layout import entry
@@ -117,6 +126,8 @@ class VideoWizard(VideoAssist):
         else:self.distance_options.pack_forget()
         for key in ('distance_box','timer_box'):self.targets.buttons[key].configure(state='normal' if mode=='distance_hud' else 'disabled')
         if mode!='distance_hud' and self.target.get() in ('distance_box','timer_box'):self.target.set('throttle')
+        if mode!='time' and not self.advanced_body.winfo_manager():self.toggle_advanced()
+        self.queue_guidance()
 
     def pause_hidden_scroll(self):
         for page in self.scroll_pages:
@@ -142,15 +153,31 @@ class VideoWizard(VideoAssist):
         if compact:
             self.heading_meta.pack_forget();self.heading_hint.pack_forget()
             self.heading_title.configure(font=(T.FONT,17,'bold'));self.heading_frame.pack_configure(pady=(5,1))
+            self.geometry_label.pack_forget()
         else:
             self.heading_meta.pack(fill='x',before=self.heading_title,pady=(3,7));self.heading_hint.pack(fill='x',pady=(3,7))
             self.heading_title.configure(font=(T.FONT,21,'bold'));self.heading_frame.pack_configure(pady=(15,6))
+            self.geometry_label.pack(fill='x',pady=(3,7))
 
     def fit_preview(self):
         if self.image is None:return
+        self.preview_fit=True
         self.window.update_idletasks()
         amount=min((self.canvas.winfo_width()-8)/self.image.width,(self.canvas.winfo_height()-8)/self.image.height,3)
         self.zoom.set(max(.1,round(amount,2)));self.redraw();self.canvas.xview_moveto(0);self.canvas.yview_moveto(0)
+
+    def manual_zoom(self):
+        self.preview_fit=False
+        if self.fit_job:self.window.after_cancel(self.fit_job);self.fit_job=None
+        self.redraw()
+
+    def preview_resized(self,_):
+        if self.image is None:self.empty_preview();return
+        if not self.preview_fit or self.fit_job:return
+        def fit():
+            self.fit_job=None
+            if self.alive() and self.preview_fit and self.image is not None:self.fit_preview()
+        self.fit_job=self.window.after_idle(fit)
 
     def target_changed(self):
         self.clicks=[]
@@ -158,7 +185,9 @@ class VideoWizard(VideoAssist):
         self.redraw()
 
     def clear_target(self):
-        self.geometry.pop(self.target.get(),None);self.clicks=[];self.redraw()
+        if self.busy:return
+        if self.target.get() not in self.geometry and not self.clicks:return
+        self.save_undo();self.geometry.pop(self.target.get(),None);self.clicks=[];self.drag=None;self.redraw()
 
     def check_calibration(self):
         if self.image is None:return
@@ -190,7 +219,11 @@ class VideoWizard(VideoAssist):
             self.clicks.append(point)
             if len(self.clicks)==3:self.geometry[self.target.get()]=dict(points=list(self.clicks))
             self.hint.set(['点击 0% 起点','点击 100% 终点','圆弧已标定；检查覆盖线，必要时切换顺 / 逆时针。'][len(self.clicks)-1]);self.redraw()
-            if len(self.clicks)==3:self.advance_target()
+            if len(self.clicks)==3:
+                from video_signal import arc_points
+                try:arc_points(dict(self.geometry[self.target.get()],clockwise=self.clockwise[self.target.get()].get(),thickness=float(self.thickness.get())))
+                except ValueError:pass
+                else:self.advance_target()
         else:self.drag=point
 
     def dragging(self,event):
@@ -212,6 +245,7 @@ class VideoWizard(VideoAssist):
         self.status.set(self.progress[1])
 
     def redraw(self):
+        self.queue_guidance()
         if self.image is None:self.empty_preview();return
         from PIL import ImageTk
         from video_signal import arc_points
@@ -237,11 +271,12 @@ class VideoWizard(VideoAssist):
         names={'throttle':'油门圆弧','brake':'刹车圆弧','anchor':'固定文字','distance_box':'距离读数','timer_box':'圈内计时'}
         self.geometry_label.configure(text='已标定：'+(' / '.join(names.get(k,k) for k in self.geometry) or '尚未设置'))
 
-    def dispatch(self,work,done,label='后台处理中…',with_state=False):
+    def dispatch(self,work,done,label='后台处理中…',with_state=False,preview=False):
         if self.busy:return
-        self.busy=True;self.cancel=threading.Event();self.progress=[0,label];self.status.set(label)
-        self.bar.complete=False;self.bar['value']=0;self.percent.configure(text=tr('处理中'))
-        self.start.configure(state='disabled',text='处理中…');self.stop.configure(state='normal');self.compare_button.configure(state='disabled')
+        self.busy=True;self.preview_loading=preview;self.cancel=threading.Event();self.progress=[0,label];self.status.set(label)
+        if not preview:self.bar.complete=False;self.bar['value']=0
+        self.percent.configure(text=tr('读取预览' if preview else '处理中'))
+        self.start.configure(state='disabled',text='读取预览…' if preview else '处理中…');self.back.configure(state='disabled');self.stop.configure(state='normal');self.compare_button.configure(state='disabled')
         self.history_button.configure(state='disabled')
         self.feedback.busy('video');self.poll()
         def finished(result,error):
@@ -251,11 +286,15 @@ class VideoWizard(VideoAssist):
             self.start.configure(state='normal',text='开始提取');self.stop.configure(state='disabled');self.compare_button.configure(state='normal')
             self.history_button.configure(state='normal')
             self.feedback.busy('video',False)
+            self.queue_guidance()
             if error:
+                if preview:self.preview_pending=None
                 self.status.set(tr('已取消') if self.cancel.is_set() else error);self.percent.configure(text=tr('已取消') if self.cancel.is_set() else tr('未完成'))
                 if '未找到 ff' in str(error):self.tools_body.pack(fill='x')
             else:
-                done(result);self.bar.complete=True;self.bar['value']=100;self.bar.paint();self.percent.configure(text=tr('已完成'));self.feedback.success()
+                if done(result) is False:return
+                self.percent.configure(text=tr('预览就绪' if preview else '已完成'))
+                if not preview:self.bar.complete=True;self.bar['value']=100;self.bar.paint();self.feedback.success()
         cancel,progress=self.cancel,self.progress
         self.app.run_background((lambda:work(cancel,progress)) if with_state else work,finished)
 
@@ -308,6 +347,7 @@ class VideoWizard(VideoAssist):
                 try:remember(self.root,config,self.image,self.media)
                 except (ValueError,KeyError,OSError):pass
             self.status.set('已保存：'+result['folder']+'；点击“打开结果”查看报告。')
+            self.tabs.select(2);self.queue_guidance()
         self.dispatch(work,done,with_state=True)
 
     def open_result(self):
@@ -346,14 +386,16 @@ class VideoWizard(VideoAssist):
     def poll(self):
         self.poll_job=None
         if not self.alive() or not self.busy:return
-        self.bar['value']=self.progress[0]
+        if not self.preview_loading:self.bar['value']=self.progress[0]
         self.status.set('正在取消，保留已有结果…' if self.cancel.is_set() else self.progress[1])
-        self.percent.configure(text=f'{self.progress[0]}%' if self.progress[0] else tr('处理中'))
+        self.percent.configure(text=tr('读取预览') if self.preview_loading else f'{self.progress[0]}%' if self.progress[0] else tr('处理中'))
         self.poll_job=self.window.after(150,self.poll)
 
     def destroyed(self,event):
         if event.widget is self.window:
+            self.dispose_guidance()
             self.cancel.set();self.photo=None;self.image=None;self.preview_key=None;self.palette_roles.clear()
+            self.preview_cache.clear();self.preview_media_stamp=None;self.preview_pending=None
             if self.poll_job:
                 try:self.window.after_cancel(self.poll_job)
                 except tk.TclError:pass
@@ -362,5 +404,9 @@ class VideoWizard(VideoAssist):
                 try:self.window.after_cancel(self.seek_job)
                 except tk.TclError:pass
                 self.seek_job=None
+            if self.fit_job:
+                try:self.window.after_cancel(self.fit_job)
+                except tk.TclError:pass
+                self.fit_job=None
 
     def close(self):self.cancel.set();self.window.destroy()

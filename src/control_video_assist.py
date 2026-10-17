@@ -1,5 +1,6 @@
 """Fewer wizard actions: automatic preview, visual lap range, reusable HUD drafts."""
 import copy
+from collections import OrderedDict
 from pathlib import Path
 import tkinter as tk
 from video_signal import clock
@@ -10,6 +11,20 @@ class VideoAssist:
         self.seek=tk.DoubleVar(self.window,value=0);self.seek_text=tk.StringVar(self.window,value='0.000 s')
         self.media_hint=tk.StringVar(self.window,value='选择文件后自动读取预览和时长。普通视频保持默认输入条件即可。')
         self.undo_stack=[];self.loaded_sample=None;self.seek_job=None;self.preview_pending=None;self.preview_loading=False
+        self.preview_cache=OrderedDict();self.preview_media_stamp=None
+
+    def preview_stamp(self,path,directory):
+        try:
+            file=Path(path).resolve();stamp=file.stat()
+            return str(file),stamp.st_size,stamp.st_mtime_ns,str(directory)
+        except OSError:return None
+
+    def remember_preview(self,key,result):
+        if key is None:return
+        self.preview_cache[key]=result;self.preview_cache.move_to_end(key)
+        # RGB previews only; never retain full-resolution video frames.
+        while len(self.preview_cache)>3 or sum(image.width*image.height*3 for _,image in self.preview_cache.values())>12*1024*1024:
+            self.preview_cache.popitem(last=False)
 
     def infer_layout(self):
         if self.fields['track'].get().strip():return
@@ -28,6 +43,8 @@ class VideoAssist:
     def selected_video(self):
         if self.seek_job:self.window.after_cancel(self.seek_job);self.seek_job=None
         self.preview_pending=None;self.clicks=[];self.drag=None
+        self.preview_fit=True
+        self.preview_cache.clear();self.preview_media_stamp=None;self.loaded_sample=None
         self.geometry={};self.calibration_size=None;self.image=None;self.media=None;self.photo=None;self.preview_key=None
         self.undo_stack=[];self.result=None;self.open.configure(state='disabled')
         for key,value in (('start','0'),('end',''),('sample','0')):self.fields[key].set(value)
@@ -40,13 +57,24 @@ class VideoAssist:
         try:
             path=self.fields['video'].get();seconds=clock(self.fields['sample'].get());directory=self.fields['ffmpeg'].get()
         except ValueError as error:self.status.set(str(error));return
+        stamp=self.preview_stamp(path,directory);key=(stamp,seconds) if stamp is not None else None
+        cached=self.preview_cache.get(key) if key is not None else None
+        known_media=self.media if stamp is not None and stamp==self.preview_media_stamp else None
         def work(cancel,_):
             from video_media import probe,preview
-            media=probe(path,directory,cancel)
+            media=known_media or probe(path,directory,cancel)
             if seconds>=media['duration']:raise ValueError('预览时间超出视频时长')
             return media,preview(path,seconds,directory,cancel)
         def done(result):
+            self.remember_preview(key,result)
+            if self.preview_pending is not None:
+                pending=self.preview_pending;self.preview_pending=None
+                if pending!=seconds:
+                    self.seek_job=self.window.after_idle(lambda:self.request_frame(pending))
+                    return False
+            same_view=self.image is not None and self.image.size==result[1].size and self.media is not None and self.media['path']==result[0]['path']
             self.media,self.image=result;self.loaded_sample=seconds
+            self.preview_media_stamp=stamp
             if not self.fields['end'].get().strip():self.fields['end'].set(f"{self.media['duration']:.6f}")
             if self.calibration_size and self.calibration_size!=[self.media['width'],self.media['height']]:self.geometry={};self.calibration_size=None
             reused=False
@@ -58,13 +86,14 @@ class VideoAssist:
             self.seek_scale.configure(to=max(.001,self.media['duration']-.001));self.seek.set(seconds);self.seek_changed(seconds)
             self.infer_layout()
             if select:self.tabs.select(self.calibration)
-            clicks=self.clicks[:];self.fit_preview();self.target_changed();self.clicks=clicks;self.redraw()
+            clicks=self.clicks[:]
+            if self.preview_fit or not same_view:self.fit_preview()
+            self.target_changed();self.clicks=clicks;self.redraw()
             self.media_hint.set(f"{self.media['width']} × {self.media['height']} · {self.media['duration']:.3f} 秒；圈段可在预览条上设置。")
             self.status.set('已自动复用上次 HUD 标定，请检查覆盖线后提取。' if reused else '预览已就绪。选择赛道布局后，在第 2 步拖动时间条设置圈段并标定 HUD。')
-            if self.preview_pending is not None:
-                pending=self.preview_pending;self.preview_pending=None
-                self.seek_job=self.window.after_idle(lambda:self.request_frame(pending))
-        self.preview_loading=True;self.dispatch(work,done,'正在读取视频预览…',with_state=True)
+        if cached is not None:
+            self.preview_cache.move_to_end(key);done(cached);return
+        self.preview_loading=True;self.dispatch(work,done,'正在读取视频预览…',with_state=True,preview=True)
 
     def apply_geometry(self,value):
         self.geometry={k:copy.deepcopy(value[k]) for k in ('throttle','brake','anchor','distance_box','timer_box') if k in value}

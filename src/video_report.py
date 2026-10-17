@@ -10,6 +10,8 @@ h2{font-size:20px}p{line-height:1.7;color:#536176}section{background:white;borde
 .badge{font-size:13px;color:#976000;background:#fff4d8;padding:7px 12px;border-radius:9px;display:inline-block}
 button,input{font:inherit;border:1px solid #ccd4df;border-radius:9px;padding:8px 12px;background:white;color:#172236}
 button{cursor:pointer;margin-right:8px}canvas{width:100%;height:290px;display:block;margin-top:20px}#tip{min-height:24px;color:#536176;font-variant-numeric:tabular-nums}
+button:disabled{cursor:default;opacity:.5}button:focus-visible,input:focus-visible{outline:2px solid #2779c7;outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){button{transition:transform 100ms ease-out}button[data-pointer-pressed]{transform:scale(.98)}}
 table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,th{border-bottom:1px solid #e1e6ed;padding:12px;text-align:left}pre{white-space:pre-wrap;line-height:1.6;font-size:13px}
 .tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}input{width:90px}small{color:#536176}
 .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0}.metric{background:#f4f6f9;padding:15px;border-radius:12px}.metric span{display:block;font-size:13px;color:#536176;margin-bottom:8px}.metric strong{font-size:23px}summary{cursor:pointer;color:#536176}details{margin-top:16px}details pre{max-height:320px;overflow:auto}
@@ -20,30 +22,44 @@ const report=JSON.parse(document.getElementById('payload').textContent),
 comparison=['stintrix.video-comparison','stintrix.video-history-comparison'].includes(report.format),history=report.format==='stintrix.video-history-comparison', rows=comparison?report.curves[0]:report.rows,
 other=comparison?report.curves[1]:[],canvas=document.getElementById('pedals'),tip=document.getElementById('tip');
 let axis='lap_time_s',lo=0,hi=rows.at(-1)?.lap_time_s||1;
-function points(key,data=rows){return data.map(r=>[r[axis],r[key]]);}
+let drawFrame=null,hoverFrame=null,hoverX=0;const indexes=new WeakMap();
+function sampleIndex(data){let cache=indexes.get(data);if(!cache){cache={};indexes.set(data,cache);}if(cache[axis])return cache[axis];
+ const sorted=data.map((row,i)=>[row[axis],row,i]).filter(item=>Number.isFinite(item[0])).sort((a,b)=>a[0]-b[0]||a[2]-b[2]);
+ return cache[axis]=sorted.filter((item,i)=>i===0||item[0]!==sorted[i-1][0]);}
+function nearest(data,t){const index=sampleIndex(data);if(!index.length||t<index[0][0]||t>index.at(-1)[0])return null;
+ let left=0,right=index.length;while(left<right){const mid=(left+right)>>1;if(index[mid][0]<t)left=mid+1;else right=mid;}
+ let item=index[Math.min(left,index.length-1)],before=index[left-1];
+ if(before&&(Math.abs(before[0]-t)<Math.abs(item[0]-t)||Math.abs(before[0]-t)===Math.abs(item[0]-t)&&before[2]<item[2]))item=before;
+ return Math.abs(item[0]-t)>(axis==='distance_m'?30:.3)?null:item[1];}
+function requestDraw(){if(drawFrame===null)drawFrame=requestAnimationFrame(()=>{drawFrame=null;draw();});}
 function draw(){
- const ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=290,d=devicePixelRatio||1;canvas.width=w*d;canvas.height=h*d;ctx.scale(d,d);
+ const ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=290,d=devicePixelRatio||1;if(w<=70)return;
+ if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d);}ctx.setTransform(d,0,0,d,0,0);
  ctx.clearRect(0,0,w,h);ctx.font='12px Segoe UI';ctx.lineWidth=1;
  const x=v=>50+(v-lo)/(hi-lo)*(w-70),y=v=>240-v*190;
  for(let i=0;i<=4;i++){let v=i/4;ctx.strokeStyle='#e3e8ef';ctx.beginPath();ctx.moveTo(50,y(v));ctx.lineTo(w-20,y(v));ctx.stroke();ctx.fillStyle='#536176';ctx.fillText(Math.round(v*100)+'%',6,y(v)+4);ctx.fillText((lo+(hi-lo)*v).toFixed(axis==='distance_m'?0:1),x(lo+(hi-lo)*v)-10,270);}
  const lines=[['throttle','#00a87a',rows,false],['brake','#ed3559',rows,false],['native_throttle','#2779c7',rows,true],['native_brake','#8f64c9',rows,true],['throttle',history?'#2779c7':'#00a87a',other,true],['brake',history?'#8f64c9':'#ed3559',other,true]];
  for(const [key,color,data,dash] of lines){ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash(dash?[5,4]:[]);ctx.beginPath();let active=false,previous=null;
-  for(const r of data){const t=r[axis],v=r[key];if(t==null||v==null||t<lo||t>hi||previous!=null&&r.lap_time_s-previous>Math.max(.3,report.frameGap||.3)){active=false;previous=r.lap_time_s;if(t==null||v==null||t<lo||t>hi)continue;}if(active)ctx.lineTo(x(t),y(v));else ctx.moveTo(x(t),y(v));active=true;previous=r.lap_time_s;}ctx.stroke();}
+  for(const r of data){const t=r[axis],v=r[key];if(t==null||v==null||t<lo||t>hi||previous!=null&&(r._source_gap_s??r.lap_time_s-previous)>Math.max(.3,report.frameGap||.3)){active=false;previous=r.lap_time_s;if(t==null||v==null||t<lo||t>hi)continue;}if(active)ctx.lineTo(x(t),y(v));else ctx.moveTo(x(t),y(v));active=true;previous=r.lap_time_s;}ctx.stroke();}
  ctx.setLineDash([]);ctx.fillStyle='#536176';ctx.fillText(axis==='distance_m'?'赛道进度 / m':'圈内时间 / s',w-150,287);
 }
-function reset(){lo=0;hi=1;for(const data of [rows,other])for(const r of data)if(r[axis]!=null)hi=Math.max(hi,r[axis]);document.getElementById('from').value=lo;document.getElementById('to').value=hi.toFixed(2);draw();}
+function reset(){lo=0;hi=1;for(const data of [rows,other])for(const r of data)if(r[axis]!=null)hi=Math.max(hi,r[axis]);document.getElementById('from').value=lo;document.getElementById('to').value=hi.toFixed(2);requestDraw();}
 document.getElementById('time').onclick=()=>{axis='lap_time_s';reset();};
 document.getElementById('distance').onclick=()=>{axis='distance_m';reset();};
-document.getElementById('zoom').onclick=()=>{const a=+document.getElementById('from').value,b=+document.getElementById('to').value;if(Number.isFinite(a)&&Number.isFinite(b)&&b>a){lo=a;hi=b;draw();}};
+document.getElementById('zoom').onclick=()=>{const a=+document.getElementById('from').value,b=+document.getElementById('to').value;if(Number.isFinite(a)&&Number.isFinite(b)&&b>a){lo=a;hi=b;requestDraw();}};
 document.getElementById('reset').onclick=reset;
 if(!report.distanceReady)document.getElementById('distance').disabled=true;
-canvas.onmousemove=e=>{const t=lo+Math.max(0,Math.min(1,(e.offsetX-50)/(canvas.clientWidth-70)))*(hi-lo);
- const read=(data,label)=>{let nearest=null,first=null,last=null;for(const row of data){if(row[axis]==null)continue;first??=row[axis];last=row[axis];if(!nearest||Math.abs(row[axis]-t)<Math.abs(nearest[axis]-t))nearest=row;}
-  if(!nearest||t<first||t>last||Math.abs(nearest[axis]-t)>(axis==='distance_m'?30:.3))return label+'：无样本';
-  const fmt=v=>v==null?'缺失':(v*100).toFixed(1)+'%';return `${label} 油门 ${fmt(nearest.throttle)} · 刹车 ${fmt(nearest.brake)}`;};
+function hover(){hoverFrame=null;const t=lo+Math.max(0,Math.min(1,(hoverX-50)/Math.max(1,canvas.clientWidth-70)))*(hi-lo);
+ const read=(data,label)=>{const row=nearest(data,t);if(!row)return label+'：无样本';
+  const fmt=v=>v==null?'缺失':(v*100).toFixed(1)+'%';return `${label} 油门 ${fmt(row.throttle)} · 刹车 ${fmt(row.brake)}`;};
  tip.textContent=`${axis==='distance_m'?'距离':'圈内时间'} ${t.toFixed(3)} ${axis==='distance_m'?'m':'s'} · ${read(rows,comparison?'A':'视频')}`+(comparison?' | '+read(other,history?'B 历史':'B'):'');
-};
-new ResizeObserver(draw).observe(canvas);reset();
+}
+canvas.onmousemove=e=>{hoverX=e.offsetX;if(hoverFrame===null)hoverFrame=requestAnimationFrame(hover);};
+canvas.onmouseleave=()=>{if(hoverFrame!==null)cancelAnimationFrame(hoverFrame);hoverFrame=null;tip.textContent='移动鼠标查看样本';};
+new ResizeObserver(requestDraw).observe(canvas);reset();
+document.addEventListener('pointerdown',e=>{const button=e.target.closest?.('button');if(button&&!button.disabled)button.setAttribute('data-pointer-pressed','');});
+function releaseButtons(){document.querySelectorAll('[data-pointer-pressed]').forEach(button=>button.removeAttribute('data-pointer-pressed'));}
+document.addEventListener('pointerup',releaseButtons);document.addEventListener('pointercancel',releaseButtons);window.addEventListener('blur',releaseButtons);
 const delta=document.getElementById('delta');
 if(delta&&report.delta.length){const ctx=delta.getContext('2d'),w=1200,h=260;delta.width=w;delta.height=h;
  const valid=report.delta.filter(r=>r[1]!=null),max=Math.max(.1,...valid.map(r=>Math.abs(r[1]))),length=report.identity.length_m;
@@ -53,16 +69,25 @@ if(delta&&report.delta.length){const ctx=delta.getContext('2d'),w=1200,h=260;del
 
 
 def sampled(rows, limit=12000):
-    # Preserve gaps and pedal extrema when reducing dense display traces.
+    # The limit is a display target; gap boundaries take precedence. Never
+    # remove a narrow lift/brake release or draw across missing data to fit it.
     if len(rows)<=limit:return rows
-    step=max(1,(len(rows)+limit//5-1)//(limit//5));out=[]
+    keys=[key for key in ('throttle','brake','native_throttle','native_brake') if any(row.get(key) is not None for row in rows)]
+    buckets=max(1,limit//(2+2*len(keys)));step=max(1,(len(rows)+buckets-1)//buckets);out=[];previous=-1
     for i in range(0,len(rows),step):
         chunk=rows[i:i+step];indices={0,len(chunk)-1}
-        for key in ('throttle','brake'):
-            indices.add(max(range(len(chunk)),key=lambda j:chunk[j].get(key) or 0))
-        missing=next((j for j,r in enumerate(chunk) if r.get('status')!='estimated'),None)
-        if missing is not None:indices.add(missing)
-        out.extend(chunk[j] for j in sorted(indices))
+        for key in keys:
+            valid=[j for j,row in enumerate(chunk) if row.get(key) is not None]
+            if valid:
+                indices.add(min(valid,key=lambda j:chunk[j][key]));indices.add(max(valid,key=lambda j:chunk[j][key]))
+            for j in range(1,len(chunk)):
+                if (chunk[j].get(key) is None)!=(chunk[j-1].get(key) is None):indices.update((j-1,j))
+        for j in range(1,len(chunk)):
+            if chunk[j]['lap_time_s']-chunk[j-1]['lap_time_s']>.3:indices.update((j-1,j))
+        for j in sorted(indices):
+            index=i+j
+            gap=max((rows[k]['lap_time_s']-rows[k-1]['lap_time_s'] for k in range(max(1,previous+1),index+1)),default=0)
+            out.append(dict(chunk[j],_source_gap_s=gap));previous=index
     return out
 
 

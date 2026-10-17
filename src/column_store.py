@@ -7,7 +7,8 @@ import csv,io,json,os,struct,zlib
 from functools import cached_property
 from pathlib import Path
 from uuid import uuid4
-MAGIC=b'STXCOL1\n';END=b'STXEND1\n';HEAD=struct.Struct('<QQII');U32=struct.Struct('<I')
+MAGIC=b'STXCOL2\n';END=b'STXEND2\n';LEGACY_MAGIC=b'STXCOL1\n';LEGACY_END=b'STXEND1\n'
+HEAD=struct.Struct('<QQII');U32=struct.Struct('<I')
 NAMES={'inputs.csv','vehicle.csv'}
 
 
@@ -31,23 +32,74 @@ def _fields(record):
     result.append(record[start:]);return result
 
 
+def _varint(value):
+    out=bytearray()
+    while value>=128:out.append((value&127)|128);value>>=7
+    out.append(value);return out
+
+
+def _read_varint(raw,pos):
+    value=0
+    for shift in range(0,35,7):
+        if pos>=len(raw):raise ValueError('Incomplete column integer')
+        byte=raw[pos];pos+=1;value|=(byte&127)<<shift
+        if not byte&128:
+            if value>0xffffffff:break
+            return value,pos
+    raise ValueError('Invalid column integer')
+
+
 def _encode(values):
-    out=bytearray();prefix=bytearray();last=None;count=0;previous=b''
+    values=tuple(values)
+    out=bytearray();prefix=bytearray();compact=bytearray();last=None;count=0;previous=b''
     for value in values:
         shared=0
         for a,b in zip(previous,value):
             if a!=b:break
             shared+=1
-        suffix=value[shared:];prefix.extend(U32.pack(shared));prefix.extend(U32.pack(len(suffix)));prefix.extend(suffix);previous=value
+        suffix=value[shared:];prefix.extend(U32.pack(shared));prefix.extend(U32.pack(len(suffix)));prefix.extend(suffix)
+        compact.extend(_varint(shared));compact.extend(_varint(len(suffix)));compact.extend(suffix);previous=value
         if last is not None and value!=last:out.extend(U32.pack(count));out.extend(U32.pack(len(last)));out.extend(last);count=0
         last=value;count+=1
     if count:out.extend(U32.pack(count));out.extend(U32.pack(len(last)));out.extend(last)
-    repeat=b'\x00'+zlib.compress(out,6);delta=b'\x01'+zlib.compress(prefix,6)
-    return repeat if len(repeat)<=len(delta) else delta
+    # Retaining both v1 candidates makes each column no larger than before.
+    candidates=[b'\x00'+zlib.compress(out,6),b'\x01'+zlib.compress(prefix,6),b'\x02'+zlib.compress(compact,6)]
+    del out,prefix,compact
+    plain=b''.join(_varint(len(value))+value for value in values)
+    candidates.append(b'\x03'+zlib.compress(plain,6));del plain
+    dictionary=list(dict.fromkeys(values))
+    if len(dictionary)<=len(values)//2:
+        ids={value:i for i,value in enumerate(dictionary)}
+        encoded=_varint(len(dictionary))
+        for value in dictionary:encoded.extend(_varint(len(value)));encoded.extend(value)
+        for value in values:encoded.extend(_varint(ids[value]))
+        candidates.append(b'\x04'+zlib.compress(encoded,6))
+    return min(candidates,key=len)
 
 
 def _decode(data,rows):
     kind=data[0];raw=zlib.decompress(data[1:]);result=[];pos=0;previous=b''
+    if kind in (2,3,4):
+        dictionary=[]
+        if kind==4:
+            count,pos=_read_varint(raw,pos)
+            if not 1<=count<=rows:raise ValueError('Invalid column dictionary')
+            for _ in range(count):
+                length,pos=_read_varint(raw,pos)
+                if pos+length>len(raw):raise ValueError('Incomplete column dictionary')
+                dictionary.append(raw[pos:pos+length]);pos+=length
+        for _ in range(rows):
+            if kind==4:
+                index,pos=_read_varint(raw,pos)
+                if index>=len(dictionary):raise ValueError('Invalid dictionary index')
+                result.append(dictionary[index]);continue
+            shared=0
+            if kind==2:shared,pos=_read_varint(raw,pos)
+            length,pos=_read_varint(raw,pos)
+            if shared>len(previous) or pos+length>len(raw):raise ValueError('Invalid compact column')
+            previous=previous[:shared]+raw[pos:pos+length];result.append(previous);pos+=length
+        if pos!=len(raw):raise ValueError('Unexpected trailing column bytes')
+        return result
     if kind==1:
         while pos<len(raw):
             shared=U32.unpack_from(raw,pos)[0];length=U32.unpack_from(raw,pos+4)[0];pos+=8
@@ -69,7 +121,9 @@ class Reader:
         self.path=Path(path)
         if self.path.is_symlink() or self.path.is_junction():raise ValueError('Linked column store is not supported')
         with self.path.open('rb') as f:
-            if f.read(8)!=MAGIC:raise ValueError('Unsupported column store')
+            magic=f.read(8)
+            if magic not in (MAGIC,LEGACY_MAGIC):raise ValueError('Unsupported column store')
+            self.version=2 if magic==MAGIC else 1
             self.logical_bytes,self.mtime_ns,size,self.width=HEAD.unpack(f.read(HEAD.size))
             if size>1048576 or not 1<=self.width<=512:raise ValueError('Invalid column header')
             self.header=f.read(size);self.columns=next(csv.reader(io.StringIO(self.header.decode('utf-8-sig'),newline='')))
@@ -77,7 +131,7 @@ class Reader:
     def blocks(self):
         with self.path.open('rb') as f:
             f.seek(-16,2);n=struct.unpack('<Q',f.read(8))[0]
-            if f.read(8)!=END or n>16*1048576:raise ValueError('Incomplete column store')
+            if f.read(8)!=(END if self.version==2 else LEGACY_END) or n>16*1048576:raise ValueError('Incomplete column store')
             f.seek(-16-n,2);return json.loads(f.read(n))
 
     def chunks(self,columns=None,start_row=0,end_row=None):

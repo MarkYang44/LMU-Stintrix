@@ -33,9 +33,9 @@ Qualify / Race 自动记录；可在 **采样与遥测 → 记录练习赛** 开
 控制中心顶部 **EN / 中文** 可切换整个菜单语言，重启后保留；主题和语言分别保存到本机 `data/interface_settings.json`。赛道指南与车型图鉴随菜单语言切换，赛事记录、配置值和文件名不因语言切换而改变。
 
 
-图像与数据页可选择 ZIP / 7z 导出，并一次导入多个赛事包。默认快速导入不进行逐文件 SHA-256 核对，每次新建赛事；如需完整校验和重复记录识别，开启“导入时完整校验”。路径、大小上限和解压 CRC 检查保留。既有 ZIP 不需要重新打包。7z 精简工具随便携版包含，不需要额外安装。
+图像与数据页可选择 ZIP / 7z 导出，并一次导入多个赛事包。当前 v2 清单不保存或核对内容哈希；重复导入按本机收据与元数据复用，不表示通过完整性认证。路径、大小上限、格式检查与正常解压保留。旧 v1 比赛包仍可读取；新 v2 包直接导入需 v0.2.40 或更新版本。7z 精简工具随便携版包含，不需要额外安装。详见 [无损存储与归档](docs/STORAGE_OPTIMIZATION.md)。
 
-**Archive options:** Select ZIP or 7z for export. Fast import is the default and creates a new session each time. Turn on Verify content when importing for full SHA-256 verification and duplicate detection. Path checks and decompression CRC remain enabled. Legacy ZIP packages work without repacking.
+**Archive options:** Export ZIP or 7z session packages. Current v2 manifests do not store or verify content hashes; duplicate handling uses local receipts and metadata, without claiming integrity certification. Path, size, format, and decompression checks remain. Legacy v1 packages are readable; direct v2 import requires v0.2.40 or newer.
 
 
 0.2.29：个人赛道纪录新增“官方战绩”，支持只读同步游戏结果 XML 与明确的同组领奖台；训练报告增加可编辑距离区间、实测轨迹 / 距离分段和 ABS/TC 统计；同条件进步分析提供实测圈速与波动曲线。采样与遥测新增接口诊断。详细数据边界见随包使用说明。

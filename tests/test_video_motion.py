@@ -14,6 +14,18 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
 
 @unittest.skipUnless(os.name=='nt','Native Windows Tk')
 class VideoMotionTests(unittest.TestCase):
+    def test_pointer_page_changes_keep_content_fixed_and_disabled_targets_are_skipped(self):
+        with patch('control_motion.system_motion',return_value=True):
+            app,window,w,errors=self.window();self.pump(app)
+            w.tabs.select(2);self.assertEqual(w.tabs.offset,0);self.assertFalse(w.tabs.motion.jobs)
+            w.target.set('anchor');w.targets.arrow(3);self.assertEqual(w.target.get(),'anchor')
+            w.targets.choose('distance_box');self.assertEqual(w.target.get(),'anchor')
+            w.geometry={'throttle':{'points':[[10,10],[20,10],[10,20]]}};w.target.set('throttle')
+            original=copy.deepcopy(w.geometry);w.clear_target();self.assertNotIn('throttle',w.geometry)
+            w.undo_calibration();self.assertEqual(w.geometry,original)
+            w.busy=True;w.clear_target();self.assertEqual(w.geometry,original);w.busy=False
+            self.assertFalse(errors)
+
     def pump(self,app,seconds=.35):
         end=time.monotonic()+seconds
         while time.monotonic()<end:app.root.update();time.sleep(.005)
@@ -78,7 +90,8 @@ class VideoMotionTests(unittest.TestCase):
         self.assertFalse(w.tabs.motion.jobs);self.assertEqual(w.tabs.offset,0)
         self.assertGreater(w.canvas.winfo_height(),80)
         window.geometry('940x720');self.pump(app)
-        self.assertGreater(w.canvas.winfo_height(),140);w.fit_preview()
+        self.assertGreater(w.canvas.winfo_height(),140)
+        self.assertLessEqual(w.photo.height(),w.canvas.winfo_height());self.assertIsNone(w.fit_job);w.fit_preview()
         self.assertLessEqual(w.photo.height(),w.canvas.winfo_height());self.assertFalse(errors)
 
     def test_light_theme_and_hidden_advanced_fields_retain_input(self):

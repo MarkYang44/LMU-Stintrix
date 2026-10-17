@@ -38,7 +38,7 @@ class VideoUITests(unittest.TestCase):
                 self.assertIsNotNone(wizard.image,wizard.status.get());self.assertEqual(wizard.media['width'],640)
                 for size in ('1180x900','940x720'):
                     window.geometry(size);self.pump(center,seconds=2);center.root.update_idletasks()
-                    for widget in (wizard.start,wizard.stop,wizard.open,wizard.history_button,wizard.tabs):
+                    for widget in (wizard.start,wizard.back,wizard.stop,wizard.open,wizard.tabs):
                         self.assertGreater(widget.winfo_height(),5)
                         self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),window.winfo_rooty()+window.winfo_height(),
                             (size,str(widget),window.winfo_geometry(),widget.winfo_geometry(),widget.winfo_y()))

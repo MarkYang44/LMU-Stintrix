@@ -22,7 +22,8 @@ class VideoAssist:
     def remember_preview(self,key,result):
         if key is None:return
         self.preview_cache[key]=result;self.preview_cache.move_to_end(key)
-        # RGB previews only; never retain full-resolution video frames.
+        # RGB cache is byte-bounded. A full-size 4K current frame can exceed
+        # this budget and stays only in self.image, without a second cache copy.
         while len(self.preview_cache)>3 or sum(image.width*image.height*3 for _,image in self.preview_cache.values())>12*1024*1024:
             self.preview_cache.popitem(last=False)
 

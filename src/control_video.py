@@ -11,6 +11,7 @@ from management import panel
 from video_signal import clock
 from control_video_assist import VideoAssist
 from control_video_guide import VideoGuide
+from control_video_viewport import VideoViewport
 
 MODES={'普通 POV · 时间 / 地标':'time','距离 + 计时 HUD · OCR':'distance_hud','视频 + 同圈遥测 · 同步':'telemetry'}
 
@@ -23,19 +24,24 @@ def show(app,root):
     return window
 
 
-class VideoWizard(VideoAssist,VideoGuide):
+class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
     def __init__(self,app,window,root):
         self.app=app;self.window=window;self.root=root;self.media=None;self.image=None;self.photo=None
         self.geometry={};self.calibration_size=None;self.clicks=[];self.drag=None;self.busy=False;self.cancel=threading.Event();self.progress=(0,'');self.result=None
         self.fields={};self.field_widgets={};self.zoom=tk.DoubleVar(window,value=1);self.target=tk.StringVar(window,value='throttle')
         self.mode=tk.StringVar(window,value=next(iter(MODES)));self.status=tk.StringVar(window,value='先选择视频，再读取标定帧。所有处理都在本机完成。')
         self.clockwise={k:tk.BooleanVar(window,value=True) for k in ('throttle','brake')}
-        self.thickness=tk.StringVar(window,value='6');self.hz=tk.StringVar(window,value='20');self.unit=tk.StringVar(window,value='m')
+        from video_preferences import options
+        saved_options=options(root)
+        self.thickness=tk.StringVar(window,value='6');self.hz=tk.StringVar(window,value=str(saved_options.get('hz',20)));self.smooth_120hz=tk.BooleanVar(window,value=saved_options.get('smooth_120hz',False));self.unit=tk.StringVar(window,value='m')
         self.init_assist();self.init_guidance()
         from control_video_layout import build
         from control_motion import Motion
         self.motion=Motion(window);self.poll_job=None;self.preview_key=None;self.scroll_pages=[];self.fit_job=None;self.preview_fit=True
         build(self,MODES);self.mode_changed();self.install_guidance();self.palette_roles=[]
+        self.fields['ffmpeg'].set(saved_options.get('ffmpeg_dir',''))
+        from control_video_options import install
+        install(self)
         window.retranslate=self.refresh_palette
         def remember(widget):
             if isinstance(widget,(tk.Label,tk.Entry,tk.Text)):
@@ -134,6 +140,7 @@ class VideoWizard(VideoAssist,VideoGuide):
             if str(page)!=self.tabs.select():page.scroller.cancel()
 
     def wheel(self,event):
+        if event.widget is self.canvas:return 'break'
         if isinstance(event.widget,tk.Text):return
         for page in self.scroll_pages:
             if str(page)==self.tabs.select():page.wheel(event.delta);return 'break'
@@ -164,15 +171,16 @@ class VideoWizard(VideoAssist,VideoGuide):
         self.preview_fit=True
         self.window.update_idletasks()
         amount=min((self.canvas.winfo_width()-8)/self.image.width,(self.canvas.winfo_height()-8)/self.image.height,3)
-        self.zoom.set(max(.1,round(amount,2)));self.redraw();self.canvas.xview_moveto(0);self.canvas.yview_moveto(0)
+        self.zoom.set(max(.1,int(amount*1000)/1000))
+        self.canvas.configure(scrollregion=(0,0,round(self.image.width*self.zoom.get()),round(self.image.height*self.zoom.get())))
+        self.canvas.xview_moveto(0);self.canvas.yview_moveto(0);self.redraw()
 
     def manual_zoom(self):
-        self.preview_fit=False
-        if self.fit_job:self.window.after_cancel(self.fit_job);self.fit_job=None
-        self.redraw()
+        self.set_preview_zoom(self.zoom.get())
 
     def preview_resized(self,_):
         if self.image is None:self.empty_preview();return
+        if not self.preview_fit:self.draw_preview_bitmap();return
         if not self.preview_fit or self.fit_job:return
         def fit():
             self.fit_job=None
@@ -209,6 +217,8 @@ class VideoWizard(VideoAssist,VideoGuide):
         return self.image.width*self.zoom.get()/self.media['width'],self.image.height*self.zoom.get()/self.media['height']
 
     def press(self,event):
+        self.canvas.focus_set()
+        if self.space_pan:return self.begin_pan(event)
         if self.busy or self.image is None:return
         point=self.point(event)
         if not 0<=point[0]<self.media['width'] or not 0<=point[1]<self.media['height']:return
@@ -227,11 +237,13 @@ class VideoWizard(VideoAssist,VideoGuide):
         else:self.drag=point
 
     def dragging(self,event):
+        if self.pan_active:return self.move_pan(event)
         if self.drag is None or self.busy:return
         sx,sy=self.factors();point=self.point(event);self.canvas.delete('drag')
         self.canvas.create_rectangle(self.drag[0]*sx,self.drag[1]*sy,point[0]*sx,point[1]*sy,outline='#ffff55',width=2,tags='drag')
 
     def release(self,event):
+        if self.pan_active:return self.end_pan(event)
         if self.drag is None or self.busy:return
         point=self.point(event);x,y=self.drag;self.drag=None
         point=[max(0,min(point[0],self.media['width'])),max(0,min(point[1],self.media['height']))]
@@ -247,14 +259,8 @@ class VideoWizard(VideoAssist,VideoGuide):
     def redraw(self):
         self.queue_guidance()
         if self.image is None:self.empty_preview();return
-        from PIL import ImageTk
         from video_signal import arc_points
-        zoom=self.zoom.get();key=(id(self.image),zoom)
-        # Geometry changes never resample/re-upload the video bitmap.
-        if key!=self.preview_key:
-            self.photo=ImageTk.PhotoImage(self.image.resize((round(self.image.width*zoom),round(self.image.height*zoom))),master=self.window)
-            self.canvas.delete('bitmap');self.canvas.create_image(0,0,image=self.photo,anchor='nw',tags='bitmap');self.canvas.tag_lower('bitmap')
-            self.canvas.configure(scrollregion=(0,0,self.photo.width(),self.photo.height()));self.preview_key=key
+        self.draw_preview_bitmap()
         self.canvas.delete('empty');self.canvas.delete('overlay');self.canvas.delete('drag')
         sx,sy=self.factors()
         for key,value in self.geometry.items():
@@ -269,7 +275,7 @@ class VideoWizard(VideoAssist,VideoGuide):
         if self.target.get() in self.clockwise and len(self.clicks)<3:
             for x,y in self.clicks:self.canvas.create_oval(x*sx-4,y*sy-4,x*sx+4,y*sy+4,outline=T.ACCENT,width=2,tags='overlay')
         names={'throttle':'油门圆弧','brake':'刹车圆弧','anchor':'固定文字','distance_box':'距离读数','timer_box':'圈内计时'}
-        self.geometry_label.configure(text='已标定：'+(' / '.join(names.get(k,k) for k in self.geometry) or '尚未设置'))
+        self.geometry_label.configure(text='已标定：'+(' / '.join(names.get(k,k) for k in self.geometry) or '尚未设置')+' · 右键 / 中键拖动平移，滚轮缩放')
 
     def dispatch(self,work,done,label='后台处理中…',with_state=False,preview=False):
         if self.busy:return
@@ -317,7 +323,7 @@ class VideoWizard(VideoAssist,VideoGuide):
         config=dict(video=self.fields['video'].get(),ffmpeg_dir=self.fields['ffmpeg'].get(),mode=MODES[self.mode.get()],frame_size=[self.media['width'],self.media['height']],
             start_s=clock(self.fields['start'].get()),end_s=clock(self.fields['end'].get()),sample_s=clock(self.fields['sample'].get()),
             identity=dict(track=self.fields['track'].get().strip(),track_layout=self.fields['layout'].get().strip(),length_m=float(self.fields['length'].get())),
-            hz=float(self.hz.get()),telemetry=self.fields['telemetry'].get(),distance_unit=self.unit.get(),landmarks=[],sync=[])
+            hz=float(self.hz.get()),smooth_120hz=self.smooth_120hz.get(),telemetry=self.fields['telemetry'].get(),distance_unit=self.unit.get(),landmarks=[],sync=[])
         for key in ('throttle','brake','anchor'):
             if key not in self.geometry:raise ValueError('缺少标定：'+key)
         config.update(self.geometry)
@@ -349,6 +355,10 @@ class VideoWizard(VideoAssist,VideoGuide):
             self.status.set('已保存：'+result['folder']+'；点击“打开结果”查看报告。')
             self.tabs.select(2);self.queue_guidance()
         self.dispatch(work,done,with_state=True)
+
+    def recent_results(self):
+        from control_video_results import show
+        return show(self.app,self.root)
 
     def open_result(self):
         if self.result:
@@ -393,6 +403,7 @@ class VideoWizard(VideoAssist,VideoGuide):
 
     def destroyed(self,event):
         if event.widget is self.window:
+            if hasattr(self,'flush_options'):self.flush_options()
             self.dispose_guidance()
             self.cancel.set();self.photo=None;self.image=None;self.preview_key=None;self.palette_roles.clear()
             self.preview_cache.clear();self.preview_media_stamp=None;self.preview_pending=None

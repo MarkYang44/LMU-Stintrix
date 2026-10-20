@@ -109,10 +109,10 @@ class VideoGuide:
                 key=self.target.get();value=self.geometry.get(key);name=tr(NAMES[key])
                 if key in self.clockwise:
                     count=len(self.clicks)
-                    if value and not count:title=name+tr(' · 已标定');detail='检查覆盖线是否贴合真正的输入弧；不合适可点“重做本项”，误点可撤销。'
+                    if value and not count:title=name+tr(' · 已标定');detail='切到该踏板正在踩下的画面，核对覆盖线和“检查标定”读数；恒为零时先检查是否选错圆弧。'
                     else:
                         title=name+' · '+str(min(count+1,3))+'/3'
-                        detail=['点击圆弧的几何圆心，通常在弧线围住的空白区域；不是点击弧线本身。','点击真正的 0% 起点。即使当前有踩踏，也要找完整刻度的起点。','点击真正的 100% 终点。不要把视频里观察到的最大刹车当作 100%。'][min(count,2)]
+                        detail=['先切到该踏板踩下的画面。绿色是油门、红色是刹车，两条弧可能都在左侧且半径不同；点击几何圆心，不是弧线。','点击真正的 0% 起点。即使当前有踩踏，也要找完整刻度的起点。','点击真正的 100% 终点。不要把视频里观察到的最大刹车当作 100%。'][min(count,2)]
                     if count==3 and issues[2] and issues[2][0]==key:detail=issues[2][2]+tr('；撤销上一个点，或展开“方向与弧宽”修正。')
                 else:
                     title=tr('拖框')+' · '+name
@@ -203,4 +203,6 @@ class VideoGuide:
         diagram.create_text(280,30,text=tr('② 0% 起点'),fill=T.FG,anchor='w');diagram.create_text(12,17,text=tr('③ 100% 终点'),fill=T.FG,anchor='w')
         paragraph('3 · 框住固定文字','在不变的 KPH 等文字外拖一个小框。车速数字、挡位、圈时会变化，不能作为固定文字。锚点用于判断 HUD 是否可见；缺失不能当作油刹为零。')
         paragraph('覆盖线不对怎么办？','先用撤销修改误点；整项不对可重做。覆盖线绕了长弧时，展开方向与弧宽切换顺/逆时针；线偏离真实弧中心时重选圆心与端点。弧宽按原视频像素设置。')
+        paragraph('画面放大后怎么移动？','滚轮围绕鼠标位置缩放；右键或中键按住拖动画面，Shift + 滚轮横向移动。点过画面后，也可按住空格再左键拖动。平移不会增加标定点；“适合视窗”恢复全图。放大只便于选点，不增加原始视频精度。')
+        paragraph('为什么油门和刹车都在左侧？','部分 LMU HUD 把绿色油门和红色刹车放在左侧相邻半径，右侧外环可能是转速。分别选择正在给油和正在制动的画面，再核对各自圆弧，不要根据左右位置猜测。')
         paragraph('完成后先看什么？','打开报告，看是否有缺口、油刹是否与画面大致一致。可读率不是正确率；没有同圈原生遥测时，不能宣称绝对识别精度。原视频与历史赛事不会被改写。')

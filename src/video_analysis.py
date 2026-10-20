@@ -108,6 +108,8 @@ def analyze(config, root, cancel=None, progress=lambda *_:None):
                          max_frame_gap_s=max(intervals),distance_usable=False,
                          frame_gap_limit_s=max(.25,3/hz),frame_gaps=sum(v>max(.25,3/hz) for v in intervals),
                          precision='视频估算；未经实录精度验收',missing_samples=len(rows)-usable)
+            from video_sampling import measured
+            quality.update(measured(rows,hz))
             if ocr:
                 accepted,ocr_quality=distance_readings(observations,start,config['identity']['length_m'])
                 quality['ocr']=ocr_quality
@@ -140,6 +142,11 @@ def analyze(config, root, cancel=None, progress=lambda *_:None):
                 writer=csv.DictWriter(stream,fieldnames=FIELDS);writer.writeheader();writer.writerows(rows)
             from video_report import write_report
             write_report(folder/'report.html',result)
+            if config.get('smooth_120hz',False):
+                from video_resample import export
+                export(folder,result)
+            from video_results import write_summary
+            write_summary(folder,result)
             if ocr:ocr.close();ocr=None
             for file in folder.glob('ocr-*.png'):file.unlink()
             target=output/(stamp+'-'+identity)
@@ -147,6 +154,6 @@ def analyze(config, root, cancel=None, progress=lambda *_:None):
                 raise ValueError('输出路径无效或已存在')
             folder.rename(target)
             progress(100,'提取完成')
-            return dict(folder=str(target),report=str(target/'report.html'),quality=quality)
+            return dict(folder=str(target),report=str(target/('report_120hz.html' if config.get('smooth_120hz',False) else 'report.html')),quality=quality)
         finally:
             if ocr:ocr.close()

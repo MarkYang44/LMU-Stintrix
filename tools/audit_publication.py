@@ -12,9 +12,9 @@ ROOT=Path(__file__).resolve().parents[1]
 ROOT_FILES={'.gitignore','.gitattributes','README.md','README.zh-CN.md','LICENSE','THIRD_PARTY_NOTICES.md','VERSION',
     'requirements.txt','requirements-build.txt','requirements-lock.txt','Setup.cmd','Start.cmd','Start Clean.cmd','Start Clean Controls.cmd','Start Demo.cmd','Demo.cmd'}
 PRIVATE_PARTS={'data','logs','demologs','importedlogs','recoveredlogs','selectedlaps','videocurves','diagnostics','_local','_backup','_verification','__pycache__','.venv','vendor','runtime','racecomrenderer','_racecom','_report_history'}
-PRIVATE_NAMES={'recording_settings.json','local_settings.json','settings.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json','session.json','recording_checkpoint.json','vehicle_checkpoint.json',
+PRIVATE_NAMES={'recording_settings.json','recording_visibility.json','local_settings.json','settings.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json','session.json','recording_checkpoint.json','vehicle_checkpoint.json',
     'race_log.json','race_summary.json','race_images.json','race_events_checkpoint.json','race_images_error.txt','car_calibration.json',
-    'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','cache_tokens.json','_exports.json','_fastest_source.json'}
+    'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json'}
 DENIED_SUFFIXES={'.csv','.duckdb','.db','.log','.gz','.zip','.7z','.exe','.dll','.pyd','.pyc','.pdf','.png','.jpg','.svg'}
 SECRET_PATTERNS=[rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',rb'gh[pousr]_[A-Za-z0-9]{30,}',rb'github_pat_[A-Za-z0-9_]{30,}',rb'AKIA[0-9A-Z]{16}',rb'sk-[A-Za-z0-9_-]{40,}']
 PUBLIC_ASSETS={'src/branding/stx-app.png': '8f1d9730f44ee12cc63136f31484cbc77a9ae7c8c0baa1f19718f0ba3bfc6896', 'src/branding/stx-menu.png': 'c55573b6ea082572ea7302ab5073a21369c84e68188cb186bea8351e3f8ca738', 'src/branding/stx-menu-light.png': '5bc03c16a0d037fb6bc09a12c9adf524b337180841fde3e8c0c8153fce374864'}
@@ -43,7 +43,10 @@ def audit(files,read,no_checksums=False):
     for name in files:
         if not allowed(name):failures.append(name+': outside publication allowlist');continue
         if name in PUBLIC_ASSETS and no_checksums and isinstance(PUBLIC_ASSETS[name],str):continue
-        blob=read(name);total+=len(blob)
+        try:blob=read(name)
+        except (OSError,subprocess.CalledProcessError):
+            failures.append(name+': cannot read publication candidate');continue
+        total+=len(blob)
         if name in PUBLIC_ASSETS:
             expected=PUBLIC_ASSETS[name]
             if isinstance(expected,int):
@@ -59,22 +62,46 @@ def audit(files,read,no_checksums=False):
         if name!='tools/audit_publication.py' and any(re.search(p,blob) for p in PRIVATE_PATTERNS):failures.append(name+': machine-specific private path or identifier')
     return dict(ok=not failures,files=len(files),bytes=total,failures=failures)
 
+def working_tree_files():
+    # Inspect what Git can actually publish. Do not silently filter disallowed
+    # candidates, or traverse private data/build trees just to throw them away.
+    raw=subprocess.check_output(git_command('ls-files','--cached','--others','--exclude-standard','-z'),cwd=ROOT)
+    return sorted(set(name for name in raw.decode('utf-8').split('\0') if name))
+
+
+def load_registries(read):
+    # Match asset expectations to the audited snapshot, not an unrelated edit.
+    for filename,symbol in [('tools/guide_assets.py','GUIDE_ASSETS'),('tools/readme_assets.py','README_ASSETS')]:
+        registry=ast.parse(read(filename).decode('utf-8-sig'))
+        assignment=next(node for node in registry.body if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id==symbol for target in node.targets))
+        values=ast.literal_eval(assignment.value)
+        for name in globals()[symbol]:PUBLIC_ASSETS.pop(name,None)
+        PUBLIC_ASSETS.update(values)
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--working-tree',action='store_true');parser.add_argument('--json',action='store_true');parser.add_argument('--no-checksums',action='store_true');args=parser.parse_args()
-    if args.working_tree:
-        files=[p.relative_to(ROOT).as_posix() for p in ROOT.rglob('*') if p.is_file() and not any(part in ('.git','.venv','_local','dist','build','data','__pycache__') for part in p.relative_to(ROOT).parts) and allowed(p.relative_to(ROOT).as_posix())]
-        read=lambda name:(ROOT/name).read_bytes()
-    else:
-        files=subprocess.check_output(git_command('ls-files','-z'),cwd=ROOT).decode('utf-8').split('\0');files=[f for f in files if f]
-        read=lambda name:subprocess.check_output(git_command('show',':'+name),cwd=ROOT)
-        # Audit staged captures against their staged registry, even while the
-        # working tree is replacing an older screenshot set. Parse literals only.
-        registry=ast.parse(read('tools/readme_assets.py').decode('utf-8'))
-        assignment=next(node for node in registry.body if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='README_ASSETS' for target in node.targets))
-        staged_assets=ast.literal_eval(assignment.value)
-        for name in README_ASSETS:PUBLIC_ASSETS.pop(name,None)
-        PUBLIC_ASSETS.update(staged_assets)
-    result=audit(files,read,args.no_checksums);print(json.dumps(result,indent=2) if args.json else f"Publication audit: {'PASS' if result['ok'] else 'FAIL'}; {result['files']} public files, {result['bytes']} bytes"+('\n'+'\n'.join(result['failures']) if result['failures'] else ''))
+    parser=argparse.ArgumentParser()
+    scope=parser.add_mutually_exclusive_group()
+    scope.add_argument('--working-tree',action='store_true')
+    scope.add_argument('--ref',help='Audit an existing commit/ref without checking it out')
+    parser.add_argument('--json',action='store_true');parser.add_argument('--no-checksums',action='store_true');args=parser.parse_args()
+    try:
+        if args.working_tree:
+            files=working_tree_files();read=lambda name:(ROOT/name).read_bytes()
+        elif args.ref:
+            commit=subprocess.check_output(git_command('rev-parse','--verify','--end-of-options',args.ref+'^{commit}'),cwd=ROOT).decode('ascii').strip()
+            files=[f for f in subprocess.check_output(git_command('ls-tree','-rz','--name-only','--full-tree',commit),cwd=ROOT).decode('utf-8').split('\0') if f]
+            read=lambda name:subprocess.check_output(git_command('show',commit+':'+name),cwd=ROOT)
+            load_registries(read)
+        else:
+            files=[f for f in subprocess.check_output(git_command('ls-files','-z'),cwd=ROOT).decode('utf-8').split('\0') if f]
+            read=lambda name:subprocess.check_output(git_command('show',':'+name),cwd=ROOT)
+            load_registries(read)
+        result=audit(files,read,args.no_checksums)
+    except (OSError,subprocess.CalledProcessError,ValueError,StopIteration,SyntaxError) as error:
+        result=dict(ok=False,files=0,bytes=0,failures=['Cannot inspect publication snapshot: '+type(error).__name__])
+    print(json.dumps(result,indent=2) if args.json else f"Publication audit: {'PASS' if result['ok'] else 'FAIL'}; {result['files']} public files, {result['bytes']} bytes"+('\n'+'\n'.join(result['failures']) if result['failures'] else ''))
     return 0 if result['ok'] else 1
+
 
 if __name__=='__main__':raise SystemExit(main())

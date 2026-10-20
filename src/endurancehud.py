@@ -52,7 +52,7 @@ class Panels:
 
     def refresh_visibility(self):
         for kind in TITLES:
-            enabled=getattr(self.app,kind+'_on').get();w=self.windows.get(kind)
+            enabled=getattr(self.app,kind+'_on').get() and not getattr(self.app,'silent_recording',False);w=self.windows.get(kind)
             if enabled:
                 if w is None or not w.winfo_exists():w=self.create(kind)
                 w.deiconify()

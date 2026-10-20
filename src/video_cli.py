@@ -10,6 +10,8 @@ import threading
 def main(argv=None):
     if sys.stdout is not None and hasattr(sys.stdout,'reconfigure'):sys.stdout.reconfigure(encoding='utf-8')
     parser=argparse.ArgumentParser(description='Local video HUD extraction; separate from native records')
+    parser.add_argument('--resample-result',type=Path,help='Add separate 120 Hz derived files beside an existing curve.json')
+    parser.add_argument('--smooth-120hz',action='store_true')
     parser.add_argument('--config',type=Path);parser.add_argument('--video',type=Path)
     parser.add_argument('--compare-result',type=Path);parser.add_argument('--reference-lap',type=Path)
     parser.add_argument('--channel',choices=('raw','filtered'),default='filtered')
@@ -19,7 +21,11 @@ def main(argv=None):
     from paths import data_directory
     cancel=threading.Event();signal.signal(signal.SIGINT,lambda *_:cancel.set())
     try:
-        if args.compare_result:
+        if args.resample_result:
+            from video_resample import export
+            source=args.resample_result
+            result=export(source.parent,json.loads(source.read_text(encoding='utf-8-sig')))
+        elif args.compare_result:
             if not args.reference_lap:raise ValueError('历史对比需要 --reference-lap')
             from video_history import export_comparison
             result=export_comparison(args.compare_result,args.reference_lap,args.output_root or data_directory(),args.channel,args.bind_history_layout,cancel=cancel)
@@ -27,6 +33,7 @@ def main(argv=None):
             if not args.config or not args.video:raise ValueError('视频提取需要 --config 和 --video')
             from video_analysis import analyze
             config=json.loads(args.config.read_text(encoding='utf-8-sig'));config.update(video=str(args.video),ffmpeg_dir=args.ffmpeg_dir)
+            if args.smooth_120hz:config['smooth_120hz']=True
             if args.telemetry:config['telemetry']=str(args.telemetry)
             result=analyze(config,args.output_root or data_directory(),cancel,lambda p,t:print(f'{p}% {t}',flush=True))
     except Exception as error:

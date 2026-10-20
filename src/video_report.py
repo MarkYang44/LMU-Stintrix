@@ -19,7 +19,9 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}td,t
 
 SCRIPT=r'''
 const report=JSON.parse(document.getElementById('payload').textContent),
-comparison=['stintrix.video-comparison','stintrix.video-history-comparison'].includes(report.format),history=report.format==='stintrix.video-history-comparison', rows=comparison?report.curves[0]:report.rows,
+comparison=['stintrix.video-comparison','stintrix.video-history-comparison'].includes(report.format),history=report.format==='stintrix.video-history-comparison';
+let rows=comparison?report.curves[0]:report.rows;
+const
 other=comparison?report.curves[1]:[],canvas=document.getElementById('pedals'),tip=document.getElementById('tip');
 let axis='lap_time_s',lo=0,hi=rows.at(-1)?.lap_time_s||1;
 let drawFrame=null,hoverFrame=null,hoverX=0;const indexes=new WeakMap();
@@ -48,11 +50,13 @@ document.getElementById('time').onclick=()=>{axis='lap_time_s';reset();};
 document.getElementById('distance').onclick=()=>{axis='distance_m';reset();};
 document.getElementById('zoom').onclick=()=>{const a=+document.getElementById('from').value,b=+document.getElementById('to').value;if(Number.isFinite(a)&&Number.isFinite(b)&&b>a){lo=a;hi=b;requestDraw();}};
 document.getElementById('reset').onclick=reset;
+const smooth=document.getElementById('smooth');
+if(smooth)smooth.onclick=()=>{const on=smooth.getAttribute('aria-pressed')!=='true';rows=on?report.interpolation.rows:report.rows;smooth.setAttribute('aria-pressed',String(on));smooth.textContent=on?'120 Hz 插值估算 · 切回原始':'原始样本 · 查看 120 Hz 插值';if(on)axis='lap_time_s';document.getElementById('distance').disabled=on||!report.distanceReady;tip.textContent=on?'120 Hz 插值估算；缺口留空，不增加原始精度':'原始视频提取样本';reset();};
 if(!report.distanceReady)document.getElementById('distance').disabled=true;
 function hover(){hoverFrame=null;const t=lo+Math.max(0,Math.min(1,(hoverX-50)/Math.max(1,canvas.clientWidth-70)))*(hi-lo);
  const read=(data,label)=>{const row=nearest(data,t);if(!row)return label+'：无样本';
   const fmt=v=>v==null?'缺失':(v*100).toFixed(1)+'%';return `${label} 油门 ${fmt(row.throttle)} · 刹车 ${fmt(row.brake)}`;};
- tip.textContent=`${axis==='distance_m'?'距离':'圈内时间'} ${t.toFixed(3)} ${axis==='distance_m'?'m':'s'} · ${read(rows,comparison?'A':'视频')}`+(comparison?' | '+read(other,history?'B 历史':'B'):'');
+ tip.textContent=`${axis==='distance_m'?'距离':'圈内时间'} ${t.toFixed(3)} ${axis==='distance_m'?'m':'s'} · ${read(rows,comparison?'A':(rows===report.interpolation?.rows?'120 Hz 插值估算':'视频'))}`+(comparison?' | '+read(other,history?'B 历史':'B'):'');
 }
 canvas.onmousemove=e=>{hoverX=e.offsetX;if(hoverFrame===null)hoverFrame=requestAnimationFrame(hover);};
 canvas.onmouseleave=()=>{if(hoverFrame!==null)cancelAnimationFrame(hoverFrame);hoverFrame=null;tip.textContent='移动鼠标查看样本';};
@@ -101,7 +105,7 @@ def page(path,title,payload,body):
     Path(path).write_text(content,encoding='utf-8')
 
 
-def write_report(path,result):
+def write_report(path,result,interpolation=None):
     from track_names import display,layout_label
     quality=result['quality'];identity=result['identity']
     title=display(identity['track'])+' / '+layout_label(identity['track'],identity['track_layout'])
@@ -111,6 +115,10 @@ def write_report(path,result):
              ('最大帧间隔',f"{quality['max_frame_gap_s']*1000:.0f} ms"),('距离对齐','可用 · 估算' if quality.get('distance_usable') else '仅时间轴')]
     body='<section><h2>输入与质量</h2>'+warning+'<p>'+html.escape(result['video_file'])+' · '+mode+' · '+str(round(result['end_s']-result['start_s'],3))+' s</p><div class="metrics">'
     body+=''.join('<div class="metric"><span>'+k+'</span><strong>'+v+'</strong></div>' for k,v in metrics)+'</div>'
+    requested=quality.get('requested_sample_hz');actual=quality.get('actual_sample_hz')
+    if requested is not None and actual is not None:
+        body+=f'<p>目标提取频率：{requested:g} Hz · 实际原始频率：{actual:.2f} Hz（按首末样本计算）。'
+        body+='插值输出：120 Hz（估算，不增加原始精度）。</p>' if interpolation else '此图为原始提取样本。</p>'
     if quality.get('pedal_mae'):
         values=quality['pedal_mae'];fmt=lambda v:'缺失' if v is None else f'{v*100:.2f} 个百分点'
         body+='<p>对照过滤后遥测：油门平均绝对差 '+fmt(values['throttle'])+'，刹车 '+fmt(values['brake'])+'。蓝 / 紫虚线为遥测油门 / 刹车；HUD 显示延迟会影响差异。</p>'
@@ -120,6 +128,9 @@ def write_report(path,result):
     if result.get('landmarks'):
         body+='<details><summary>固定地标（视频秒数）</summary><table>'+''.join('<tr><td>'+html.escape(m['name'])+'</td><td>'+str(m['video_s'])+'</td></tr>' for m in result['landmarks'])+'</table></details>'
     payload=dict(result,rows=sampled(result['rows']),distanceReady=quality.get('distance_usable'),frameGap=quality.get('frame_gap_limit_s',.25))
+    if interpolation:
+        payload['interpolation']=dict(interpolation,rows=sampled(interpolation['rows']))
+        body+='<section><h2>120 Hz 平滑曲线（可选）</h2><p>形状保持插值，仅估算已识别样本之间的油刹变化，不提高原视频精度。HUD 缺失与断档留空；距离对比和原生记录仍使用原数据。</p><button id="smooth" aria-pressed="false">原始样本 · 查看 120 Hz 插值</button><a href="curve_120hz.csv" download>下载 120 Hz 插值 CSV</a></section>'
     page(path,title,payload,body)
 
 

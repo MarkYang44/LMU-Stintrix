@@ -77,8 +77,11 @@ def main():
     try:
         if any(flag in sys.argv for flag in ('--hud','--demo','--clean','--clean-controls')):
             from hud import App
-            App('--demo' in sys.argv, clean='--clean' in sys.argv,
-                clean_controls='--clean-controls' in sys.argv).root.mainloop()
+            app=App('--demo' in sys.argv, clean='--clean' in sys.argv,
+                clean_controls='--clean-controls' in sys.argv)
+            # A remembered silent mode must still leave a way to stop/save.
+            if app.silent_recording:app.open_control_center()
+            app.root.mainloop()
         else:
             from control_center import ControlCenter
             ControlCenter().root.mainloop()

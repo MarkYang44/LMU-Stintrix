@@ -110,3 +110,5 @@
 **/ReportAssets/
 **/ExportCache/
 **/cache_tokens.json
+
+**/video_result_summary.json

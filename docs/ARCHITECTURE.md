@@ -48,3 +48,17 @@ CSV 字段、JSON 格式标记、原始 / 过滤后输入、采样设置和旧�
 The desktop shell is separated into `control_shell.py` (DPI layout / navigation), `control_widgets.py` (industrial surfaces / controls), `control_motion.py` (elapsed-time transitions / accumulated pixel scrolling), `control_list.py` (virtual session rows / selection / keyboard), `control_theme.py` (dark and light palettes / local preference / offline report embedding), and `branding.py` (window / taskbar identity). Theme changes rebuild the shell without recreating the HUD, Engine or recorder, and preserve page state. Table rendering is limited to visible rows; its text cache is bounded at 1024 entries. Completed animations schedule no frames.
 
 Build-only `tools/build_brand.py` copies two hash-reviewed GTD assets and extracts six existing PNG frames without image processing dependencies. `interface_theme.js` embeds the same palettes into standalone reports, stores only a theme preference locally, and invalidates chart backgrounds by including the mode in cache keys. Historical personal HTML and RaceCom image layouts are not rewritten by an application update.
+
+
+## v0.2.47：界面状态与离线视频边界
+
+`control_forms.py` 负责设置表单、基准值及未保存状态；界面重建仅保存有改动的字段，草稿留在内存，不提前写入偏好。`control_transfers.py` 接管控制中心存储整理与导入导出动作，现有入口方法继续转发调用，后台任务及格式契约保持一致。
+
+`video_sampling.py` 以固定时间桶选择真实源帧，按输入 timebase 半个 tick 容差处理量化，保留实际 PTS、不复制帧。`video_results.py` 以有界元数据头发现旧结果；新增提取同时保存私有摘要。`control_video_results.py` 提供可重开的只读列表，与解码、标定及原生赛事记录分离。
+
+
+## v0.2.48：工作上下文与页面任务
+
+`control_context.py` 保存有界的进程内页面上下文；异步赛事扫描完成后按文件夹身份恢复选择，不沿用易变化的行号。`control_toolbar.py` 管理固定操作栏和可用性，`control_sections.py` / `control_data.py` 保留任务组的控件与输入。`control_disposal.py` 在页面退休时于 GUI 线程销毁页面拥有的 Tk 变量，避免它们在后台 GC 中访问 Tcl；外部全局变量与缓存页保留。
+
+`Select.labels` 只改变显示名称，变量及设置格式不变。`control_video_options.py` 合并用户主动修改后的偏好写入，不在每个字符输入时写盘；标定几何仍通过原有匹配流程验证。

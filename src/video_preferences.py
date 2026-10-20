@@ -13,6 +13,32 @@ def load(root):
     except (OSError,ValueError,TypeError):return []
 
 
+def options(root):
+    try:
+        path=Path(root)/'video_preferences.json'
+        if path.stat().st_size>32768:return {}
+        value=json.loads(path.read_text(encoding='utf-8'))
+        saved=value.get('options',{}) if isinstance(value,dict) else {}
+        hz=saved.get('hz',20)
+        return dict(hz=hz if type(hz) in (int,float) and hz in (5,10,20,30) else 20,
+                    smooth_120hz=saved.get('smooth_120hz') is True,
+                    ffmpeg_dir=str(saved.get('ffmpeg_dir',''))[:1024])
+    except (OSError,ValueError,TypeError,AttributeError):return {}
+
+
+def save_options(root,hz,smooth,ffmpeg):
+    from storage import atomic_json
+    hz=float(hz)
+    if hz not in (5,10,20,30):raise ValueError('提取频率无效')
+    path=Path(root)/'video_preferences.json'
+    try:
+        value=json.loads(path.read_text(encoding='utf-8')) if path.stat().st_size<=32768 else {}
+        if not isinstance(value,dict):value={}
+    except (OSError,ValueError):value={}
+    value.update(version=1,options=dict(hz=int(hz),smooth_120hz=bool(smooth),ffmpeg_dir=str(ffmpeg)[:1024]))
+    atomic_json(path,value)
+
+
 def preview_box(box,image,media):
     return [round(v*image.size[i%2]/media[('width','height')[i%2]]) for i,v in enumerate(box)]
 
@@ -40,7 +66,7 @@ def remember(root,config,image,media):
         if key in config:profile[key]=copy.deepcopy(config[key])
     profile['signature']=anchor_signature(image,preview_box(profile['anchor'],image,media))
     profiles=[p for p in load(root) if p.get('frame_size')!=profile['frame_size'] or p.get('anchor')!=profile['anchor']]
-    value=dict(version=1,profiles=[profile,*profiles][:6])
+    value=dict(version=1,profiles=[profile,*profiles][:6],options=options(root))
     while len(json.dumps(value,ensure_ascii=False,indent=2).encode('utf8'))>32768:value['profiles'].pop()
     atomic_json(Path(root)/'video_preferences.json',value)
 

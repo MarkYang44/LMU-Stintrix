@@ -65,6 +65,8 @@ class SessionList(tk.Frame):
         self.previous=self.chosen.copy();self.chosen=selected;self.fade=0.
         def frame(t):self.fade=t;self.paint()
         self.motion.animate('selection',frame,125,curve='hover')
+        callback=getattr(self,'selection_changed',None)
+        if callback is not None and not self.viewport.winfo_ismapped():callback()
         self.viewport.event_generate('<<TreeviewSelect>>')
     def delete(self,*items):
         removed=set(items)

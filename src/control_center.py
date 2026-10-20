@@ -25,7 +25,7 @@ import endurance
 import control_theme
 
 PAGES=('运行与 HUD','赛事复盘','采样与遥测','图像与数据','赛道指南','车型图鉴','个人赛道纪录')
-SUBTITLES=('比赛中保持专注。所有控制，在这里。','赛事复盘、圈速对比与记录管理，集中在一处。','分别配置输入采样、轮胎策略与耐力赛遥测。','RaceCom 原版报告与本地赛事包。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。','赛道最快圈与同组领奖台，记录每一次突破。')
+SUBTITLES=('比赛中保持专注。所有控制，在这里。','搜索时间、赛道或车辆；双击记录或按 Enter 打开复盘。','分别配置输入采样、轮胎策略与耐力赛遥测。','RaceCom 原版报告与本地赛事包。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。','赛道最快圈与领奖台记录，记录每一次突破。')
 
 
 class ControlCenter:
@@ -35,7 +35,9 @@ class ControlCenter:
         import gc
         gc.collect()
         self.root=root or tk.Tk();self.hud=hud;self.closing=False;self.attached=hud is not None
-        self.data_path=ROOT;self.guide_page=None;self.guide_state={};self.tasks=BackgroundTasks();self.items=[];self.scan_generation=0;self.scanning=False;self.page=0
+        self.data_path=ROOT;self.form_drafts={};
+        from control_context import BrowseMemory
+        self.browsing=BrowseMemory();self.guide_page=None;self.guide_state={};self.tasks=BackgroundTasks();self.items=[];self.scan_generation=0;self.scanning=False;self.page=0
         import i18n
         i18n.load(ROOT/'interface_settings.json')
         control_theme.load(ROOT/'interface_settings.json')
@@ -121,9 +123,12 @@ class ControlCenter:
         query=self.search.get() if self.tree else ''
         selected=self.tree.selection() if self.tree else ()
         table_position=self.tree.offset if self.tree else 0
+        from control_forms import capture
+        self.form_drafts=capture(self.pages,self.form_drafts)
+        self.browsing.capture(self)
         self.pages.dispose()
         self.shell.motion.cancel();self.shell.scroller.cancel();self.shell.navigation.motion.cancel()
-        self.shell.side.destroy();self.shell.main.destroy();self.root.configure(bg=T.BG)
+        self.shell.detach();self.shell.side.destroy();self.shell.main.destroy();self.root.configure(bg=T.BG)
         self.build_shell();self.root.geometry(geometry);self.show_page(page)
         for name,value in state.items():
             variable=getattr(self,name,None)
@@ -141,21 +146,22 @@ class ControlCenter:
         if parent:parent.add(card)
         else:card.pack(fill='x',pady=(0,px(self.root,18)))
         body=card.body
-        self.label(body,title,14,T.FG,True).pack(anchor='w',pady=(0,5))
+        if title:self.label(body,title,14,T.FG,True).pack(anchor='w',pady=(0,5))
         if subtitle:
             label=self.label(body,subtitle,9,T.MUTED);label.pack(fill='x',pady=(0,px(self.root,14)))
             label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
         return body
 
     def button(self,parent,text,command,primary=False,width=140):
-        button=Pill(parent,text,command,width,primary);button.pack(side='left',padx=(0,px(self.root,9)),pady=4);return button
+        from control_video_widgets import Action
+        button=Action(parent,text,command,width,primary);button.pack(side='left',padx=(0,px(self.root,9)),pady=4);return button
 
     def row(self,parent):
         row=tk.Frame(parent,bg=parent.cget('bg'));row.pack(fill='x',pady=5);return row
 
-    def choice(self,parent,label,var,choices,command=None):
+    def choice(self,parent,label,var,choices,command=None,labels=None):
         row=self.row(parent);caption=self.label(row,label,10,T.MUTED);caption.pack(side='left')
-        box=Select(row,textvariable=var,values=choices,state='readonly',width=26)
+        box=Select(row,textvariable=var,values=choices,state='readonly',width=26,labels=labels)
         box.pack(side='right',padx=4);box.bind('<<ComboboxSelected>>',lambda _:command() if command else None)
         row.stacked=False
         def layout(event):
@@ -183,8 +189,10 @@ class ControlCenter:
     def request_page(self,index):self.pages.request(index)
 
     def show_page(self,index,progressive=False):
+        self.browsing.capture(self)
+        self.clear_toolbar()
         self.pages.cancel_request()
-        self.page=index;self.progressive=progressive;self.scan_generation+=1;self.tree=None;self.guide_page=None
+        self.page=index;self.restore_list_context=True;self.progressive=progressive;self.scan_generation+=1;self.tree=None;self.guide_page=None
         self.shell.scroller.cancel()
         self.title.configure(text=PAGES[index]);self.subtitle.configure(text=SUBTITLES[index]);self.scroll.yview_moveto(0)
         if self.shell.navigation.selected!=index:self.shell.select(index)
@@ -209,8 +217,12 @@ class ControlCenter:
         live_row=self.row(body);self.connection_feedback=ConnectionFeedback(live_row);self.connection_feedback.pack(side='left',padx=(0,6));self.connection_feedback.set('waiting')
         self.live_label=self.label(live_row,'等待启动',11,T.ACCENT);self.live_label.pack(side='left',pady=(0,10))
         self.recording_detail=self.label(body,'',9,T.MUTED);self.recording_detail.pack(fill='x',pady=(0,7))
-        row=self.row(body);self.button(row,'▶  启动 HUD',self.start,True,160);self.button(row,'停止并保存',self.stop_hud,False,140)
-        self.button(row,'演示模式',lambda:self.start(True),False,120)
+        row=self.row(body);self.start_button=self.button(row,'▶  启动记录',self.start,True,160);self.stop_button=self.button(row,'停止并保存',self.stop_hud,False,140)
+        self.demo_button=self.button(row,'演示模式',lambda:self.start(True),False,120)
+        import recording_visibility
+        self.silent_mode=tk.BooleanVar(self.root,value=getattr(self.hud,'silent_recording',recording_visibility.load(ROOT/'recording_visibility.json')))
+        Switch(body,'静默记录 · 隐藏全部 HUD',self.silent_mode,self.set_silent_recording).pack(fill='x',pady=(8,2))
+        self.label(body,'仅隐藏画面，排位与正赛仍自动记录；练习赛遵循原有记录设置。关闭后恢复原 HUD。',9,T.MUTED).pack(anchor='w',pady=(0,6))
         grid=CardGrid(self.content);grid.pack(fill='x')
         body=self.card('油门 / 刹车 / 转向','输入通道、显示模式与波形窗口',grid)
         self.mode=tk.StringVar(self.root,value=self.hud.hud_mode.get() if self.active() else 'normal')
@@ -221,8 +233,8 @@ class ControlCenter:
         self.choice(body,'输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'))
         self.window=tk.StringVar(self.root,value=self.hud.window.get() if self.active() else '10')
         self.choice(body,'波形窗口 / 秒',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()))
-        row=self.row(body);self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172)
-        self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)
+        row=self.row(body);self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
+        self.label(body,'实时控制在启动记录后可用',9,T.MUTED).pack(anchor='w')
         body=self.card('附加遥测面板','按需开启，让比赛视野保持清爽',grid)
         vehicle=vehiclelab.load_settings(ROOT/'vehicle_settings.json');end=endurance.load_settings(ROOT/'endurance_settings.json')
         switches=[]
@@ -265,7 +277,9 @@ class ControlCenter:
         self.run_background(lambda:register(verify=True),done)
 
     def start(self,demo=False):
-        if self.active():self.hud.root.lift();self.status.set(tr('HUD 已在运行；请先停止后切换真实 / 演示模式'));return
+        if self.active():
+            if not self.hud.silent_recording:self.hud.root.lift()
+            self.status.set(tr('记录已在运行；请先停止后切换真实 / 演示模式'));return
         if self.hud is not None and self.hud.root.winfo_exists():self.status.set(tr('正在保存上一场记录，请稍候'));return
         video=getattr(self,'video_window',None)
         if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
@@ -277,7 +291,14 @@ class ControlCenter:
         if hasattr(self,'mode_label'):
             mode={'标准面板':'normal','纯净 · 仅曲线':'curves','纯净 · 曲线 + 踏板 / 方向盘':'controls'}[self.mode_label.get()]
             self.hud.hud_mode.set(mode);self.hud.apply_clean_mode();self.hud.window.set(self.window.get())
-        self.status.set(tr('DEMO · 合成数据') if demo else tr('HUD 已启动 · 等待 LMU 遥测'))
+        self.status.set(tr('DEMO · 合成数据') if demo else tr('静默记录已启动 · 等待 LMU 遥测') if self.hud.silent_recording else tr('HUD 已启动 · 等待 LMU 遥测'))
+
+    def set_silent_recording(self):
+        import recording_visibility
+        enabled=self.silent_mode.get()
+        recording_visibility.save(ROOT/'recording_visibility.json',enabled)
+        if self.active():recording_visibility.apply(self.hud,enabled)
+        self.status.set(tr('静默记录已开启 · 全部 HUD 隐藏，记录规则不变') if enabled else tr('静默记录已关闭 · 恢复 HUD 显示'))
 
     def stop_hud(self):
         if self.active():self.status.set(tr('正在结束录制并生成报告…'));self.hud.close()
@@ -303,27 +324,31 @@ class ControlCenter:
                 if done:done(result)
         self.run_background(work,finish)
 
-    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True):
-        row=self.row(body);self.search=tk.StringVar(self.root);entry=Field(row,textvariable=self.search)
+    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False):
+        row=self.row(body);self.label(row,'搜索',10,T.MUTED).pack(side='left',padx=(0,8));self.search=tk.StringVar(self.root);entry=Field(row,textvariable=self.search)
         entry.pack(side='left',fill='x',expand=True);entry.entry.bind('<KeyRelease>',lambda _:self.populate())
         self.button(row,'刷新记录',self.refresh,False,112)
         from control_review_filters import ReviewFilters
         self.review_filters=ReviewFilters(body,self)
-        self.tree=SessionList(body,columns=('date','type','mode','track','car','lap','layout','class','trust','quality'),height=9,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
-        for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',92),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:
+        self.search.set(self.browsing.query(self.page))
+        if self.browsing.states.get(self.page,{}).get('advanced') and not self.review_filters.advanced.winfo_manager():self.review_filters.toggle()
+        self.tree=SessionList(body,columns=('date','type','result','mode','track','car','lap','layout','class','trust','quality'),height=9,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
+        for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('result','完赛名次',90),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',92),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:
             self.tree.heading(key,text=title);self.tree.column(key,width=px(self.root,width),minwidth=px(self.root,60),stretch=key in ('track','car'))
         self.tree.pack(fill='x',pady=(6,2));
         self.tree.bind('<Double-1>',lambda _:self.report('review.html'))
         self.tree.bind('<Return>',lambda _:self.report('review.html'))
         if checkboxes:
             self.selected_count=tk.StringVar(self.root,value='已选 0 场')
+            self.tree.selection_changed=self.update_selection_count
             if selection_buttons:self.selection_buttons(body)
             self.tree.bind('<<TreeviewSelect>>',lambda _:self.update_selection_count())
-        actions=self.row(body)
-        from control_event_filters import edit_note
-        self.button(actions,'收藏与标签',lambda:self.with_selection(lambda v:edit_note(self,v[0],self.refresh)),False,135)
-        from control_split_checks import show as split_checks
-        self.button(actions,'检查疑似拆分',lambda:split_checks(self),False,155)
+        if not compact_actions:
+            actions=self.row(body)
+            from control_event_filters import edit_note
+            self.button(actions,'收藏与标签',lambda:self.with_selection(lambda v:edit_note(self,v[0],self.refresh)),False,135)
+            from control_split_checks import show as split_checks
+            self.button(actions,'检查疑似拆分',lambda:split_checks(self),False,155)
         self.event_detail=tk.StringVar(self.root);detail_label=self.label(body,self.event_detail,9,T.MUTED);detail_label.pack(fill='x',pady=6)
         detail_label.bind('<Configure>',lambda e:detail_label.configure(wraplength=max(100,e.width)))
         self.tree.bind('<<TreeviewSelect>>',lambda _:self.describe_selection(),add='+')
@@ -349,7 +374,8 @@ class ControlCenter:
         self.label(row,self.selected_count,9,T.MUTED).pack(side='right',padx=8)
 
     def update_selection_count(self):
-        if self.tree and self.tree.checkboxes:self.selected_count.set(f'已选 {len(self.tree.selection())} 场 / 列表 {len(self.tree.get_children())} 场')
+        self.update_toolbar()
+        if self.tree and self.tree.checkboxes:self.selected_count.set(tr('已选 {selected} 场 / 列表 {total} 场').format(selected=len(self.tree.selection()),total=len(self.tree.get_children())))
 
     def refresh(self):
         from library import inventory
@@ -359,8 +385,12 @@ class ControlCenter:
             if error:self.status.set(error);return
             selected={self.items[int(i)]['folder'] for i in self.tree.selection()} if self.tree else set()
             self.items=result;chosen=[str(i) for i,item in enumerate(result) if item['folder'] in selected]
+            restoring=getattr(self,'restore_list_context',False)
+            if restoring and not selected:chosen=self.browsing.selected(self.page,result)
             if hasattr(self,'review_filters') and self.review_filters.winfo_exists():self.review_filters.update_options(result)
-            self.populate(chosen);self.status.set(f"{len(result)}{tr(' 场本地记录 · 旧 Practice 记录仍保留')}")
+            self.populate(chosen)
+            if restoring:self.browsing.restore(self,True);self.restore_list_context=False
+            self.status.set(f"{len(result)}{tr(' 场本地记录 · 旧 Practice 记录仍保留')}")
         self.run_background(lambda:inventory(ROOT),done)
 
     def populate(self,selected=None):
@@ -376,7 +406,8 @@ class ControlCenter:
             from event_filters import TRUST,QUALITY
             from track_names import layout
             f=normalize(value)
-            rows.append((str(i),(value['date'][:19].replace('T',' '),value['session_type'],tr(__import__('race_mode').LABELS[value.get('race_mode','unknown')]),display(value['track']),value['vehicle'],lap,layout(f['track'],f['layout'],f.get('length_m')),f.get('vehicle_class',''),tr(TRUST.get(f.get('trust'),'未知')),tr(QUALITY.get(f.get('quality'),'完整性未知')))))
+            from event_result_label import label as result_label
+            rows.append((str(i),(value['date'][:19].replace('T',' '),value['session_type'],result_label(f),tr(__import__('race_mode').LABELS[value.get('race_mode','unknown')]),display(value['track']),value['vehicle'],lap,layout(f['track'],f['layout'],f.get('length_m')),f.get('vehicle_class',''),tr(TRUST.get(f.get('trust'),'未知')),tr(QUALITY.get(f.get('quality'),'完整性未知')))))
         from control_event_filters import replace_rows
         replace_rows(self.tree,rows,selected)
         if hasattr(self,'review_filters') and self.review_filters.winfo_exists():self.review_filters.count.set(len(rows))
@@ -411,21 +442,21 @@ class ControlCenter:
         self.with_selection(action)
 
     def review_page(self):
-        body=self.card('赛事资料库','搜索时间、阶段、赛道或车辆 · 双击打开赛事复盘')
-        self.sessions(body,True,True,False)
-        row=self.row(body);self.button(row,'赛事 Review',lambda:self.report('review.html'),True,140)
-        self.button(row,'查看圈速单',lambda:self.report('圈速单.png'),False,130);self.button(row,'查看比赛日志',lambda:self.report('比赛日志.png'),False,140)
-        from control_delete import remove
-        self.button(row,'删除选中赛事',lambda:remove(self),False,160)
-        self.label(body,'圈速对比',12,T.FG,True).pack(anchor='w',pady=(14,4))
-        row=self.row(body)
-        self.button(row,'圈 A / 圈 B 选择器',self.selected_laps,True,180)
-        self.button(row,'跨场最快圈对比',self.compare_sessions,False,180);self.button(row,'查看最快圈',lambda:self.report('fastest_lap.html'),False,150)
-        row=self.row(body);self.button(row,'导出赛事包',self.export_package,False,140);self.button(row,'完整记录管理',self.library,False,150)
-        self.label(body,'比赛中参考圈',12,T.FG,True).pack(anchor='w',pady=(14,4))
-        row=self.row(body);self.button(row,'选择实时参考圈',lambda:self.hud_action('select_reference'),False,170)
-        self.button(row,'开启 / 关闭参考',lambda:self.toggle_reference(),False,180)
-        self.selection_buttons(body)
+        body=self.card('')
+        self.sessions(body,True,True,False,compact_actions=True)
+
+    def clear_toolbar(self):
+        if not hasattr(self,'shell'):return
+        for child in self.shell.action_host.winfo_children():child.destroy()
+        self.shell.action_host.pack_forget();self.review_actions={}
+
+    def install_toolbar(self):
+        from control_toolbar import install
+        self.clear_toolbar();install(self)
+
+    def update_toolbar(self):
+        from control_toolbar import update
+        update(self)
 
     def toggle_reference(self):
         if self.active():self.hud.reference_on.set(not self.hud.reference_on.get());self.hud.apply_reference()
@@ -463,40 +494,17 @@ class ControlCenter:
         self.status.set(tr('参考圈已保存，启动 HUD 时自动载入'))
 
     def form(self,body,module,specs,choices=()):
-        source={'sampling':sampling,'vehicle':vehiclelab,'endurance':endurance}[module].load_settings(ROOT/({'sampling':'settings.json','vehicle':'vehicle_settings.json','endurance':'endurance_settings.json'}[module]))
-        variables={};baseline={key:str(value) for key,value in source.items()}
-        for key,label in specs:
-            row=self.row(body);self.label(row,label,10,T.MUTED).pack(side='left')
-            var=tk.StringVar(self.root,value=str(source[key]));variables[key]=var
-            Field(row,textvariable=var,width=15,font=('Segoe UI',11)).pack(side='right',padx=4)
-            yield
-        for key,label,options in choices:
-            var=tk.StringVar(self.root,value=source[key]);variables[key]=var;self.choice(body,label,var,options)
-            yield
-        row=self.row(body)
-        def save():
-            try:self.update_module(module,{key:variables[key].get() for key in variables})
-            except (ValueError,OSError) as e:messagebox.showerror(tr('设置未保存'),str(e),parent=self.root)
-        self.button(row,'应用并保存',save,True,145)
-        def refresh_form():
-            current={'sampling':sampling,'vehicle':vehiclelab,'endurance':endurance}[module].load_settings(ROOT/({'sampling':'settings.json','vehicle':'vehicle_settings.json','endurance':'endurance_settings.json'}[module]))
-            for key,variable in variables.items():
-                value=variable.get();equal=value==baseline[key]
-                if not equal:
-                    try:equal=float(value)==float(baseline[key])
-                    except ValueError:pass
-                if equal:variable.set(str(current[key]))
-            baseline.update({key:str(value) for key,value in current.items()})
-        self.pages.register(module,variables,refresh_form)
-        yield
-
+        from control_forms import build
+        yield from build(self,body,module,specs,choices)
 
     def update_module(self,module,values):
         control_settings.apply(module,values,self.hud if self.active() else None);self.status.set(tr('设置已保存') + (tr('并应用到 HUD') if self.active() else tr('，启动 HUD 时生效')))
 
     def settings_page(self):
+        self.settings_anchors=[]
         from control_interface import show as show_interface
         body=self.card('数据接口检查','检查官方 SDK、通道可用性和数据陈旧状态；诊断只保存本机')
+        self.settings_anchors.append(('接口',body))
         self.button(self.row(body),'检查数据接口',lambda:show_interface(self),True,170)
         yield
         import recording_policy
@@ -510,142 +518,48 @@ class ControlCenter:
         self.pages.on_resume(lambda:self.practice_recording.set(recording_policy.load(ROOT)))
         yield
         body=self.card('输入采样与 HUD 刷新','1–4000 Hz · sync 跟随采样目标；有效数据频率由游戏和硬件决定')
+        self.settings_anchors.append(('输入采样',body))
         yield from self.form(body,'sampling',[('fixed_hz','固定采样 / Hz'),('min_hz','动态最低 / Hz'),('max_hz','动态最高 / Hz'),
             ('change_pct_s','升频变化阈值 / % 每秒'),('hold_s','降频延迟 / 秒'),('brake_pct','刹车升频阈值 / %'),('draw_hz','手动绘制 / Hz')],
             [('mode','采样模式',['fixed','dynamic']),('draw_mode','绘制模式',['sync','manual'])])
         body=self.card('轮胎、燃油与能量策略')
+        self.settings_anchors.append(('车辆策略',body))
         yield from self.form(body,'vehicle',[('record_hz','附加遥测记录 / Hz'),('history_laps','耗油统计圈数'),('reserve_l','燃油余量 / L'),('extra_finish_laps','保险圈数'),('target_value','手动赛程数值')],
             [('target_mode','赛程来源',['auto','laps','time']),('rate_mode','耗油统计',['conservative','median'])])
         from control_profile import show
         self.button(self.row(body),'车型轮胎阈值',lambda:show(self),False,160)
         body=self.card('进站、Stint 与天气')
+        self.settings_anchors.append(('耐力与天气',body))
         yield from self.form(body,'endurance',[('pit_limit_kmh','进站限速 / km/h（0 关闭）'),('pit_tolerance_kmh','超速容差 / km/h'),('stationary_kmh','静止阈值 / km/h'),
             ('warmup_laps','暖胎观察圈数'),('pace_window','节奏统计窗口 / 圈'),('weather_window_s','天气趋势窗口 / 秒'),('rain_change','雨强提醒阈值 / 0–1'),
             ('wetness_change','湿度提醒阈值 / 0–1'),('temp_change_c','温度提醒阈值 / °C'),('alert_cooldown_s','提醒冷却 / 秒')])
 
     def data_page(self):
-        body=self.card('视频提取油刹曲线','三种输入：普通 POV、距离与计时 HUD、视频与同圈遥测；估算结果单独保存')
-        from control_video import show as video_analysis
-        self.button(self.row(body),'视频分析与标定',lambda:video_analysis(self,ROOT),True,190)
-        body=self.card('报告与缓存维护','分步重试失败报告，查看缓存与用户导出文件占用')
-        from control_maintenance import reports,caches
-        actions=self.row(body);self.button(actions,'报告任务与分步重试',lambda:reports(self),False,190);self.button(actions,'缓存与导出文件',lambda:caches(self),False,175)
-        body=self.card('RaceCom 原版图像','直接调用你自己的 Image Generate.exe；原版版式、字体、颜色与车辆校准保留')
-        config=renderer_config.load();self.renderer_mode=tk.StringVar(self.root,value=config['mode']);self.renderer_path=tk.StringVar(self.root,value=config['executable'])
-        self.choice(body,'生成方式',self.renderer_mode,['racecom','native'])
-        entry=Field(body,textvariable=self.renderer_path,font=('Segoe UI',10));entry.pack(fill='x',pady=8)
-        def choose():
-            path=filedialog.askopenfilename(parent=self.root,title=tr('选择 RaceCom 的 Image Generate.exe'),filetypes=[('RaceCom 图像生成器','*.exe')])
-            if path:self.renderer_path.set(path)
-        def save():
-            try:renderer_config.save(dict(mode=self.renderer_mode.get(),executable=self.renderer_path.get()));self.status.set(tr('图像生成器已配置；下一场结束自动生成到赛事文件夹'))
-            except (ValueError,OSError) as e:messagebox.showerror(tr('配置未保存'),str(e),parent=self.root)
-        row=self.row(body);self.button(row,'选择生成器',choose,False,140);self.button(row,'保存配置',save,True,140)
-        self.label(body,'racecom = 原版版式；native = Stintrix 兼容版式。\nGitHub 下载包不包含 RaceCom 程序、商标图片或个人记录。',9,T.MUTED).pack(anchor='w',pady=8)
-        body=self.card('赛事包 / ZIP · 7z','每场一个包；相同版本重复导出复用已有文件，不执行内容校验')
-        import archive_preferences
-        preferences=archive_preferences.load(ROOT)
-        self.archive_format=tk.StringVar(self.root,value='ZIP' if preferences['format']=='zip' else '7z')
-        self.archive_verify=tk.BooleanVar(self.root,value=preferences['verify'])
-        def save_archive():
-            archive_preferences.save(ROOT,self.archive_format.get().lower(),self.archive_verify.get())
-        self.choice(body,'导出格式',self.archive_format,['ZIP','7z'],save_archive)
-        self.label(body,'不计算文件哈希、不在导出后重读整个包；保留正常解压与安全路径处理。',9,T.MUTED).pack(anchor='w',pady=4)
-        self.sessions(body,True,True);row=self.row(body);self.button(row,'批量导出选中赛事',self.export_package,True,180);self.button(row,'导入赛事包',self.import_package,False,145)
-        self.button(row,'导入官方遥测',self.import_native,False,155)
-        body=self.card('无损节省磁盘空间','赛后无损存储完整采样与报告；保留图片质量，可导出或恢复 CSV')
-        from session_compression import enabled
-        self.storage_auto=tk.BooleanVar(self.root,value=enabled(ROOT))
-        from session_compression import column_enabled
-        from cache_budget import limit
-        self.storage_columnar=tk.BooleanVar(self.root,value=column_enabled(ROOT));self.cache_limit=tk.StringVar(self.root,value=str(limit(ROOT)))
-        def save_storage():
-            from storage import atomic_json
-            from race_model import read_json
-            settings=read_json(ROOT/'storage_settings.json',{})
-            settings.update(auto_compress=self.storage_auto.get(),columnar=self.storage_columnar.get(),cache_limit_mb=int(self.cache_limit.get()))
-            atomic_json(ROOT/'storage_settings.json',settings)
-        row=self.row(body);self.label(row,'赛后自动压缩',10,T.MUTED).pack(side='left')
-        Switch(row,'',self.storage_auto,save_storage).pack(side='right',fill='x',expand=True)
-        Switch(body,'新赛事使用分块列式存储',self.storage_columnar,save_storage).pack(fill='x',pady=4)
-        self.choice(body,'可重建缓存上限 / MiB',self.cache_limit,['128','256','512','1024','2048'],save_storage)
-        row=self.row(body);self.button(row,'压缩选中赛事',self.compress_selected,False,165)
-        self.button(row,'转换选中赛事为列式',lambda:self.storage_operation('columnar'),False,190)
-        row=self.row(body);self.button(row,'导出原始 CSV',lambda:self.storage_operation('csv'),False,165)
-        self.button(row,'导出独立复盘页',lambda:self.storage_operation('html'),False,175)
-        self.button(row,'恢复选中赛事为 CSV',lambda:self.storage_operation('restore'),False,195)
+        from control_data import build
+        build(self)
 
     def storage_operation(self,kind):
-        if self.active():self.status.set(tr('请先停止 HUD，再整理或导出存储'));return
-        from session_archive import transfer_batch
-        from storage_actions import columnar,export,restore
-        def action(items):
-            destination=filedialog.askdirectory(parent=self.root,title=tr('选择导出目录')) if kind in ('csv','html') else None
-            if kind in ('csv','html') and not destination:return
-            folders=[item['folder'] for item in items]
-            def done(value):
-                self.status.set(f"{tr('已处理 ')}{len(value['items'])} · {tr('失败 ')}{len(value['errors'])}")
-                if value['errors']:messagebox.showwarning('Stintrix','\n'.join(v['error'] for v in value['errors'][:8]),parent=self.root)
-            self.work(lambda:transfer_batch(folders,lambda folder:columnar(folder) if kind=='columnar' else restore(folder) if kind=='restore' else export(folder,destination,kind)),done)
-        self.with_selection(action,None)
+        from control_transfers import storage_operation
+        return storage_operation(self,kind)
 
     def compress_selected(self):
-        from session_compression import compress
-        from session_archive import transfer_batch
-        def action(items):
-            folders=[item['folder'] for item in items]
-            def done(value):
-                saved=sum(item['saved_bytes'] for item in value['items'])
-                failures=len(value['errors'])+sum(len(item['errors']) for item in value['items'])
-                self.status.set(f"{tr('已无损节省 ')}{saved/1048576:.1f} MB · {tr('失败 ')}{failures}")
-            self.work(lambda:transfer_batch(folders,compress),done)
-        self.with_selection(action,None)
+        from control_transfers import compress_selected
+        return compress_selected(self)
 
     def export_package(self):
-        from session_archive import export_session,transfer_batch
-        if getattr(self,'exporting',False):self.status.set(tr('赛事包正在导出，请等待完成'));return
-        def action(items):
-            directory=filedialog.askdirectory(parent=self.root,title=tr('选择赛事包导出目录'))
-            if not directory:return
-            import archive_preferences
-            format=archive_preferences.load(ROOT)['format']
-            keys=[item['key'] for item in items];self.exporting=True;self.shell.status_feedback.busy('package-export')
-            self.status.set(f"{tr('正在导出 ')}{len(keys)} · {format.upper()}…")
-            def done(result,error):
-                self.exporting=False;self.shell.status_feedback.busy('package-export',False)
-                if error:self.status.set(tr('导出未完成：') + error);messagebox.showerror('Stintrix',error,parent=self.root);return
-                self.status.set(f"{tr('已导出 ')}{len(result['items'])}{tr(' 场赛事 · 失败 ')}{len(result['errors'])}{tr(' 场')}")
-                if result['items']:os.startfile(directory)
-                if result['errors']:
-                    details='\n'.join(v['item']+'：'+v['error'] for v in result['errors'][:10])
-                    messagebox.showwarning(tr('部分赛事未导出'),details,parent=self.root)
-            self.run_background(lambda:transfer_batch(keys,lambda key:export_session(ROOT,key,Path(directory),format=format)),done)
-        self.with_selection(action,None)
+        from control_transfers import export_package
+        return export_package(self)
 
     def import_package(self):
-        from session_archive import import_session
-        from session_archive import transfer_batch
-        from archive_preferences import load
-        paths=filedialog.askopenfilenames(parent=self.root,title=tr('导入赛事包'),filetypes=[('Stintrix ZIP / 7z','*.zip *.7z')])
-        if paths:
-            verify=load(ROOT)['verify']
-            def done(value):
-                self.refresh()
-                mode=tr('完整校验') if verify else tr('快速导入')
-                self.status.set(f"{mode} · {tr('成功 ')}{len(value['items'])} · {tr('失败 ')}{len(value['errors'])}")
-                if value['errors']:messagebox.showwarning('Stintrix','\n'.join(Path(v['item']).name+'：'+v['error'] for v in value['errors'][:10]),parent=self.root)
-            self.work(lambda:transfer_batch(paths,lambda path:import_session(ROOT,path,verify=verify)),done)
+        from control_transfers import import_package
+        return import_package(self)
 
     def import_native(self):
-        from telemetry_import import import_recording
-        from session_reports import make_report
-        path=filedialog.askopenfilename(parent=self.root,title=tr('导入 LMU 官方遥测（只读）'),filetypes=[('LMU 遥测','*.duckdb')])
-        if path:
-            def work():
-                folder=import_recording(path,ROOT);make_report(folder);return folder
-            self.work(work,lambda _:self.refresh())
+        from control_transfers import import_native
+        return import_native(self)
 
     def tick(self):
+        self.update_toolbar()
         import time
         now=time.monotonic()
         if not self.closing and now-getattr(self,'report_retry_at',0)>=5:
@@ -697,7 +611,7 @@ class ControlCenter:
             if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
             history=getattr(self,'video_history_window',None)
             if history is not None and history.winfo_exists():history.history_state['cancel'].set()
-            self.closing=True;self.presentation.cancel();self.pages.cancel_request();self.pages.cancel_build();self.tasks.close();self.root.after_cancel(self.job);self.shell.motion.cancel();self.shell.navigation.motion.cancel();self.shell.scroller.cancel()
+            self.closing=True;self.shell.detach();self.presentation.cancel();self.pages.cancel_request();self.pages.cancel_build();self.tasks.close();self.root.after_cancel(self.job);self.shell.motion.cancel();self.shell.navigation.motion.cancel();self.shell.scroller.cancel()
             if self.active():self.hud.close()
         if self.tasks.busy or (self.hud and self.hud.root.winfo_exists()):self.root.after(50,self.close);return
         for _ in self.tasks.completions():pass

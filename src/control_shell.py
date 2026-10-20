@@ -65,7 +65,7 @@ class Navigation(tk.Canvas):
             kind={'运行与 HUD':0,'赛事复盘':1,'采样与遥测':3,'图像与数据':4,'赛道指南':5,'车型图鉴':6,'个人赛道纪录':7}.get(name,i)
             symbol(self,kind,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
             self.create_text(57*s,y,text=tr(name),anchor='w',fill=color,font=(T.FONT,11,'bold' if i==self.selected else 'normal'))
-            self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
+            if not getattr(self,'compact_indices',False):self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
 
 
 class Shell:
@@ -79,12 +79,12 @@ class Shell:
         self.side=side=tk.Frame(root,bg=T.RAIL,width=self.rail_width);side.pack(side='left',fill='y');side.pack_propagate(False)
         self.brand=tk.Canvas(side,bg=T.RAIL,highlightthickness=0,height=round(177*s));self.brand.pack(fill='x',padx=round(25*s),pady=(round(22*s),round(4*s)))
         self.brand.bind('<Configure>',self.paint_brand)
-        self.logo=None
+        self.logo=None;self.logo_source=None;self.logo_width=None
         self.brand.bind('<Destroy>',self.release_brand,add='+')
         try:
             from PIL import Image,ImageOps,ImageTk
             with Image.open(branding.directory()/('menu-icon-light.png' if T.mode=='light' else 'menu-icon.png')) as artwork:
-                image=ImageOps.contain(artwork.convert('RGBA'),(self.rail_width-round(50*s),round(101*s)),Image.Resampling.LANCZOS)
+                self.logo_source=artwork.convert('RGBA');image=ImageOps.contain(self.logo_source,(self.rail_width-round(50*s),round(101*s)),Image.Resampling.LANCZOS)
                 self.logo=ImageTk.PhotoImage(image,master=root)
         except (OSError,tk.TclError):pass
         self.navigation=Navigation(side,names,command);self.navigation.pack(fill='x',padx=round(16*s))
@@ -111,6 +111,9 @@ class Shell:
         try:version=(APP_ROOT/'VERSION').read_text(encoding='utf-8').strip()
         except OSError:version='?'
         Label(footer,text='STINTRIX  v'+version,font=('Consolas',8),bg=T.BG,fg=T.MUTED).pack(side='right')
+        self.action_host=tk.Frame(main,bg=T.BG)
+        self.action_host.pack(fill='x',pady=(0,8))
+        self.width_binding=root.bind('<Configure>',self.layout_width,add='+')
         viewport=tk.Frame(main,bg=T.BG);viewport.pack(fill='both',expand=True)
         self.scroll=tk.Canvas(viewport,bg=T.BG,highlightthickness=0)
         self.scroller=SmoothScroll(self.scroll,lambda:self.scroll.canvasy(0),
@@ -130,6 +133,10 @@ class Shell:
             self.logo=None;self.brand_font.__del__();self.brand_font.delete_font=False
     def paint_brand(self,_=None):
         c=self.brand;s=self.s;c.delete('all')
+        width=c.winfo_width()
+        if self.logo_source is not None and width>1 and width!=self.logo_width:
+            from PIL import ImageOps,ImageTk
+            self.logo=ImageTk.PhotoImage(ImageOps.contain(self.logo_source,(max(1,width),round(101*s))),master=self.root);self.logo_width=width
         if self.logo:c.create_image(0,0,image=self.logo,anchor='nw')
         if not self.logo:c.create_text(0,82*s,text='Stintrix',font=self.brand_font,fill=T.FG,anchor='w')
         c.create_text(1*s,114*s,text='LE MANS ULTIMATE',font=('Segoe UI',9,'bold'),fill=T.MUTED,anchor='w')
@@ -138,6 +145,22 @@ class Shell:
         c.create_line(0,line,right,line,fill=T.EDGE);c.create_line(0,line,44*s,line,fill=T.ACCENT,width=2*s)
     def scrollbar(self,*args):
         self.scroller.cancel();self.scroll.yview(*args)
+    def detach(self):
+        if getattr(self,'width_binding',None):self.root.unbind('<Configure>',self.width_binding);self.width_binding=None
+
+    def layout_width(self,event):
+        if event.widget is not self.root or not self.side.winfo_exists():return
+        import i18n
+        compact_width=260 if i18n.language=='en' else 200
+        dense=event.width<1160*self.s
+        if getattr(self.navigation,'compact_indices',False)!=dense:
+            self.navigation.compact_indices=dense;self.navigation.paint_key=None;self.navigation.paint()
+        target=min(self.rail_width,round(compact_width*self.s)) if event.width<1160*self.s else self.rail_width
+        if int(self.side.cget('width'))!=target:
+            self.side.configure(width=target)
+            for label in self.footer.winfo_children():
+                if isinstance(label,tk.Label):label.configure(wraplength=max(100,target-round(50*self.s)))
+
     def layout_sidebar(self,event):
         s=self.s;self.compact=event.height<780*s
         height=round((140 if self.compact else 177)*s)

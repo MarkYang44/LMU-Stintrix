@@ -61,7 +61,7 @@ def probe(path, directory='', cancel=None):
 def preview(path, seconds, directory='', cancel=None):
     from PIL import Image
     data=capture([executable('ffmpeg',directory),'-v','error','-threads','2','-noautorotate','-ss',str(seconds),
-        '-i',str(path),'-map','0:v:0','-frames:v','1','-vf',"scale='min(1120,iw)':-1",
+        '-i',str(path),'-map','0:v:0','-frames:v','1',
         '-f','image2pipe','-vcodec','png','-threads','1','pipe:1'],cancel)
     with Image.open(io.BytesIO(data)) as image:return image.convert('RGB')
 
@@ -69,10 +69,11 @@ def preview(path, seconds, directory='', cancel=None):
 def frames(path, start, end, hz, crop, directory='', cancel=None):
     """Yield (video_pts_s, RGB ROI); never manufacture CFR timestamps."""
     from PIL import Image
+    from video_sampling import selection
     x,y,w,h=crop
     args=[executable('ffmpeg',directory),'-hide_banner','-nostdin','-loglevel','info','-threads','2',
           '-noautorotate','-ss',str(start),'-i',str(path),'-t',str(end-start),'-map','0:v:0','-an','-sn','-dn',
-          '-vf',f"select='isnan(prev_selected_t)+gte(t-prev_selected_t,{1/hz-1e-6:.9f})',format=rgb24,crop={w}:{h}:{x}:{y},showinfo=checksum=0",
+          '-vf',f"select='{selection(hz)}',format=rgb24,crop={w}:{h}:{x}:{y},showinfo=checksum=0",
           '-fps_mode','passthrough','-pix_fmt','rgb24','-f','rawvideo','-threads','1','pipe:1']
     p=process(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,bufsize=0)
     stamps=queue.Queue(maxsize=4);errors=deque(maxlen=8);done=threading.Event()

@@ -123,9 +123,11 @@ class FeatureTests(unittest.TestCase):
                 for child in w.winfo_children():yield child;yield from descendants(child)
             try:
                 center.show_page(1);center.root.update_idletasks()
-                body=center.content.winfo_children()[0].body
-                actions=[w.label for w in body.winfo_children()[-1].winfo_children() if isinstance(w,Pill)]
-                self.assertEqual(actions,['全选当前列表','清除选择'])
+                pump(lambda:bool(center.tree.get_children()))
+                actions={center.review_menu.entrycget(i,'label'):i for i in range(center.review_menu.index('end')+1) if center.review_menu.type(i)=='command'}
+                self.assertTrue({'全选当前列表','清除选择'}.issubset(actions))
+                center.review_menu.invoke(actions['全选当前列表']);self.assertEqual(len(center.tree.selection()),len(center.tree.get_children()))
+                center.review_menu.invoke(actions['清除选择']);self.assertFalse(center.tree.selection())
                 center.show_page(6);pump(lambda:'条个人赛道纪录' in center.status.get())
                 pump(lambda:bool([w for w in descendants(center.content) if isinstance(w,tk.Canvas) and w.find_all()]))
                 center.set_theme('light');center.toggle_language();center.root.update()

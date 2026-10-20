@@ -100,7 +100,7 @@ class PodiumTests(unittest.TestCase):
                 self.fail('Podium UI did not settle')
             try:
                 center.show_page(6)
-                tab=next(w for w in walk(center.content) if isinstance(w,Pill) and w.label=='同组领奖台');tab.command()
+                tab=next(w for w in walk(center.content) if isinstance(w,Pill) and w.label=='领奖台记录');tab.command()
                 wait(lambda:'场同组领奖台赛事' in center.status.get())
                 table=next(w for w in walk(center.content) if isinstance(w,SessionList));self.assertEqual(len(table.rows),3)
                 button=next(w for w in walk(center.content) if isinstance(w,Pill) and w.label.startswith('亚军'));button.command()

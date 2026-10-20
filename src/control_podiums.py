@@ -35,7 +35,7 @@ def span(a,b,key,unit='',digits=1):
 
 def show(app):
     generation=app.scan_generation;state=dict(entries=[],selected=None,request=0,category=0,data=None)
-    body=app.card('同组领奖台','仅收录已确认同组完赛前三的正赛；排位、退赛、取消资格与演示不计入')
+    body=app.card('领奖台记录','仅收录已确认同组完赛前三的正赛；排位、退赛、取消资格与演示不计入')
     filters=app.row(body);buttons={}
     victory=VictoryBadge(body);victory.pack(fill='x')
     query=tk.StringVar(app.root);note=tk.StringVar(app.root,value=tr('正在读取领奖台赛事…'))

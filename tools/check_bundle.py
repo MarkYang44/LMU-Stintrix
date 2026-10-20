@@ -56,6 +56,8 @@ def main():
     assert any(c.co_name=='EventPresence' for c in codes(contract))
     assert not any('WaitForSingleObject' in c.co_names for c in codes(contract)),'Interface diagnostics must not consume game notifications'
     assert {'library','laps','session_archive','sevenzip','archive_preferences'}<=modules
+    assert {'control_forms','control_transfers','video_sampling','video_results','control_video_results'}<=modules
+    assert {'control_context','control_toolbar','control_sections','control_data','control_disposal','control_video_options'}<=modules
     assert {'control_lap_pair','lap_comparison','lap_identity','personal_records','control_records','recording_policy'}<=modules
     assert {'track_names','record_presentation','control_metrics'}<=modules
     assert 'class_positions' in modules

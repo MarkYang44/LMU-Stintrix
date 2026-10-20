@@ -9,6 +9,7 @@ class Page:
     attributes:dict=field(default_factory=dict)
     sync:list=field(default_factory=list)
     forms:dict=field(default_factory=dict)
+    form_baselines:dict=field(default_factory=dict)
     complete:bool=False
 
 class PageDeck:
@@ -21,6 +22,7 @@ class PageDeck:
     def request(self,index):
         self.cancel_request()
         if self.active is not None and self.index==index and self.active.complete and not self.owner.shell.covering:return
+        self.owner.browsing.capture(self.owner)
         self.owner.shell.cover_page();self.hide_active()
         self.owner.root.update_idletasks()
         self.owner.scan_generation+=1;self.owner.tree=None;self.owner.guide_page=None
@@ -64,7 +66,9 @@ class PageDeck:
         if self.active is not None:
             self.active.frame.pack_forget()
             if self.index in self.CACHE and self.active.complete:self.pause(self.active.frame)
-            else:self.active.frame.destroy();self.pages.pop(self.index,None)
+            else:
+                from control_disposal import release
+                release(self.active,self.owner);self.pages.pop(self.index,None)
         self.active=None;self.building=None
     def mount(self,index,builder,progressive=False):
         self.owner.shell.cover_page();self.retire()
@@ -76,7 +80,7 @@ class PageDeck:
             for name,value in cached.attributes.items():setattr(self.owner,name,value)
             cached.frame.pack(fill='x')
             for refresh in cached.sync:refresh()
-            self.owner.shell.reveal_page()
+            self.owner.shell.reveal_page();self.owner.install_toolbar();self.owner.browsing.restore(self.owner)
             return
         page=Page(tk.Frame(self.host,bg=self.host.cget('bg')));self.active=page
         if index in self.CACHE:self.pages[index]=page
@@ -88,8 +92,9 @@ class PageDeck:
             if progressive:self.step();return
             for _ in result:pass
         self.finish()
-    def register(self,module,variables,refresh):
+    def register(self,module,variables,refresh,baseline=None):
         self.building.forms[module]=variables;self.building.sync.append(refresh)
+        self.building.form_baselines[module]=baseline if baseline is not None else {}
     def on_resume(self,refresh):self.building.sync.append(refresh)
     def finish(self):
         page=self.active
@@ -97,7 +102,7 @@ class PageDeck:
             if self.before.get(name) is not value and isinstance(value,(tk.Widget,tk.Variable))
             and name not in ('root','content','scroll','title','subtitle','tree','guide_page')}
         page.complete=True;self.generator=None;self.job=None;self.building=None
-        self.owner.shell.reveal_page()
+        self.owner.shell.reveal_page();self.owner.install_toolbar();self.owner.browsing.restore(self.owner)
     def step(self):
         self.job=None;start=time.perf_counter()
         try:
@@ -108,7 +113,8 @@ class PageDeck:
         self.cancel_request();self.cancel_build()
         # Non-cached pages also own widget traces. Dispose those widgets before
         # the control center releases their Tk variables.
-        if self.active is not None and self.active.frame.winfo_exists():self.active.frame.destroy()
+        from control_disposal import release
+        if self.active is not None and self.active.frame.winfo_exists():release(self.active,self.owner)
         for page in self.pages.values():
-            if page.frame.winfo_exists():page.frame.destroy()
+            if page.frame.winfo_exists():release(page,self.owner)
         self.pages.clear();self.active=None;self.building=None;self.before={};self.owner=None;self.host=None

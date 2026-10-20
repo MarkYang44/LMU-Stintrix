@@ -33,6 +33,9 @@ class App:
         import gc
         gc.collect()
         self.root = root if root is not None else tk.Tk()
+        import recording_visibility
+        self.silent_recording=recording_visibility.load(ROOT/'recording_visibility.json')
+        if self.silent_recording:self.root.withdraw()
         control_theme.load(ROOT/'interface_settings.json')
         self.on_menu=on_menu
         self.root.title('LMU Stintrix' + (' · DEMO' if demo else ''))

@@ -50,9 +50,9 @@ class Select(tk.Canvas):
     continue to the intended control; temporary owner bindings are removed.
     """
     def __init__(self,parent,textvariable=None,values=(),state='readonly',width=26,
-                 height=7,font=None,style=None,**kwargs):
+                 height=7,font=None,style=None,labels=None,**kwargs):
         self.s=scale(parent);self.variable=textvariable or tk.StringVar(parent)
-        self.values=list(values);self.state=state;self.rows=max(1,min(8,int(height)))
+        self.values=list(values);self.labels=labels or {};self.state=state;self.rows=max(1,min(8,int(height)))
         self.font=tkfont.Font(parent,font=font or (T.FONT,10))
         self.amount=0.;self.focused=False;self.popup=None;self.offset=0;self.active=-1
         self.popup_motion=None;self.query='';self.query_job=None;self.owner_binding=None;self.owner_click=None;self.owner_focus=None;self.highlight_y=None
@@ -71,6 +71,7 @@ class Select(tk.Canvas):
         self.bind('<FocusIn>',lambda _:self.focus(True));self.bind('<FocusOut>',lambda _:self.focus(False))
         self.bind('<KeyPress>',self.key);self.bind('<MouseWheel>',lambda _:'break')
         self.bind('<Destroy>',self.dispose,add='+')
+    def display(self,value):return tr(self.labels.get(value,str(value)))
     def configure(self,cnf=None,**kwargs):
         if cnf is None and not kwargs:return super().configure()
         if cnf:kwargs.update(cnf)
@@ -120,7 +121,7 @@ class Select(tk.Canvas):
         if self.edit:
             self.coords(self.edit_item,14*s,h/2);self.itemconfigure(self.edit_item,width=max(1,w-60*s));self.tag_lower('surface')
         else:
-            text=tr(str(self.variable.get()));maximum=max(1,w-66*s)
+            text=self.display(self.variable.get());maximum=max(1,w-66*s)
             if self.font.measure(text)>maximum:
                 while text and self.font.measure(text+'…')>maximum:text=text[:-1]
                 text+='…'
@@ -143,7 +144,7 @@ class Select(tk.Canvas):
         self.panel=tk.Canvas(self.popup,bg=T.CARD,highlightthickness=1,highlightbackground=T.EDGE)
         self.panel.pack(fill='both',expand=True);self.popup_motion=Motion(self.panel)
         availablew=self.owner.winfo_width();availableh=self.owner.winfo_height()
-        width=min(availablew-px(self,24),max(self.winfo_width(),min(px(self,620),max(self.font.measure(tr(str(v))) for v in self.values)+px(self,66))))
+        width=min(availablew-px(self,24),max(self.winfo_width(),min(px(self,620),max(self.font.measure(self.display(v)) for v in self.values)+px(self,66))))
         originx=self.winfo_rootx()-self.owner.winfo_rootx();originy=self.winfo_rooty()-self.owner.winfo_rooty()
         x=max(px(self,12),min(availablew-width-px(self,12),originx));bottom=originy+self.winfo_height()+px(self,5)
         self.above=bottom+self.full_h>availableh-px(self,16)
@@ -208,7 +209,7 @@ class Select(tk.Canvas):
             y=px(self,6)+row*self.row_h;chosen=self.values[index]==self.variable.get()
             if chosen:panel.create_rectangle(5*s,y,w-5*s,y+self.row_h,fill=T.SELECT,outline='')
             if chosen:panel.create_rectangle(5*s,y+9*s,8*s,y+self.row_h-9*s,fill=T.ACCENT,outline='')
-            panel.create_text(19*s,y+self.row_h/2,text=tr(str(self.values[index])),anchor='w',font=self.font,fill=T.FG)
+            panel.create_text(19*s,y+self.row_h/2,text=self.display(self.values[index]),anchor='w',font=self.font,fill=T.FG)
             if chosen:panel.create_text(w-24*s,y+self.row_h/2,text='✓',font=(T.FONT,11),fill=T.ACCENT)
         panel.create_rectangle(5*s,self.highlight_y+9*s,8*s,self.highlight_y+self.row_h-9*s,fill=T.ACCENT,outline='')
         if self.offset>0:panel.create_line(w-12*s,3*s,w-34*s,3*s,fill=T.ACCENT,width=2*s)
@@ -263,7 +264,7 @@ class Select(tk.Canvas):
             if self.query_job:self.after_cancel(self.query_job)
             def clear():self.query='';self.query_job=None
             self.query_job=self.after(700,clear)
-            match=next((i for i,v in enumerate(self.values) if str(v).casefold().startswith(self.query)),None)
+            match=next((i for i,v in enumerate(self.values) if self.display(v).casefold().startswith(self.query)),None)
             if match is not None:
                 self.active=match;self.offset=max(0,min(len(self.values)-self.visible,match))
                 self.popup_motion.cancel('selection');self.highlight_y=px(self,6)+(self.active-self.offset)*self.row_h;self.paint_options()

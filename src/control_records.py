@@ -44,7 +44,7 @@ def show(app):
             else:show_best(app)
         finally:app.content=outer
         app.scroll.yview_moveto(0)
-    for kind,label in (('best','赛道最快圈'),('podium','同组领奖台'),('history','纪录履历'),('official','官方战绩')):
+    for kind,label in (('best','赛道最快圈'),('podium','领奖台记录'),('history','纪录履历'),('official','官方战绩')):
         buttons.append((kind,app.button(row,label,lambda k=kind:mount(k),kind==selected,155)))
     mount(selected)
 
@@ -52,10 +52,11 @@ def show(app):
 def show_best(app):
     root=app.data_path
     generation=app.scan_generation;state={'entries':[],'curve':[],'selected':None,'request':0}
-    body=app.card('个人赛道纪录','每个赛道布局、车辆组别各保留最快有效圈；不包含演示或未验证旧圈')
+    body=app.card('')
     row=app.row(body);query=tk.StringVar(app.root);Field(row,textvariable=query).pack(side='left',fill='x',expand=True)
     modes=ModeControls(body,app,lambda:populate(),'best_mode_filters')
     modes.bind_query(query)
+    modes.hint.configure(text='每个赛道布局、车辆组别各保留最快有效圈；不包含演示或未验证旧圈。天气与车辆条件仅代表已记录有效圈。')
     table=SessionList(body,columns=('track','layout','class','mode','car','time'),height=6,selectmode='browse')
     for key,title,width in [('track','赛道',190),('layout','布局 / 长度',160),('class','组别',90),('mode','参赛方式',90),('car','车辆',230),('time','最快圈',100)]:
         table.heading(key,text=title);table.column(key,width=width,minwidth=65,stretch=key in ('track','layout','car'))
@@ -102,7 +103,7 @@ def show_best(app):
     def selected(_=None):
         ids=table.selection()
         if not ids:return
-        entry=state['entries'][int(ids[0])];modes.describe(entry);state['selected']=entry;state['request']+=1;request=state['request']
+        entry=state['entries'][int(ids[0])];modes.describe(entry);state['selected']=entry;app.record_selected_folder=entry['folder'];state['request']+=1;request=state['request']
         state['curve']=[];draw();clear();caption.set(tr('正在读取纪录详情…'))
         header.show_vehicle(entry['session'].get('vehicle',''))
         def done(result,error):
@@ -124,7 +125,7 @@ def show_best(app):
         for i,e in modes.pairs(state['entries']):
             layout_name=layout(e['track'],e['layout'],e['length_m'])
             t=e['time_s'];rows.append((str(i),(display(e['track']),layout_name,e['vehicle_class'],tr(LABELS[mode(e)]),e['session'].get('vehicle',''),f'{int(t//60)}:{t%60:06.3f}')))
-        old_folder=(state['selected'] or {}).get('folder');old_id=next((str(i) for i,e in enumerate(state['entries']) if e['folder']==old_folder),None)
+        old_folder=(state['selected'] or {}).get('folder') or getattr(app,'record_selected_folder',None);old_id=next((str(i) for i,e in enumerate(state['entries']) if e['folder']==old_folder),None)
         count.set(len(rows));replace_rows(table,rows,(old_id,) if old_id else ())
         state['selected']=None;state['request']+=1;state['curve']=[];caption.set(tr('尚无选择'));clear();draw()
         if rows:table.selection_set((old_id,) if old_id and table.exists(old_id) else (rows[0][0],))

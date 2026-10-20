@@ -61,8 +61,9 @@ class ReviewLayoutTests(unittest.TestCase):
             try:
                 self.assertNotIn('曲线对比',control_center.PAGES);self.assertEqual(len(control_center.PAGES),7)
                 center.show_page(1);wait(lambda:bool(center.tree.get_children()))
-                labels={w.label for w in walk(center.content) if isinstance(w,Pill)}
-                self.assertTrue({'赛事 Review','圈 A / 圈 B 选择器','跨场最快圈对比','查看最快圈','导出赛事包'}.issubset(labels))
+                labels={w.label for w in walk(center.shell.action_host) if isinstance(w,Pill)}
+                labels.update(center.review_menu.entrycget(i,'label') for i in range(center.review_menu.index('end')+1) if center.review_menu.type(i)=='command')
+                self.assertTrue({'打开赛事复盘','圈 A / 圈 B 选择器','跨场最快圈对比','查看最快圈','导出赛事包'}.issubset(labels))
                 center.search.set('蒙扎');center.populate();self.assertEqual(len(center.tree.get_children()),1)
                 self.assertEqual(center.tree.rows['0'][center.tree.columns.index('track')],'蒙扎国家赛车场')
                 center.search.set('Monza');center.populate();self.assertEqual(len(center.tree.get_children()),1)

@@ -40,6 +40,7 @@ def entry(w,parent,title,key,default='',browse=None):
 def build(w,modes):
     window=w.window
     title=tk.Frame(window,bg=T.BG);title.pack(fill='x',padx=px(window,24),pady=(px(window,15),px(window,6)))
+    Action(title,'最近提取结果',w.recent_results,170).place(relx=1,anchor='ne')
     w.heading_frame=title;w.heading_meta=note(title,'STINTRIX / VIDEO LAB',9,T.ACCENT,True)
     w.heading_title=note(title,'视频提取油刹曲线',21,T.FG,True)
     w.heading_hint=note(title,'跟着三步完成：选视频与赛道 → 圈段与 HUD 标定 → 检查并提取。所有处理都在本机。')
@@ -91,6 +92,7 @@ def build(w,modes):
     label.bind('<Configure>',lambda e:label.configure(wraplength=max(120,e.width)))
     r=row(body);w.compare_button=Action(r,'比较提取结果',w.compare,160);w.compare_button.pack(side='left',padx=(0,8))
     w.history_button=Action(r,'对比历史圈速',w.compare_history,160);w.history_button.pack(side='left')
+    Action(body,'最近提取结果',w.recent_results,170).pack(anchor='w',pady=(8,0))
     note(body,'比较提取结果：依次选择 A、B 两个 curve.json。对比历史圈速：选择已有完整圈记录，按报告说明判断可比较范围。')
 
 
@@ -112,8 +114,8 @@ def calibration(w):
     controls=tk.Frame(tools,bg=T.CARD)
     Label(w.calibration_options,text='弧宽 / 原视频 px',bg=T.CARD,fg=T.MUTED,font=(T.FONT,9)).pack(side='left',padx=(0,px(body,8)))
     Field(w.calibration_options,textvariable=w.thickness,width=4).pack(side='left',padx=(0,px(body,12)))
-    Label(controls,text='放大',bg=T.CARD,fg=T.MUTED,font=(T.FONT,9)).pack(side='left',padx=(0,px(body,8)))
-    zoom=Select(controls,textvariable=w.zoom,values=[.5,.75,1,1.5,2,3],width=9);zoom.pack(side='left');zoom.bind('<<ComboboxSelected>>',lambda _:w.manual_zoom())
+    Label(controls,text='滚轮缩放',bg=T.CARD,fg=T.MUTED,font=(T.FONT,9)).pack(side='left',padx=(0,px(body,8)))
+    zoom=Select(controls,textvariable=w.zoom,values=[.25,.5,.75,1,1.5,2,3,4,6,8,12],width=9);zoom.pack(side='left');zoom.bind('<<ComboboxSelected>>',lambda _:w.manual_zoom())
     Action(controls,'适合视窗',w.fit_preview,105).pack(side='left',padx=(px(body,5),0))
     actions=tk.Frame(tools,bg=T.CARD)
     Action(actions,'撤销一步',w.undo_calibration,95).pack(side='left');Action(actions,'重做本项',w.clear_target,95).pack(side='left',padx=px(body,5));Action(actions,'检查标定',w.check_calibration,95).pack(side='left')
@@ -131,6 +133,8 @@ def calibration(w):
         command=w.seek_changed,bg=T.CARD,fg=T.FG,troughcolor=T.FIELD,highlightthickness=0,activebackground=T.ACCENT,relief='flat',sliderlength=18,width=10)
     w.seek_scale.pack(side='left',fill='x',expand=True)
     w.seek_scale.bind('<ButtonRelease-1>',lambda _:w.request_frame());w.seek_scale.bind('<KeyRelease>',lambda _:w.request_frame())
+    for text,delta in [('−0.02s',-.02),('+0.02s',.02)]:
+        Action(timeline,text,lambda d=delta:w.nudge_preview(d),84).pack(side='left',padx=2)
     Action(timeline,'设为圈起点',lambda:w.mark_range('start'),115).pack(side='left',padx=px(parent,4))
     Action(timeline,'设为圈终点',lambda:w.mark_range('end'),115).pack(side='left',padx=(0,px(parent,6)))
     range_row=tk.Frame(parent,bg=T.BG);range_row.pack(fill='x',pady=(0,4))
@@ -151,13 +155,18 @@ def calibration(w):
         if not w.calibration_options.winfo_manager():w.toggle_calibration_options()
         if not precise.winfo_manager():toggle_times()
     Action(range_row,'精确时间 / 旧标定',open_times,175).pack(side='left',padx=8)
+    fine=tk.Frame(precise,bg=T.CARD);fine.pack(fill='x',pady=(0,4))
+    for text,delta in [('−1 秒',-1),('−0.02 秒',-.02),('+0.02 秒',.02),('+1 秒',1)]:
+        Action(fine,text,lambda d=delta:w.nudge_preview(d),92).pack(side='left',padx=(0,4))
+    note(fine,'滚轮缩放 · 右键 / 中键拖动 · Shift + 滚轮横移').pack(side='left',padx=6)
     holder=tk.Frame(parent,bg=T.EDGE);holder.pack(fill='both',expand=True,padx=px(parent,2))
     w.canvas=tk.Canvas(holder,bg='#111111',highlightthickness=0,width=1,height=1,cursor='crosshair')
-    xs=ttk.Scrollbar(holder,orient='horizontal',command=w.canvas.xview,style='Lab.Horizontal.TScrollbar');ys=ttk.Scrollbar(holder,orient='vertical',command=w.canvas.yview,style='Lab.Vertical.TScrollbar')
+    xs=ttk.Scrollbar(holder,orient='horizontal',command=lambda *a:w.scroll_preview('x',*a),style='Lab.Horizontal.TScrollbar');ys=ttk.Scrollbar(holder,orient='vertical',command=lambda *a:w.scroll_preview('y',*a),style='Lab.Vertical.TScrollbar')
     w.canvas.configure(xscrollcommand=xs.set,yscrollcommand=ys.set);w.canvas.grid(row=0,column=0,sticky='nsew');xs.grid(row=1,column=0,sticky='ew');ys.grid(row=0,column=1,sticky='ns')
     holder.rowconfigure(0,weight=1);holder.columnconfigure(0,weight=1)
     w.canvas.bind('<ButtonPress-1>',w.press);w.canvas.bind('<ButtonRelease-1>',w.release);w.canvas.bind('<B1-Motion>',w.dragging)
     w.canvas.bind('<Configure>',w.preview_resized)
+    w.install_viewport()
     w.geometry_label=note(parent,'尚未标定；读取视频后，这里会显示标定状态。')
 
 
@@ -181,4 +190,6 @@ def advanced_layout(w,parent):
     w.distance_options=tk.Frame(r,bg=T.CARD);w.distance_options.pack(side='left',padx=px(r,24))
     Label(w.distance_options,text='距离单位',bg=T.CARD,fg=T.MUTED,font=(T.FONT,10)).pack(side='left',padx=(0,px(r,12)))
     Select(w.distance_options,textvariable=w.unit,values=['m','km'],width=6).pack(side='left')
+    Switch(body,'另存 120 Hz 平滑曲线（插值估算）',w.smooth_120hz,lambda:None).pack(fill='x',pady=5)
+    note(body,'仅补齐已识别点之间的油刹变化；HUD 缺失留空，不增加原始精度。打开 report_120hz.html 切换查看。')
     note(body,'保留原视频与赛事数据；关闭窗口会取消当前任务。CSV / JSON / 网页与标定文件独立保存。')

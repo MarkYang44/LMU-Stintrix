@@ -17,6 +17,25 @@ from tools.build import bundle_audit,ASSET_NAMES
 import paths
 
 class DistributionTests(unittest.TestCase):
+    def test_worktree_audit_keeps_disallowed_candidates_visible(self):
+        from tools import audit_publication as publication
+        candidates=b'README.md\0src/debug.bin\0src/valid.py\0src/debug.bin\0'
+        with patch.object(publication.subprocess,'check_output',return_value=candidates) as command:
+            files=publication.working_tree_files()
+        self.assertEqual(files,['README.md','src/debug.bin','src/valid.py'])
+        self.assertIn('--exclude-standard',command.call_args.args[0])
+        result=publication.audit(files,lambda _:b'public text')
+        self.assertFalse(result['ok']);self.assertIn('src/debug.bin: outside publication allowlist',result['failures'])
+
+    def test_unreadable_candidate_fails_closed(self):
+        def missing(_):raise FileNotFoundError('missing')
+        result=audit(['src/valid.py'],missing)
+        self.assertFalse(result['ok']);self.assertIn('cannot read',result['failures'][0])
+
+    def test_snapshot_audit_rejects_unknown_ref(self):
+        result=subprocess.run([sys.executable,str(ROOT/'tools/audit_publication.py'),'--ref','refs/heads/audit-nonexistent-ref','--json'],cwd=ROOT,capture_output=True,text=True)
+        self.assertNotEqual(result.returncode,0);self.assertFalse(json.loads(result.stdout)['ok'])
+
     def test_private_files_are_rejected_even_inside_source(self):
         for name in ('data/a.json','src/Logs/session.json','src/sample.lap.json','docs/race.csv','src/local_settings.json','src/vendor/secret.py','_verification/result.json','src/record.duckdb'):
             with self.subTest(name=name):self.assertFalse(allowed(name))

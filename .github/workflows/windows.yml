@@ -27,6 +27,8 @@ jobs:
         run: python tools/install_7zip.py --no-checksums
       - name: Select a verified native compression fixture volume
         run: python tools/compression_fixture.py
+      - name: Generate reviewed branding resources
+        run: python tools/build_brand.py
       - name: Run isolated regression tests
         run: python tools/run_tests.py
       - name: Build independent portable ZIP

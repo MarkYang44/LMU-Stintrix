@@ -114,7 +114,10 @@ class UI(unittest.TestCase):
         app,root,errors=self.app();f=self.reports(root);w,c=self.viewer(app,f);v=c.viewport;v.fit('one');v.zoom(2);v.pan(dx=-300,dy=-1000);self.pump(app,.15);x,y=400,240;before=[(p-o)/v.scale for p,o in zip((x,y),v.offset)]
         v.zoom(1.2,x,y);after=[(p-o)/v.scale for p,o in zip((x,y),v.offset)]
         for a,b in zip(before,after):self.assertAlmostEqual(a,b)
-        v.zoom(6);self.pump(app,.3);self.assertLessEqual(v.photo.width(),v.canvas.winfo_width()+9);self.assertLessEqual(v.photo.height(),v.canvas.winfo_height()+9)
+        import math
+        # Cropping rounds outwards by at most two source pixels, so the
+        # permitted viewport overscan grows with the actual zoom scale.
+        v.zoom(6);self.pump(app,.3);overscan=2*math.ceil(v.scale);self.assertLessEqual(v.photo.width(),v.canvas.winfo_width()+overscan);self.assertLessEqual(v.photo.height(),v.canvas.winfo_height()+overscan)
         v.edge(True);self.pump(app,.15);self.assertAlmostEqual(v.vbar.get()[1],1.,places=4);v.edge();self.pump(app,.15);self.assertAlmostEqual(v.vbar.get()[0],0.,places=4)
         self.assertEqual(v.image.getpixel((899,3599)),(3,117,249));self.assertFalse(errors)
     def test_missing_reports_generate_once_and_switch_to_requested_report(self):

@@ -95,5 +95,6 @@ class PolishUITests(unittest.TestCase):
             app.show_page(1);self.pump(app,.2);app.set_theme(theme);self.pump(app,.15)
             app.show_page(0);self.pump(app,.1);app.show_page(1);self.pump(app,.2)
         app.toggle_language();self.pump(app,.3)
+        self.assertEqual((app.root.winfo_width(),app.root.winfo_height()),(1060,700))
         top=app.tree.viewport.winfo_rooty()-app.scroll.winfo_rooty()
         self.assertGreaterEqual((app.scroll.winfo_height()-top)/app.tree.rowheight,2);self.assertFalse(errors)

@@ -101,7 +101,7 @@ class UI(unittest.TestCase):
         app,root,errors=self.app(True);b=self.data(app);self.pump(app,.1)
         visible=(app.scroll.winfo_rooty()+app.scroll.winfo_height()-b.table.viewport.winfo_rooty())/b.table.rowheight;self.assertGreaterEqual(visible,2)
         y=b.toolbar['import'].winfo_rooty();app.scroll.yview_moveto(.4);self.pump(app,.05);self.assertEqual(b.toolbar['import'].winfo_rooty(),y);self.assertFalse(errors)
-        app.root.geometry('1420x960');self.pump(app,.15);self.assertGreaterEqual(b.table.viewport.winfo_height()/b.table.rowheight,8);self.assertFalse(errors)
+        app.root.maxsize(4096,4096);app.root.geometry('1420x960');self.pump(app,.15);self.assertEqual((app.root.winfo_width(),app.root.winfo_height()),(1420,960));self.assertGreaterEqual(b.table.viewport.winfo_height()/b.table.rowheight,8);self.assertFalse(errors)
     def test_non_edit_keys_do_not_rebuild_review_and_rapid_edits_are_coalesced(self):
         app,root,errors=self.app(True);app.show_page(1);self.pump(app,.4);field=app.search_target;field.entry.focus_force();self.pump(app,.05)
         with patch.object(app.tree,'replace',wraps=app.tree.replace) as replaced:

@@ -76,7 +76,8 @@ class Shell:
         self.brand_font=tkfont.Font(root,family='Segoe UI',size=23,weight='bold')
         self.rail_width=max(round(252*s),max(self.brand_font.measure('Stintrix'),*(tkfont.Font(root,family=T.FONT,size=11,weight='bold').measure(tr(name)) for name in names))+round(100*s))
         available_w=max(800,root.winfo_screenwidth()-round(70*s));available_h=max(600,root.winfo_screenheight()-round(100*s))
-        root.geometry(f'{min(round(1240*s),available_w)}x{min(round(850*s),available_h)}')
+        if not getattr(root,'_stintrix_shell_sized',False):
+            root.geometry(f'{min(round(1240*s),available_w)}x{min(round(850*s),available_h)}');root._stintrix_shell_sized=True
         root.minsize(min(round(1060*s),available_w),min(round(700*s),available_h))
         self.side=side=tk.Frame(root,bg=T.RAIL,width=self.rail_width);side.pack(side='left',fill='y');side.pack_propagate(False)
         self.brand=tk.Canvas(side,bg=T.RAIL,highlightthickness=0,height=round(177*s));self.brand.pack(fill='x',padx=round(25*s),pady=(round(22*s),round(4*s)))

@@ -27,7 +27,9 @@ class EfficiencyTests(unittest.TestCase):
             sessions(root)
         guard=patch('control_center.ROOT',root);guard.start();self.addCleanup(guard.stop)
         repair=patch('control_center.ControlCenter.repair_windows_entry');repair.start();self.addCleanup(repair.stop)
-        app=ControlCenter();app.root.geometry('1060x700');errors=[];app.root.report_callback_exception=lambda *args:errors.append(args)
+        # Layout fixtures request an exact client size even on a smaller CI
+        # desktop; monitor clamping has its own native placement coverage.
+        app=ControlCenter();app.root.maxsize(4096,4096);app.root.geometry('1060x700');errors=[];app.root.report_callback_exception=lambda *args:errors.append(args)
         def close():
             import tkinter as tk
             app.close()

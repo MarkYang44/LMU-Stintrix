@@ -110,8 +110,11 @@ assert.equal(api.esc('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
                 page.favorite('cars','bmw-m4-lmgt3');self.assertTrue((Path(directory)/'guide_settings.json').is_file())
                 page.select('car:bmw-m4-lmgt3');page.select('car:bmw-m-hybrid-v8');page.compare();pump(center)
                 self.assertEqual((page.state['mode'],page.card_count),('compare',2))
-                center.scroll.yview_moveto(.4);pump(center)
                 pictures=[v for v in walk(page.results) if isinstance(v,Picture)]
+                center.root.update_idletasks();target=pictures[0]
+                center.scroll.yview_moveto(max(0,target.winfo_rooty()-center.content.winfo_rooty())/max(1,center.content.winfo_height()))
+                deadline=time.monotonic()+4
+                while not any(v.photo for v in pictures) and time.monotonic()<deadline:pump(center,.05)
                 self.assertTrue(any(v.photo for v in pictures));self.assertFalse([v.error for v in pictures if v.error])
                 center.set_theme('light');pump(center);self.assertEqual(center.guide_page.state['comparison'],['car:bmw-m4-lmgt3','car:bmw-m-hybrid-v8'])
                 center.guide_page.jump('tracks','monza');page=center.guide_page;page.state['expanded']=['track:monza'];page.render();pump(center)

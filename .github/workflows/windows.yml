@@ -5,6 +5,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      full_regression:
+        description: 'Run the optional full historical regression'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -15,6 +20,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
@@ -29,13 +35,31 @@ jobs:
         run: python tools/compression_fixture.py
       - name: Generate reviewed branding resources
         run: python tools/build_brand.py
-      - name: Run isolated regression tests
-        run: python tools/run_tests.py
+      - name: Run change-related isolated checks
+        env:
+          STINTRIX_FULL_TESTS: ${{ inputs.full_regression }}
+          STINTRIX_TEST_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ($env:STINTRIX_FULL_TESTS -eq 'true') {
+            python tools/run_tests.py --full
+          } else {
+            $testBase = $env:STINTRIX_TEST_BASE
+            if ($env:GITHUB_REF -like 'refs/tags/*') {
+              $testBase = git describe --tags --match 'v*' --abbrev=0 'HEAD^'
+              if ($LASTEXITCODE -ne 0) { $testBase = 'HEAD^' }
+            }
+            if (-not $testBase -or $testBase -match '^0+$') { $testBase = 'HEAD^' }
+            python tools/run_tests.py --base $testBase
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Selected checks failed' }
       - name: Build independent portable ZIP
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: python tools/build.py --no-checksums
       - name: Validate clean portable package
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: python tools/check_bundle.py --no-checksums --smoke
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           name: LMU-Stintrix-windows-x64
           path: |

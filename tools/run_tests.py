@@ -1,60 +1,55 @@
-"""Run Tcl and worker fixtures in separate processes; no personal fixtures."""
-import argparse
-import os
+"""Run a small change-related scope by default; full regression is explicit."""
+import argparse,json,os,subprocess,sys,unittest
 from pathlib import Path
-import subprocess
-import sys
-import unittest
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+from tools.test_scope import SMOKE,changed_paths,related_targets,full_targets
+
 
 def flatten(suite):
     for case in suite:
         if isinstance(case,unittest.TestSuite):yield from flatten(case)
         else:yield case
 
+
+def case_names(targets):
+    raw=[case.id() for target in targets for case in flatten(unittest.defaultTestLoader.loadTestsFromName(target))]
+    names=list(dict.fromkeys(raw));return names,len(raw)-len(names)
+
+
 def main():
     if hasattr(sys.stdout,'reconfigure'):sys.stdout.reconfigure(encoding='utf-8',errors='replace')
-    if hasattr(sys.stderr,'reconfigure'):sys.stderr.reconfigure(encoding='utf-8',errors='replace')
-    parser=argparse.ArgumentParser();parser.add_argument('--quick',action='store_true');parser.add_argument('--modules',nargs='+');args=parser.parse_args()
-    modules=['tests.test_distribution'] if args.quick else ['tests.test_core','tests.test_upgrades','tests.test_laplab','tests.test_selected_laps','tests.test_vehicle','tests.test_endurance','tests.test_distribution','tests.test_lightweight','tests.test_archives','tests.test_modularity','tests.test_race_images','tests.test_control_center']
-    if not args.quick:modules.extend(['tests.test_desktop','tests.test_guide','tests.test_desktop_controls','tests.test_language','tests.test_navigation','tests.test_session_delete','tests.test_maps','tests.test_memory','tests.test_lossless_storage','tests.test_archive_modes','tests.test_personal_records','tests.test_review_layout','tests.test_class_positions','tests.test_podium_records'])
-    if not args.quick:modules.extend(['tests.test_review_filters','tests.test_record_intelligence','tests.test_motion','tests.test_feedback','tests.test_career_analysis','tests.test_telemetry_continuity','tests.test_race_modes','tests.test_event_catalog','tests.test_event_filter_ui','tests.test_silent_recording'])
-    if not args.quick:modules.extend(['tests.test_video_analysis','tests.test_video_ui','tests.test_video_motion','tests.test_video_history','tests.test_video_assist'])
-    if not args.quick:modules.extend(['tests.test_storage40','tests.test_video_guide','tests.test_video_viewport','tests.test_video_resample','tests.test_audit_fixes','tests.test_ui_efficiency'])
-    if not args.quick:modules.append('tests.test_action_menu')
-    if not args.quick:modules.extend(['tests.test_hud_workflows','tests.test_hud_workflow_ui'])
-    if not args.quick:modules.append('tests.test_ui_polish51')
-    if not args.quick:modules.append('tests.test_ui_polish52')
-    if not args.quick:modules.append('tests.test_ui_polish53')
-    if not args.quick:modules.append('tests.test_ui_polish54')
-    if not args.quick:modules.append('tests.test_ui_polish55')
-    if not args.quick:modules.append('tests.test_ui_polish56')
-    if not args.quick:modules.append('tests.test_ui_polish57')
-    if not args.quick:modules.append('tests.test_ui_polish58')
-    if not args.quick:modules.append('tests.test_ui_polish59')
-    if not args.quick:modules.append('tests.test_ui_polish60')
-    if not args.quick:modules.append('tests.test_ui_polish61')
-    if not args.quick:modules.append('tests.test_ui_polish62')
-    if not args.quick:modules.append('tests.test_ui_polish63')
-    if not args.quick:modules.append('tests.test_ui_polish64')
-    if not args.quick:modules.append('tests.test_ui_polish65')
-    if not args.quick:modules.append('tests.test_ui_polish66')
-    if not args.quick:modules.append('tests.test_ui_polish67')
-    if not args.quick:modules.append('tests.test_ui_polish68')
-    if not args.quick:modules.append('tests.test_ui_polish69')
-    if not args.quick:modules.append('tests.test_ui_polish70')
-    if not args.quick:modules.append('tests.test_ui_polish71')
-    if not args.quick:modules.append('tests.test_ui_polish72')
-    if not args.quick:modules.append('tests.test_ui_polish73')
-    if not args.quick:modules.append('tests.test_ui_polish74')
-    if args.modules:modules=args.modules
-    names=[case.id() for module in modules for case in flatten(unittest.defaultTestLoader.loadTestsFromName(module))]
-    if not args.quick and not args.modules:names.extend(case.id() for case in flatten(unittest.defaultTestLoader.loadTestsFromName('tests.test_workflow_polish')))
+    parser=argparse.ArgumentParser(description=__doc__)
+    mode=parser.add_mutually_exclusive_group()
+    mode.add_argument('--full',action='store_true',help='Explicitly run every historical regression')
+    mode.add_argument('--quick',action='store_true',help='Only the six essential smoke checks')
+    mode.add_argument('--modules','--tests',dest='targets',nargs='+',help='Exact unittest modules, classes or cases')
+    parser.add_argument('--paths',nargs='+',help='Choose related checks for these changed project files')
+    parser.add_argument('--base',help='Compare changes to this Git commit or ref (CI/committed work)')
+    parser.add_argument('--plan',action='store_true',help='List the selected cases without running them')
+    args=parser.parse_args();paths=[]
+    try:
+        if args.full:targets=full_targets();scope='full (explicit)'
+        elif args.quick:targets=list(SMOKE);scope='smoke'
+        elif args.targets:targets=args.targets;scope='explicit'
+        else:
+            if args.paths:paths=args.paths;base=None
+            else:paths,base=changed_paths(args.base)
+            targets=related_targets(paths,base);scope='related' if paths else 'smoke (no pending changes)'
+        names,removed=case_names(targets)
+    except (OSError,ValueError,SyntaxError,subprocess.CalledProcessError) as error:
+        parser.error(str(error))
+    plan=dict(scope=scope,changed_files=paths,selected=len(names),duplicates_removed=removed,tests=names)
+    if args.plan:print(json.dumps(plan,ensure_ascii=False,indent=2));return 0
+    print(f"Scope: {scope}; {len(names)} selected; {removed} duplicate entries removed",flush=True)
+    if not names:print('No runtime checks needed for documentation-only changes.',flush=True);return 0
     failed=[]
     for name in names:
-        result=subprocess.run([sys.executable,'-m','unittest',name,'-q'],cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180,env={**os.environ,'LMU_STINTRIX_HOTKEYS':'0'})
-        print(('PASS' if result.returncode==0 else 'FAIL')+' '+name,flush=True)
-        if result.returncode:failed.append(name);print(result.stdout+result.stderr,flush=True)
+        try:
+            result=subprocess.run([sys.executable,'-m','unittest',name,'-q'],cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180,env={**os.environ,'LMU_STINTRIX_HOTKEYS':'0'})
+            ok=result.returncode==0;output=result.stdout+result.stderr
+        except subprocess.TimeoutExpired:ok=False;output='Selected test exceeded its 180 second limit.'
+        print(('PASS' if ok else 'FAIL')+' '+name,flush=True)
+        if not ok:failed.append(name);print(output,flush=True)
     print(f'{len(names)-len(failed)}/{len(names)} passed');return int(bool(failed))
 
 if __name__=='__main__':raise SystemExit(main())

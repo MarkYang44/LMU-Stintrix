@@ -139,6 +139,8 @@ Use **Python 3.13 x64 on Windows**, including Tcl/Tk. From a configured checkout
 
 Maintenance and validation: [Architecture](docs/ARCHITECTURE.md) · [Release workflow](docs/RELEASE.md).
 
+Daily validation selects a small smoke set and checks related to pending changes. Use `--plan` to inspect the scope, `--tests <case>` for a precise check, and `--full` only when the complete historical suite is needed. See [Testing policy](docs/TESTING.md). Build the portable ZIP when preparing a release.
+
 ## License and credits
 
 [MIT](LICENSE). Third-party code and artwork: [Third-party notices](THIRD_PARTY_NOTICES.md).

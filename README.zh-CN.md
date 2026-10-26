@@ -139,6 +139,8 @@ RaceCom 图片生成属于可选集成，需要用户自行提供生成器；核
 
 维护与验证流程见[架构说明](docs/ARCHITECTURE.md)和[发布流程](docs/RELEASE.md)。
 
+日常验证默认只选少量基础检查及本次改动相关用例；`--plan` 查看范围，`--tests <用例>` 精确指定，`--full` 才运行完整历史测试。详见[测试策略](docs/TESTING.md)。仅在准备发布时构建便携 ZIP。
+
 ## 许可证与致谢
 
 项目采用 [MIT 许可证](LICENSE)，第三方代码与素材归属见[第三方声明](THIRD_PARTY_NOTICES.md)。

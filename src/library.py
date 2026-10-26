@@ -58,6 +58,10 @@ def inventory(root):
 def save_note(root,key,text,traffic=False):
     root=Path(root).resolve();path=(root/key).resolve()
     if not path.is_relative_to(root):raise ValueError('记录不在插件目录')
-    try:notes=json.loads((root/'library_notes.json').read_text(encoding='utf-8'))
-    except (OSError,ValueError):notes={}
-    notes[key]={**notes.get(key,{}),**dict(text=str(text)[:2000],traffic=bool(traffic))};atomic_json(root/'library_notes.json',notes)
+    from preference_error import read_object
+    text=str(text)
+    if len(text)>2000:raise ValueError('备注最多 2000 字，请修改后保存')
+    notes=read_object(root/'library_notes.json')
+    relative=path.relative_to(root);target=next((candidate for candidate in (key,str(relative),relative.as_posix()) if candidate in notes),key)
+    if not isinstance(notes.get(target,{}),dict):raise ValueError('标记文件无法读取，原文件已保留')
+    notes[target]={**notes.get(target,{}),**dict(text=text,traffic=bool(traffic))};atomic_json(root/'library_notes.json',notes)

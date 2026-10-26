@@ -4,13 +4,14 @@ from datetime import datetime,time,timedelta,timezone
 from event_catalog import normalize,number
 from track_names import display,search_text,layout
 
-SORTS=('时间：最新优先','时间：最早优先','阶段：升序','阶段：降序','赛道：升序','赛道：降序','车辆：升序','车辆：降序','单人优先','线上优先','最快圈：最快优先','同组完赛：名次优先','同组净提升：最多优先','总完赛：名次优先','总净提升：最多优先','比赛时长：最长优先','稳定性：波动最小','记录时长：最长优先')
+SORTS=('时间：最新优先','时间：最早优先','阶段：升序','阶段：降序','赛道：升序','赛道：降序','车辆：升序','车辆：降序','线下优先','线上优先','最快圈：最快优先','同组完赛：名次优先','同组净提升：最多优先','总完赛：名次优先','总净提升：最多优先','比赛时长：最长优先','稳定性：波动最小','记录时长：最长优先')
+SORTS+=('最快圈：最慢优先','同组完赛：名次降序')
 TRUST={'official':'官方确认','telemetry':'遥测确认','observed':'末次观测','unknown':'未知','conflict':'成绩待核对'}
 QUALITY={'valid':'有有效完整圈','gaps':'有采样缺口','partial':'没有有效完整圈','unknown':'完整性未知','xml_only':'仅官方成绩','write_error':'写盘异常','recording':'正在记录','conflict':'成绩待核对'}
 DEFAULTS=dict(period=0,sort=0,phase='',track='',car='',mode='',start='',end='',layout='',vehicle_class='',team='',outcome='',trust='',quality='',weather='',front='',rear='',source='',favorite='',traffic='',tag='',available='',min_laps='',fuel_min='',fuel_max='',temp_min='',temp_max='',tc_min='',tc_max='',abs_min='',abs_max='',duration_min='',duration_max='')
 CHOICES={
  'phase':('阶段',{'':'全部阶段','Race':'Race','Qualify':'Qualify','Practice':'Practice','Warmup':'Warmup'}),
- 'mode':('参赛方式',{'':'全部参赛方式','single':'单人','online':'线上','unknown':'未知'}),
+ 'mode':('参赛方式',{'':'全部参赛方式','single':'线下','online':'线上','unknown':'未知'}),
  'outcome':('比赛成绩',{'':'全部成绩','winner':'同组冠军','podium':'同组领奖台','top10':'同组前十','finished':'正常完赛','dnf':'未完赛（DNF）','dq':'取消资格（DQ）','unknown':'结果未知','gain':'同组名次提升'}),
  'trust':('成绩依据',{'':'全部成绩依据',**TRUST}),
  'quality':('数据质量',{'':'全部数据质量',**QUALITY}),
@@ -110,7 +111,7 @@ def filtered(values,state,query='',now=None):
     elif order in (8,9):
         wanted='single' if order==8 else 'online';rows.sort(key=lambda p:0 if p[2].get('mode')==wanted else 2 if p[2].get('mode')=='unknown' else 1)
     elif order>=10:
-        key={10:'time_s',11:'finish_class',12:'class_gain',13:'finish',14:'gain',15:'race_s',16:'stability_s',17:'recorded_s'}[order];reverse=order in (12,14,15,17)
+        key={10:'time_s',11:'finish_class',12:'class_gain',13:'finish',14:'gain',15:'race_s',16:'stability_s',17:'recorded_s',18:'time_s',19:'finish_class'}[order];reverse=order in (12,14,15,17,18,19)
         known=[p for p in rows if number(p[2].get(key)) is not None];unknown=[p for p in rows if number(p[2].get(key)) is None]
         known.sort(key=lambda p:p[2][key],reverse=reverse);rows=known+unknown
     return [(i,e) for i,e,_ in rows]

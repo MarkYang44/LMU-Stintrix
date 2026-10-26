@@ -213,16 +213,14 @@ def descendants(widget):
     for child in widget.winfo_children():
         yield child
         yield from descendants(child)
-widgets=list(descendants(window));tree=next(w for w in widgets if isinstance(w,ttk.Treeview))
-buttons={w.cget('text'):w for w in widgets if isinstance(w,tk.Button)}
+view=window.library;tree=view.table;operations=view.operations
 phase=[0]
 def progress():
     if app.closing:return
-    if phase[0]==0 and 'Logs/synthetic' in [v.replace('\\\\','/') for v in tree.get_children()]:
-        key=next(v for v in tree.get_children() if v.replace('\\\\','/')=='Logs/synthetic')
-        tree.selection_set(key);buttons['多选对比'].invoke();phase[0]=1
+    if phase[0]==0 and str(folder.resolve()) in tree.get_children():
+        tree.selection_set((str(folder.resolve()),));operations.menu.invoke('compare');phase[0]=1
     elif phase[0]==1 and opened:
-        buttons['设为锁定参考'].invoke();phase[0]=2
+        operations.menu.invoke('reference');phase[0]=2
     elif phase[0]==2 and app.reference_locked.get():
         app.close();return
     app.root.after(25,progress)

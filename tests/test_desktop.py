@@ -174,10 +174,16 @@ class DesktopTests(unittest.TestCase):
                     self.assertEqual(len(captured),1)
                     result=captured[0][0]()
                     self.assertEqual([call.args[1] for call in worker.call_args_list],['Logs/0','Logs/1','Logs/2'])
-                self.assertEqual((len(result['items']),len(result['errors'])),(2,1))
-                with patch('control_center.os.startfile') as opened,patch('control_center.messagebox.showwarning') as warning:
-                    captured[0][1](result,None);opened.assert_called_once_with(directory);warning.assert_called_once()
-                self.assertFalse(center.exporting);self.assertIn('已导出 2 场',center.status.get())
+                self.assertEqual((sum(not error for _,_,error in result),sum(bool(error) for _,_,error in result)),(2,1))
+                captured[0][1](result,None);job=center.batch_job
+                self.assertFalse(job.busy);self.assertEqual(len(job.results),2)
+                self.assertEqual(job.states,['已完成','失败','已完成']);self.assertIn('fixture corrupt record',job.errors[1]);self.assertTrue(job.retry_button.enabled)
+                with patch('control_batch.os.startfile') as opened:
+                    for child in job.window.winfo_children():
+                        for row in child.winfo_children():
+                            for button in row.winfo_children():
+                                if getattr(button,'label',None)=='打开输出目录':button.invoke()
+                    opened.assert_called_once_with(directory)
             finally:center.close()
 
     def test_themes_persist_and_preserve_running_recorder_pure_hud_and_page(self):

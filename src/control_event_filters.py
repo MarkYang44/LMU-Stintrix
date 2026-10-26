@@ -15,6 +15,8 @@ from track_names import display,layout
 
 PERIODS=('全部时间','今天','最近 7 天','最近 30 天')
 BUILTINS={'线上 LMGT3 正赛':dict(mode='online',vehicle_class='LMGT3',phase='Race'),'同组领奖台':dict(outcome='podium',phase='Race'),'采样缺口待检查':dict(quality='gaps'),'已收藏赛事':dict(favorite='yes')}
+SHORT_SORTS=('最新优先','最早优先','阶段 ↑','阶段 ↓','赛道 ↑','赛道 ↓','车辆 ↑','车辆 ↓','线下优先','线上优先','最快圈优先','同组名次','同组提升','总名次','总提升','比赛最长','最稳定','记录最长')
+SHORT_SORTS+=('圈速 ↓','同组名次 ↓')
 
 class EventControls(tk.Frame):
     def __init__(self,parent,app,callback,key):
@@ -36,16 +38,15 @@ class EventControls(tk.Frame):
                     w=Select(tile,textvariable=var,width=18);self.choices[name]=w;w.bind('<<ComboboxSelected>>',lambda _:self.apply())
                 w.pack(fill='x')
             parent.bind('<Configure>',lambda e,p=parent,g=group:self.arrange(e,p,g))
-        tools=app.row(self);self.toggle_button=app.button(tools,'高级筛选',self.toggle,False,110)
+        tools=app.row(self);self.toggle_button=app.button(tools,'更多筛选',self.toggle,False,90)
         app.button(tools,'重置筛选',self.reset,False,100)
-        self.variables['sort']=tk.StringVar(self);self.titles['sort']='排序';self.choices['sort']=Select(tools,textvariable=self.variables['sort'],width=14);self.choices['sort'].pack(side='left',padx=5);self.choices['sort'].bind('<<ComboboxSelected>>',lambda _:self.apply())
-        self.view=tk.StringVar(self);self.viewbox=Select(tools,textvariable=self.view,width=14);self.viewbox.pack(side='left',padx=5);self.viewbox.bind('<<ComboboxSelected>>',lambda _:self.restore())
-        menu=tk.Menu(tools,tearoff=False,bg=T.CARD,fg=T.FG,activebackground=T.SELECT,activeforeground=T.FG)
-        menu.add_command(label=tr('保存视图'),command=self.save_view);menu.add_command(label=tr('删除视图'),command=self.delete_view)
-        def manage_views():
-            try:menu.tk_popup(manage.winfo_rootx(),manage.winfo_rooty()+manage.winfo_height())
-            finally:menu.grab_release()
-        manage=app.button(tools,'管理视图',manage_views,False,100)
+        self.variables['sort']=tk.StringVar(self);self.titles['sort']='排序';self.choices['sort']=Select(tools,textvariable=self.variables['sort'],width=13);self.choices['sort'].pack(side='left',padx=5);self.choices['sort'].bind('<<ComboboxSelected>>',lambda _:self.apply())
+        self.view=tk.StringVar(self);self.viewbox=Select(tools,textvariable=self.view,width=13);self.viewbox.pack(side='left',padx=5);self.viewbox.bind('<<ComboboxSelected>>',lambda _:self.restore())
+        from control_action_menu import ActionMenu,MenuAction
+        manage=app.button(tools,'视图 / 列',lambda:menu.toggle(),False,92)
+        menu=ActionMenu(manage,[MenuAction('save','保存视图',self.save_view,hint='保存当前筛选、排序与搜索条件'),
+            MenuAction('columns','列设置',lambda:self.column_editor(),enabled=lambda:hasattr(self,'column_editor'),hint='显示、隐藏与固定列；拖动表头边界调整列宽'),
+            MenuAction('delete','删除视图',self.delete_view,enabled=lambda:self.view.get() not in BUILTINS and self.view.get() in self.views,hint='选择已保存的自定义视图后可删除',danger=True)],'管理视图')
         tools.bind('<Configure>',lambda e:self.arrange_toolbar(e,tools))
         self.chips=tk.Frame(self,bg=T.CARD);self.chips.pack(fill='x');self.chip_widgets=[];self.chips.bind('<Configure>',lambda _:self.arrange_chips())
         self.summary=tk.StringVar(self);app.label(self,self.summary,9,T.MUTED).pack(fill='x',pady=4)
@@ -54,10 +55,12 @@ class EventControls(tk.Frame):
         self.update_views();self.update_options([]);self.pack(fill='x',pady=8)
         if getattr(app,'filter_expansion',{}).get(key):self.toggle()
     def arrange_toolbar(self,event,parent):
+        if not parent.winfo_exists():return
         self.flow(parent,[w for w in parent.winfo_children() if not isinstance(w,(tk.Menu,tk.Toplevel))],event.width)
     def flow(self,parent,children,width):
         gap=px(self,8);x=y=line=0
         for w in children:
+            if not w.winfo_exists():continue
             w.pack_forget();w.grid_forget();w.place_forget()
             size=min(max(1,width),w.winfo_reqwidth());height=w.winfo_reqheight()
             if x and x+size>width:y+=line+gap;x=line=0
@@ -73,7 +76,9 @@ class EventControls(tk.Frame):
         if self.advanced.winfo_manager():self.advanced.pack_forget();self.hint.pack_forget()
         else:self.advanced.pack(fill='x',after=self.basic);self.hint.pack(fill='x',pady=3)
     def update_views(self):
-        value=read_json(self.path,{});self.views={**BUILTINS,**value.get('views',{})};self.viewbox.configure(values=[tr('常用视图'),*self.views]);self.view.set(tr('常用视图'))
+        value=read_json(self.path,{});self.views={**BUILTINS,**value.get('views',{})}
+        self.viewbox.compact_labels={'线上 LMGT3 正赛':'线上 GT3','同组领奖台':'领奖台','采样缺口待检查':'检查缺口','已收藏赛事':'已收藏'}
+        self.viewbox.configure(values=[tr('常用视图'),*self.views]);self.view.set(tr('常用视图'))
     def persist(self):
         value=read_json(self.path,{});value.setdefault('states',{})[self.key]=dict(self.state);atomic_json(self.path,value)
     def save_view(self):
@@ -93,10 +98,10 @@ class EventControls(tk.Frame):
     def reset(self):
         self.state.clear();self.state.update(DEFAULTS);self.update_options(self.items);self.persist();self.notify_query('')
     def notify_query(self,value):
-        traced=False
         if hasattr(self,'query') and self.query.get()!=value:
-            traced=bool(self.query.trace_info());self.query.set(value)
-        if not traced:self.callback()
+            self.query.set(value)
+        # A visual StringVar trace (e.g. the search clear icon) does not repopulate a table.
+        self.callback()
     def bind_query(self,variable):
         self.query=variable;variable.set(self.state.get('query',''))
     def apply(self):
@@ -132,7 +137,9 @@ class EventControls(tk.Frame):
                 label=tr(str(label))
                 if label in seen:label+=' · '+str(value)
                 seen.add(label);labels[label]=value
-            self.lookup[key]=labels;self.choices[key].configure(values=list(labels));self.variables[key].set(next(label for label,v in labels.items() if v==current))
+            self.lookup[key]=labels
+            if key=='sort':self.choices[key].compact_labels={label:SHORT_SORTS[index] for label,index in labels.items() if 0<=index<len(SHORT_SORTS)}
+            self.choices[key].configure(values=list(labels));self.variables[key].set(next(label for label,v in labels.items() if v==current))
         for key,var in self.variables.items():
             if key not in self.choices:var.set(self.state.get(key,''))
         self.update_chips()
@@ -152,6 +159,7 @@ class EventControls(tk.Frame):
         if key=='track':self.state['layout']=''
         self.update_options(self.items);self.persist();self.callback()
     def pairs(self,values,query=''):
+        if hasattr(self,'sort_table'):self.sort_table()
         if hasattr(self,'query'):self.state['query']=self.query.get()
         try:rows=filtered(values,self.state,query)
         except ValueError as error:self.app.status.set(tr(str(error)));return []
@@ -170,19 +178,5 @@ def replace_rows(table,rows,selected=()):
     table.replace(rows,selected);table.offset=min(offset,max(0,len(rows)*table.rowheight-table.viewport.winfo_height()));table.xoffset=xoffset
 
 def edit_note(app,entry,done):
-    """Private annotations; original metadata/reports are never rewritten."""
-    if not entry or not entry.get('folder'):return
-    folder=Path(entry['folder']).resolve();root=Path(app.data_path).resolve()
-    if not folder.is_relative_to(root) or folder==root:return
-    from control_widgets import Switch
-    window=tk.Toplevel(app.root);window.title(tr('收藏与标签'));window.configure(bg=T.BG);window.geometry('570x390')
-    body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
-    notes=read_json(root/'library_notes.json',{});key=str(folder.relative_to(root));old=notes.get(key,{})
-    favorite=tk.BooleanVar(window,value=bool(old.get('favorite')));traffic=tk.BooleanVar(window,value=bool(old.get('traffic')))
-    Switch(body,'收藏这场赛事',favorite,lambda:None).pack(fill='x');Switch(body,'交通影响（人工标记）',traffic,lambda:None).pack(fill='x')
-    tags=tk.StringVar(window,value=', '.join(old.get('tags',[])));note=tk.StringVar(window,value=old.get('text',''))
-    app.label(body,'标签（逗号分隔）',10).pack(anchor='w');Field(body,textvariable=tags).pack(fill='x',pady=6)
-    app.label(body,'备注',10).pack(anchor='w');Field(body,textvariable=note).pack(fill='x',pady=6)
-    def save():
-        values=read_json(root/'library_notes.json',{});values[key]={**values.get(key,{}),**dict(favorite=favorite.get(),traffic=traffic.get(),tags=list(dict.fromkeys(v.strip()[:40] for v in tags.get().replace('，',',').split(',') if v.strip()))[:20],text=note.get()[:2000])};atomic_json(root/'library_notes.json',values);window.destroy();done()
-    app.button(app.row(body),'保存标记',save,True,130)
+    from control_notes import show
+    return show(app,entry,done)

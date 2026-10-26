@@ -49,7 +49,7 @@ class EventFilterUITests(unittest.TestCase):
     next(w for w in walk(window) if isinstance(w,Pill) and w.label=='保存标记').command();wait(lambda:any(v.get('favorite') for v in center.items))
     use(favorite='yes');self.assertEqual(len(center.tree.rows),1);c.reset()
     center.personal_record_view='best';center.show_page(6);wait(lambda:bool(table().rows))
-    use(weather='dry',car='BMW M4 LMGT3');self.assertEqual(len(table().rows),1);self.assertEqual(next(iter(table().rows.values()))[-1],'1:31.000')
+    use(weather='dry',car='BMW M4 LMGT3');self.assertEqual(len(table().rows),1);self.assertEqual(next(iter(table().rows.values()))[table().columns.index('time')],'1:31.000')
     for kind in ('podium','history','official'):
      center.personal_record_view=kind;center.show_page(6);wait(lambda:bool(table().rows));self.assertIsInstance(controls(),EventControls)
      c=controls();c.state['mode']='single' if kind=='official' else '';c.update_options(c.items);c.callback();center.root.update();self.assertTrue(table().rows)

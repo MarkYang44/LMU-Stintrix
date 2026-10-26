@@ -24,7 +24,7 @@ class BackgroundTasks:
             try:
                 result, error = work(), None
             except Exception as exception:
-                result, error = None, str(exception)
+                result, error = None, str(exception) or type(exception).__name__
             completed.put((key, result, error))
 
         try:future = self._executor.submit(run)

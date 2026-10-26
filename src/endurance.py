@@ -18,13 +18,14 @@ WEATHER=('rain_severity','ambient_temp_c','track_temp_c','wetness','wetness_min'
     'wind_x_raw','wind_y_raw','wind_z_raw')
 
 def settings(value=None):
+    from preference_error import PreferenceError
     result={**DEFAULTS,**(value or {})}
     for key,low,high in [('pit_limit_kmh',0,200),('pit_tolerance_kmh',0,20),('stationary_kmh',.1,10),
         ('warmup_laps',0,10),('pace_window',2,20),('weather_window_s',10,600),('rain_change',.01,1),
         ('wetness_change',.01,1),('temp_change_c',.1,30),('alert_cooldown_s',10,600)]:
         v=number(result[key],low,high)
-        if v is None:raise ValueError(key+' 超出范围')
-        if key in ('warmup_laps','pace_window') and v!=int(v):raise ValueError(key+' 必须是整数')
+        if v is None:raise PreferenceError(key+' 超出范围',key,limits=(low,high))
+        if key in ('warmup_laps','pace_window') and v!=int(v):raise PreferenceError(key+' 必须是整数',key)
         result[key]=int(v) if key in ('warmup_laps','pace_window') else v
     for k in ('pit','stint','weather'):result[k+'_enabled']=bool(result[k+'_enabled'])
     return result

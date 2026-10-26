@@ -18,6 +18,7 @@ class Panels:
     def save(self):atomic_json(self.root/'endurance_settings.json',self.app.endurance_settings)
 
     def toggle(self,kind):
+        getattr(self.app,'layout_visibility',{}).pop(kind,None)
         self.app.endurance_settings[kind+'_enabled']=getattr(self.app,kind+'_on').get();self.save();self.refresh_visibility()
 
     def hide(self,kind):getattr(self.app,kind+'_on').set(False);self.toggle(kind)
@@ -51,8 +52,9 @@ class Panels:
         self.windows[kind]=w;self.labels[kind]=labels;self.topmost[kind]=app.top.get();return w
 
     def refresh_visibility(self):
+        from hud_presentation import visible
         for kind in TITLES:
-            enabled=getattr(self.app,kind+'_on').get() and not getattr(self.app,'silent_recording',False);w=self.windows.get(kind)
+            enabled=visible(self.app,kind,getattr(self.app,kind+'_on').get());w=self.windows.get(kind)
             if enabled:
                 if w is None or not w.winfo_exists():w=self.create(kind)
                 w.deiconify()
@@ -61,7 +63,7 @@ class Panels:
     def tick(self):
         app=self.app
         if app.closing:return
-        enabled=[k for k in TITLES if getattr(app,k+'_on').get()]
+        enabled=[k for k in TITLES if getattr(app,'layout_visibility',{}).get(k,getattr(app,k+'_on').get())]
         if enabled:
             with app.engine.lock:latest=app.engine.latest;data=app.engine.endurance_monitor.snapshot() if latest else None
             for kind in enabled:

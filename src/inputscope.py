@@ -44,7 +44,8 @@ def main():
         from windows_integration import register
         register('--unregister-app' in sys.argv,verify=True);return
     if '--version' in sys.argv:
-        print('LMU Stintrix '+(ASSETS.parent.parent/'VERSION' if getattr(sys,'frozen',False) else ASSETS.parent/'VERSION').read_text(encoding='utf-8').strip());return
+        from paths import app_version
+        print('LMU Stintrix '+app_version());return
     if '--race-images' in sys.argv:
         index=sys.argv.index('--race-images')
         if index+1>=len(sys.argv):raise ValueError('--race-images 后需要已结束的赛事目录')
@@ -80,7 +81,7 @@ def main():
             app=App('--demo' in sys.argv, clean='--clean' in sys.argv,
                 clean_controls='--clean-controls' in sys.argv)
             # A remembered silent mode must still leave a way to stop/save.
-            if app.silent_recording:app.open_control_center()
+            if app.silent_recording or app.root.state()=='withdrawn':app.open_control_center()
             app.root.mainloop()
         else:
             from control_center import ControlCenter

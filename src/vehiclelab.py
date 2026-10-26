@@ -28,26 +28,29 @@ def number(value,low=-math.inf,high=math.inf):
 
 
 def settings(value=None):
+    from preference_error import PreferenceError
     value=value or {};result={**DEFAULTS,**value};result['profiles']=dict(value.get('profiles',{}))
     for key,lo,hi in [('record_hz',1,50),('history_laps',1,20),('target_value',0,10000),('reserve_l',0,500),('extra_finish_laps',0,5)]:
         v=number(result[key],lo,hi)
-        if v is None:raise ValueError(key+' 超出范围')
-        if key in ('record_hz','history_laps') and v!=int(v):raise ValueError(key+' 必须是整数')
+        if v is None:raise PreferenceError(key+' 超出范围',key,limits=(lo,hi))
+        if key in ('record_hz','history_laps') and v!=int(v):raise PreferenceError(key+' 必须是整数',key)
         result[key]=int(v) if key in ('record_hz','history_laps') else v
     for key,choices in [('target_mode',('auto','laps','time')),('rate_mode',('median','conservative'))]:
-        if result[key] not in choices:raise ValueError(key+' 选项无效')
+        if result[key] not in choices:raise PreferenceError(key+' 选项无效',key)
     for name,p in result['profiles'].items():result['profiles'][name]=profile(p)
     for key in ('tyres_enabled','strategy_enabled'):result[key]=bool(result[key])
     return result
 
 
 def profile(value=None):
+    from preference_error import PreferenceError
     p={**DEFAULT_PROFILE,**(value or {})}
     for k,lo,hi in [('temp_min',-50,300),('temp_max',-50,300),('pressure_min',0,1000),('pressure_max',0,1000),('wear_min',0,100)]:
         v=number(p[k],lo,hi)
-        if v is None:raise ValueError('轮胎阈值超出范围：'+k)
+        if v is None:raise PreferenceError('轮胎阈值超出范围：'+k,k,limits=(lo,hi))
         p[k]=v
-    if p['temp_min']>=p['temp_max'] or p['pressure_min']>=p['pressure_max']:raise ValueError('下限必须小于上限')
+    if p['temp_min']>=p['temp_max']:raise PreferenceError('下限必须小于上限','temp_min','temp_max')
+    if p['pressure_min']>=p['pressure_max']:raise PreferenceError('下限必须小于上限','pressure_min','pressure_max')
     p['alerts']=bool(p['alerts']);return p
 
 

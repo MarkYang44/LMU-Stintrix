@@ -21,7 +21,7 @@ def bundle_audit(folder):
     private={'data','logs','demologs','importedlogs','recoveredlogs','selectedlaps','videocurves','diagnostics','.venv','_local','_backup','_verification','racecomrenderer','_racecom','_report_history'}
     denied={'recording_settings.json','recording_visibility.json','local_settings.json','settings.json','session.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json',
         'race_log.json','race_summary.json','race_images.json','race_events_checkpoint.json','race_images_error.txt','car_calibration.json',
-        'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json'}
+        'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json','hud_layouts.json','hotkey_settings.json','recent_session.json','table_views.json'}
     for file in Path(folder).rglob('*'):
         if not file.is_file():continue
         rel=file.relative_to(folder)
@@ -45,6 +45,7 @@ def main():
     build_id=uuid.uuid4().hex[:12]
     work=ROOT/'_local'/'build'/build_id;stage=ROOT/'dist'/('stage-'+build_id)
     work.mkdir(parents=True);stage.mkdir(parents=True)
+    version_asset=work/'build-version.json';version_asset.write_text(json.dumps(dict(version=version)),'utf-8')
     sys.path.insert(0,str(ROOT))
     from tools.build_brand import render
     brand=render(work/'branding')
@@ -58,6 +59,7 @@ def main():
         '--hidden-import','pyLMUSharedMemory.lmu_data','--collect-all','duckdb',
         '--exclude-module','doctor','--exclude-module','release_smoke',
         '--exclude-module','tests','--exclude-module','tools']
+    args.extend(['--add-data',str(version_asset)+';src'])
     for name in ASSET_NAMES:
         relative=Path(name)
         args.extend(['--add-data',str(ROOT/'src'/relative)+';'+(Path('src')/relative.parent).as_posix()])

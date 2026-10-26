@@ -24,7 +24,8 @@ def save(value,root=None):
         raise ValueError('生成器旁缺少 Source / LMU Logo.png；请选择完整的 RaceCom 安装目录')
     root=Path(root or data_directory()).resolve()
     if executable and Path(executable).resolve().is_relative_to(root):executable=str(Path(executable).resolve().relative_to(root))
-    atomic_json(root/'renderer_settings.json',dict(mode=value['mode'],executable=executable))
+    from preference_error import read_object
+    path=root/'renderer_settings.json';saved=read_object(path);saved.update(mode=value['mode'],executable=executable);atomic_json(path,saved)
 
 
 def resolve(mode=None):

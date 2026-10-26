@@ -8,6 +8,13 @@ import sys
 APP_ROOT=Path(sys.executable).parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parents[1]
 ASSETS=Path(getattr(sys,'_MEIPASS',APP_ROOT))/'src' if getattr(sys,'frozen',False) else Path(__file__).resolve().parent
 
+def app_version():
+    if getattr(sys,'frozen',False):
+        try:return json.loads((ASSETS/'build-version.json').read_text('utf-8'))['version']
+        except (OSError,ValueError,KeyError,TypeError):pass
+    try:return (APP_ROOT/'VERSION').read_text('utf-8').strip()
+    except OSError:return '?'
+
 def local_settings():
     try:return json.loads((APP_ROOT/'local_settings.json').read_text(encoding='utf-8-sig'))
     except (OSError,ValueError):return {}

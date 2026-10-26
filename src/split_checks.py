@@ -4,6 +4,15 @@ from event_filters import stamp
 from event_catalog import normalize
 from race_model import read_json
 from storage import atomic_json
+import json
+
+
+def checked_state(path):
+    if not path.exists():return {}
+    try:value=json.loads(path.read_text('utf-8-sig'))
+    except (OSError,ValueError) as error:raise ValueError('检查标记文件无法读取，原文件已保留') from error
+    if not isinstance(value,dict) or not isinstance(value.get('checked',[]),list) or any(not isinstance(key,str) for key in value.get('checked',[])):raise ValueError('检查标记文件无法读取，原文件已保留')
+    return value
 
 def candidates(items,checked=()):
     groups={};out=[];checked=set(checked)
@@ -26,6 +35,13 @@ def candidates(items,checked=()):
     return out
 
 def mark(root,key):
-    path=Path(root)/'EventCatalog/split_checks.json';value=read_json(path,{});checked=value.get('checked',[])
-    if key not in checked:checked.append(key)
-    path.parent.mkdir(parents=True,exist_ok=True);atomic_json(path,dict(version=1,checked=checked[-4096:]))
+    path=Path(root)/'EventCatalog/split_checks.json';value=checked_state(path);checked=value.get('checked',[])
+    if key in checked:return False
+    checked.append(key);value.update(version=1,checked=checked[-4096:])
+    path.parent.mkdir(parents=True,exist_ok=True);atomic_json(path,value);return True
+
+
+def unmark(root,key):
+    path=Path(root)/'EventCatalog/split_checks.json';value=checked_state(path);checked=value.get('checked',[])
+    if key not in checked:return False
+    value.update(checked=[item for item in checked if item!=key]);atomic_json(path,value);return True

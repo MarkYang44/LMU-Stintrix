@@ -29,12 +29,17 @@ from telemetry_import import import_recording
 
 
 class App:
-    def __init__(self, demo=False, clean=False, clean_controls=False, root=None, on_menu=None):
+    def __init__(self, demo=False, clean=False, clean_controls=False, root=None, on_menu=None,shortcuts=None):
         import gc
         gc.collect()
         self.root = root if root is not None else tk.Tk()
         import recording_visibility
         self.silent_recording=recording_visibility.load(ROOT/'recording_visibility.json')
+        from hud_layouts import LayoutStore
+        self.layout_error='';self.presentation_hidden=False
+        try:self.layout_snapshot=LayoutStore(ROOT).current() or {}
+        except ValueError as error:self.layout_snapshot={};self.layout_error=str(error)
+        self.layout_visibility={k:p['visible'] for k,p in self.layout_snapshot.get('panels',{}).items()}
         if self.silent_recording:self.root.withdraw()
         control_theme.load(ROOT/'interface_settings.json')
         self.on_menu=on_menu
@@ -190,9 +195,15 @@ class App:
         self.drawing = False
         self.gui_yield_at = time.perf_counter()
         self.root.protocol('WM_DELETE_WINDOW', self.close)
+        if self.layout_snapshot:
+            from hud_presentation import apply
+            apply(self,self.layout_snapshot)
         if clean or clean_controls:
             self.hud_mode.set('controls' if clean_controls else 'curves')
             self.apply_clean_mode()
+        from shortcut_service import ShortcutService
+        self.owns_shortcuts=shortcuts is None
+        self.shortcuts=shortcuts or ShortcutService(ROOT,lambda:self if not self.closing else None,self.open_control_center,lambda text:setattr(self,'shortcut_message',text))
         self.draw()
         self.root.after(25,self.poll_keys)
         self.root.after(500,self.refresh_reference)
@@ -252,9 +263,11 @@ class App:
 
     def refresh_reference(self):
         if self.closing:return
-        with self.engine.lock:
+        if not self.engine.lock.acquire(blocking=False):self.root.after(1000,self.refresh_reference);return
+        try:
             sample = self.engine.latest
             if sample:sample=dict(sample,conditions=self.engine.aligner.match_conditions(sample))
+        finally:self.engine.lock.release()
         key = (sample.get('track'),sample.get('vehicle'),sample.get('track_length')) if sample else None
         if self.reference_on.get() and not self.reference_loading and (self.reference_match_key != key or
                 sample and self.reference_auto.get() and not self.reference_locked.get() and time.monotonic()>=self.reference_scan_at):
@@ -266,7 +279,7 @@ class App:
             self.reference_scan_at = time.monotonic()+10
             generation = self.reference_generation
             engine = self.engine
-            with engine.lock:current = engine.reference
+            current = engine.reference
             def load():
                 return (best_reference(ROOT,sample,current,kind) if automatic and sample else
                         ReferenceLap.load(path) if not automatic and path else None)
@@ -400,9 +413,11 @@ class App:
         path.mkdir(parents=True, exist_ok=True)
         os.startfile(str(path))
 
-    def show_library(self):
+    def show_library(self,initial=()):
+        center=getattr(self,'control_center',None) or getattr(getattr(self,'on_menu',None),'__self__',None)
+        if center is not None and hasattr(center,'library') and not getattr(center,'closing',False) and center.root.winfo_exists():return center.library(initial)
         from management import show_library
-        show_library(self,ROOT,render_review,make_report)
+        return show_library(self,ROOT,render_review,make_report,initial)
 
     def show_diagnostics(self):
         from management import show_diagnostics
@@ -606,36 +621,38 @@ class App:
 
     def poll_keys(self):
         if self.closing:return
+        if self.owns_shortcuts:self.shortcuts.drain()
+        from shortcut_keys import legacy_state
         failure=getattr(self.engine,'recording_failure',None)
         if failure and failure!=getattr(self,'reported_recording_failure',None):
             self.reported_recording_failure=failure
             self.root.after_idle(lambda message=failure:messagebox.showerror('记录已停止：写盘失败',message,parent=self.root))
         elif not failure:self.reported_recording_failure=None
-        key_state = self.user32.GetAsyncKeyState(0x75)
+        key_state = legacy_state(self,0x75)
         f6 = bool(key_state & 0x8000)
         if (key_state & 1) or (f6 and not self.f6_down):self.toggle_reference()
         self.f6_down = f6
-        key_state = self.user32.GetAsyncKeyState(0x76)
+        key_state = legacy_state(self,0x76)
         f7 = bool(key_state & 0x8000)
         if (key_state & 1) or (f7 and not self.f7_down):
             self.toggle_input_channel()
         self.f7_down = f7
-        key_state = self.user32.GetAsyncKeyState(0x77)
+        key_state = legacy_state(self,0x77)
         f8 = bool(key_state & 0x8000)
         if (key_state & 1) or (f8 and not self.f8_down):
             self.toggle_clickthrough()
         self.f8_down = f8
-        key_state = self.user32.GetAsyncKeyState(0x78)
+        key_state = legacy_state(self,0x78)
         f9 = bool(key_state & 0x8000)
         if (key_state & 1) or (f9 and not self.f9_down):
             self.toggle_clean()
         self.f9_down = f9
-        key_state = self.user32.GetAsyncKeyState(0x79)
+        key_state = legacy_state(self,0x79)
         f10 = bool(key_state & 0x8000)
         if (key_state & 1) or (f10 and not self.f10_down):
             self.show_sampling_settings()
         self.f10_down = f10
-        key_state = self.user32.GetAsyncKeyState(0x7a)
+        key_state = legacy_state(self,0x7a)
         f11 = bool(key_state & 0x8000)
         if (key_state & 1) or (f11 and not self.f11_down):
             self.toggle_clean(with_controls=True)
@@ -680,7 +697,9 @@ class App:
         layout = hud_layout(w,h,clean,controls)
         x0,x1,y0,y1 = layout['plot']
         self.engine.configure_plot(x1-x0,window,y1-y0)
-        with self.engine.lock:
+        if not self.engine.lock.acquire(blocking=False):
+            self.drawing=False;self.draw_job=self.root.after(8,self.draw);return
+        try:
             trace_key = (id(self.engine),self.engine.plot_revision,self.engine.reference_revision,w,h,mode,window,channel)
             rebuild = trace_key != self.trace_key or now >= self.trace_expiry
             points = packed_window(self.engine.plot_points, now-window) if rebuild else ()
@@ -688,6 +707,7 @@ class App:
             reference_points = packed_window(self.engine.reference_points, now-window) if rebuild and self.engine.reference_enabled else ()
             reference_latest = self.engine.reference_latest
             if hasattr(self,'diagnostics'):self.paint_sample=latest
+        finally:self.engine.lock.release()
         if rebuild:
             c.delete('trace')
             self.trace_key = trace_key
@@ -828,10 +848,23 @@ class App:
         self.canvas.create_line(*coords, fill=control_theme.signal_colors(COLORS,clean)[lane], width=1.8 if not clean else 2,
                                 capstyle='round', joinstyle='bevel', tags='trace')
 
-    def close(self):
+    def close(self,keep_control_center=False):
+        if not getattr(self,'closing',False) and not getattr(self,'_editors_closed',False):
+            from control_batch import running
+            job=running(self)
+            if job is not None and not job.allow_exit():return
+            from control_confirm import close_editors
+            def approved():self._editors_closed=True;self.close(keep_control_center)
+            center=getattr(self,'control_center',None)
+            close_editors(self,lambda:close_editors(center,approved) if center is not None and not center.closing else approved());return
+        if not getattr(self,'closing',False):
+            self._keep_control_center=keep_control_center
+            from hud_shutdown import begin
+            begin(self,keep_control_center)
         self.closing = True
+        if getattr(self,'owns_shortcuts',False):self.shortcuts.close()
         center=getattr(self,'control_center',None)
-        if center and center.root.winfo_exists():
+        if center and center.root.winfo_exists() and not getattr(self,'_keep_control_center',False):
             if not center.closing:
                 center.closing=True;center.tasks.close();center.root.after_cancel(center.job)
         tasks = getattr(self, 'tasks', None)
@@ -845,12 +878,12 @@ class App:
             self.root.after_cancel(self.draw_job)
             self.draw_job = None
         self.engine.stop.set()
-        self.engine.thread.join(timeout=3)
+        self.engine.thread.join(timeout=0)
         if self.engine.thread.is_alive():
             self.root.after(25, self.close)
             return
         # Keep Tk and its variables alive on the GUI thread until all exports finish.
-        if ((tasks and tasks.busy) or (center and center.tasks.busy) or
+        if ((tasks and tasks.busy) or (center and center.tasks.busy and not getattr(self,'_keep_control_center',False)) or
                 any(t.is_alive() for t in [*self.engine.recorder.pending_reports,*getattr(self,'archive_workers',[])])):
             self.root.after(25,self.close)
             return
@@ -859,6 +892,11 @@ class App:
             # Discard callbacks after shutdown while releasing their result data.
             for _ in tasks.completions():
                 pass
-        if center:
+        if center and not getattr(self,'_keep_control_center',False):
             for _ in center.tasks.completions():pass
-        self.root.destroy()
+        if not getattr(self,'_keep_control_center',False):
+            from recent_session import remember
+            try:remember(ROOT,getattr(self.engine,'last_folder',None))
+            except OSError:pass
+        from hud_shutdown import finish
+        finish(self)

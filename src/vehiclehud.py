@@ -20,6 +20,7 @@ class Panels:
     def save(self):atomic_json(self.root/'vehicle_settings.json',self.app.vehicle_settings)
 
     def toggle(self,kind):
+        getattr(self.app,'layout_visibility',{}).pop(kind,None)
         self.app.vehicle_settings[kind+'_enabled']=getattr(self.app,kind+'_on').get();self.save();self.refresh_visibility()
 
     def hide(self,kind):
@@ -65,8 +66,9 @@ class Panels:
         self.windows[kind]=w;self.labels[kind]=labels;return w
 
     def refresh_visibility(self):
+        from hud_presentation import visible
         for kind in ('tyres','strategy'):
-            enabled=getattr(self.app,kind+'_on').get() and not getattr(self.app,'silent_recording',False);w=self.windows.get(kind)
+            enabled=visible(self.app,kind,getattr(self.app,kind+'_on').get());w=self.windows.get(kind)
             if enabled:
                 if w is None or not w.winfo_exists():w=self.create(kind)
                 w.deiconify()
@@ -79,7 +81,7 @@ class Panels:
             latest=app.engine.latest;values=app.engine.vehicle_latest or {};estimate=(app.engine.vehicle_estimate or {}) if latest else {}
         name=latest.get('vehicle','') if latest else '';p=app.vehicle_settings['profiles'].get(name,app.vehicle_settings['profiles'].get('*',vehiclelab.DEFAULT_PROFILE))
         for kind,w in self.windows.items():
-            if not getattr(app,kind+'_on').get():continue
+            if not getattr(app,'layout_visibility',{}).get(kind,getattr(app,kind+'_on').get()):continue
             if self.topmost.get(kind)!=app.top.get():
                 w.attributes('-topmost',app.top.get());self.topmost[kind]=app.top.get()
             if self.passthrough.get(kind)!=app.clickthrough:

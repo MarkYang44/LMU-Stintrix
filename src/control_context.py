@@ -9,7 +9,8 @@ class BrowseMemory:
         if app.page in (1,3) and app.tree is not None and app.tree.winfo_exists():
             state.update(query=app.search.get(),selected=[app.items[int(i)]['folder'] for i in app.tree.selection() if i.isdigit() and int(i)<len(app.items)],offset=app.tree.offset,xoffset=app.tree.xoffset)
         if app.page==3:
-            state['drafts']={key:getattr(app,key).get() for key,baseline in getattr(app,'renderer_baseline',{}).items() if hasattr(app,key) and getattr(app,key).get()!=baseline}
+            from control_renderer import capture
+            capture(app);state['drafts']={}
         filters=getattr(app,'review_filters',None)
         if filters is not None and filters.winfo_exists():state['advanced']=bool(filters.advanced.winfo_manager())
     def query(self,page):return self.states.get(page,{}).get('query','')

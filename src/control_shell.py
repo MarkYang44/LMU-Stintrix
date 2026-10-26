@@ -56,6 +56,8 @@ class Navigation(tk.Canvas):
             self.coords(self.marker,*polygon_points(0,top+17*s,3*s,22*s*self.marker_amount,1*s))
             return
         self.paint_key=key;self.delete('all')
+        caption_width=max(int(self.tk.call('font','measure',(T.FONT,11,'bold'),tr(name))) for name in self.names)
+        numbers=not getattr(self,'compact_indices',False) and w>=57*s+caption_width+40*s
         self.highlight=rounded(self,0,top,w-1,self.step-12*s,8*s,fill=T.SELECT,outline=T.MARK)
         self.marker=rounded(self,0,top+17*s,3*s,22*s*self.marker_amount,1*s,fill=T.ACCENT,outline='')
         for i,name in enumerate(self.names):
@@ -65,7 +67,7 @@ class Navigation(tk.Canvas):
             kind={'运行与 HUD':0,'赛事复盘':1,'采样与遥测':3,'图像与数据':4,'赛道指南':5,'车型图鉴':6,'个人赛道纪录':7}.get(name,i)
             symbol(self,kind,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
             self.create_text(57*s,y,text=tr(name),anchor='w',fill=color,font=(T.FONT,11,'bold' if i==self.selected else 'normal'))
-            if not getattr(self,'compact_indices',False):self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
+            if numbers:self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
 
 
 class Shell:
@@ -107,14 +109,14 @@ class Shell:
         self.subtitle.bind('<Configure>',lambda e:self.subtitle.configure(wraplength=e.width))
         footer=tk.Frame(main,bg=T.BG);footer.pack(side='bottom',fill='x',pady=(round(12*s),0))
         self.status_feedback=StatusFeedback(footer,status);self.status_feedback.pack(side='left',fill='x',expand=True)
-        from paths import APP_ROOT
-        try:version=(APP_ROOT/'VERSION').read_text(encoding='utf-8').strip()
-        except OSError:version='?'
+        from paths import app_version
+        version=app_version()
         Label(footer,text='STINTRIX  v'+version,font=('Consolas',8),bg=T.BG,fg=T.MUTED).pack(side='right')
-        self.action_host=tk.Frame(main,bg=T.BG)
+        self.stage=tk.Frame(main,bg=T.BG);self.stage.pack(fill='both',expand=True)
+        self.action_host=tk.Frame(self.stage,bg=T.BG)
         self.action_host.pack(fill='x',pady=(0,8))
         self.width_binding=root.bind('<Configure>',self.layout_width,add='+')
-        viewport=tk.Frame(main,bg=T.BG);viewport.pack(fill='both',expand=True)
+        viewport=tk.Frame(self.stage,bg=T.BG);viewport.pack(fill='both',expand=True)
         self.scroll=tk.Canvas(viewport,bg=T.BG,highlightthickness=0)
         self.scroller=SmoothScroll(self.scroll,lambda:self.scroll.canvasy(0),
             lambda:max(0,self.content.winfo_height()-self.scroll.winfo_height()),
@@ -123,14 +125,18 @@ class Shell:
         bar.pack(side='right',fill='y',padx=(round(8*s),0));self.scroll.pack(side='left',fill='both',expand=True);self.scroll.configure(yscrollcommand=bar.set)
         self.content=tk.Frame(self.scroll,bg=T.BG);self.item=self.scroll.create_window(0,0,anchor='nw',window=self.content)
         self.scroll.bind('<Configure>',lambda e:self.scroll.itemconfigure(self.item,width=e.width))
-        # The animation translates the window, not the scrollable document origin.
         self.content.bind('<Configure>',lambda e:self.scroll.configure(scrollregion=(0,0,e.width,e.height)))
-        self.covering=False
-        self.scroll.bind('<Destroy>',lambda e:self.scroll.after_cancel(self.placeholder_job) if e.widget is self.scroll and getattr(self,'placeholder_job',None) else None,add='+')
-        self.placeholder=self.scroll.create_text(round(24*s),round(32*s),text=tr('正在准备页面…'),anchor='nw',fill=T.MUTED,font=(T.FONT,11),state='hidden')
+        from control_surface import Surface
+        self.surface=Surface(self.stage)
     def release_brand(self,event):
         if event.widget is self.brand:
             self.logo=None;self.brand_font.__del__();self.brand_font.delete_font=False
+    def refresh_brand(self):
+        from PIL import Image
+        try:
+            with Image.open(branding.directory()/('menu-icon-light.png' if T.mode=='light' else 'menu-icon.png')) as artwork:self.logo_source=artwork.convert('RGBA')
+        except OSError:self.logo_source=None;self.logo=None
+        self.logo_width=None;self.paint_brand()
     def paint_brand(self,_=None):
         c=self.brand;s=self.s;c.delete('all')
         width=c.winfo_width()
@@ -169,24 +175,15 @@ class Shell:
         step=max(32*s,min(68*s,budget/len(self.navigation.names)))
         if abs(step-self.navigation.step)>.5:
             self.navigation.step=step;self.navigation.configure(height=round(step*len(self.navigation.names)));self.navigation.paint()
+    @property
+    def covering(self):return self.surface.covering
     def cover_page(self):
-        if self.covering:return
-        self.covering=True;self.scroller.cancel();self.motion.cancel('page')
-        self.title.configure(fg=T.FG)
-        self.scroll.itemconfigure(self.item,state='hidden')
-        self.scroll.itemconfigure(self.placeholder,state='hidden');self.scroll.coords(self.placeholder,24*self.s,self.scroll.canvasy(0)+32*self.s)
-        def hint():
-            self.placeholder_job=None
-            if self.covering:self.scroll.itemconfigure(self.placeholder,state='normal',text=tr('正在准备页面…'))
-        self.placeholder_job=self.scroll.after(150,hint)
-        # Hide the embedded document itself. The existing opaque canvas clears
-        # the old pixels; no overlapping native window or second rendering layer.
-    def reveal_page(self):
-        if getattr(self,'placeholder_job',None):self.scroll.after_cancel(self.placeholder_job);self.placeholder_job=None
-        self.scroll.itemconfigure(self.placeholder,state='hidden');self.scroll.itemconfigure(self.item,state='normal');self.covering=False
-        self.root.update_idletasks()
-        def frame(t):self.scroll.coords(self.item,0,round(6*self.s*(1-t)))
-        self.motion.animate('page',frame,160)
+        self.scroller.cancel();self.motion.cancel('page');self.scroll.coords(self.item,0,0)
+        return self.surface.begin()
+    def reveal_page(self,token=None):
+        self.scroll.itemconfigure(self.item,state='normal')
+        self.scroll.coords(self.item,0,0)
+        return self.surface.reveal(token)
     def select(self,index):
         self.navigation.select(index);self.breadcrumb.configure(text=f'STINTRIX  / 0{index + 1}')
         self.scroll.coords(self.item,0,0)

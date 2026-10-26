@@ -157,27 +157,28 @@ class Cards:
         self.practice(body,item)
         if rec:self.review(body,rec)
         self.actions(body,'cars',item,key)
-        if not rec:
-            recs=item['recommendations']
-            holder=tk.Frame(body,bg=T.CARD)
-            def recommendations():
-                expanded=self.page.state['expanded'];flag='car:'+item['slug']
-                if holder.winfo_manager():holder.pack_forget();expanded[:]=[v for v in expanded if v!=flag];return
-                if not holder.winfo_children():
-                    if not recs:self.text(holder,tr('原资料暂无车型推荐赛道。','No recommended circuits in this snapshot.'),10,T.MUTED)
-                    for value in recs:
-                        target=self.library.data['tracks'][value['track_slug']]
-                        panel=self.surface(holder,display(target['name'],self.library.language),'SLEEPER PICK' if value['sleeper'] else '')
-                        self.text(panel,self.library.text(value,'fit'),11);self.review(panel,value)
-                        row=self.center.row(panel);self.center.button(row,tr('查看赛道','View circuit'),lambda slug=target['slug']:self.page.jump('tracks',slug),width=140)
-                        self.sources(panel,[(tr('来源','Source'),url) for url in value['review']['sources']])
-                holder.pack(fill='x',pady=12)
-                if flag not in expanded:expanded.append(flag)
-            row=self.center.row(body)
-            self.center.button(row,tr('推荐它的赛道','Recommended at')+f' · {len(recs)}',recommendations,width=210)
-            if 'car:'+item['slug'] in self.page.state['expanded']:recommendations()
+        if not rec:self.recommendations(body,item)
         self.sources(body,[(tr('LMU 官方车型资料','Official LMU car page'),item['source_url']),(item['note']['source_name'],item['note']['source_url'])]+([(tr('推荐来源','Recommendation source'),url) for url in rec['review']['sources']] if rec else []))
         return body
+    def recommendations(self,body,item):
+        from track_names import display
+        tr=self.library.tr;recs=item['recommendations'];holder=tk.Frame(body,bg=T.CARD)
+        def toggle():
+            expanded=self.page.state['expanded'];flag='car:'+item['slug']
+            if holder.winfo_manager():holder.pack_forget();expanded[:]=[v for v in expanded if v!=flag];return
+            if not holder.winfo_children():
+                if not recs:self.text(holder,tr('原资料暂无车型推荐赛道。','No recommended circuits in this snapshot.'),10,T.MUTED)
+                for value in recs:
+                    target=self.library.data['tracks'][value['track_slug']]
+                    panel=self.surface(holder,display(target['name'],self.library.language),'SLEEPER PICK' if value['sleeper'] else '')
+                    self.text(panel,self.library.text(value,'fit'),11);self.review(panel,value)
+                    row=self.center.row(panel);self.center.button(row,tr('查看赛道','View circuit'),lambda slug=target['slug']:self.page.jump('tracks',slug),width=140)
+                    self.sources(panel,[(tr('来源','Source'),url) for url in value['review']['sources']])
+            holder.pack(fill='x',pady=12)
+            if flag not in expanded:expanded.append(flag)
+        row=self.center.row(body);button=self.center.button(row,tr('推荐它的赛道','Recommended at')+f' · {len(recs)}',toggle,width=210)
+        if 'car:'+item['slug'] in self.page.state['expanded']:toggle()
+        return button
     def track(self,parent,item,recs):
         from track_names import display
         tr=self.library.tr;body=self.surface(parent,display(item['name'],self.library.language),self.library.text(item,'location')+' · '+item['length_km']+' km'+(' · DLC' if item['is_dlc'] else ''))

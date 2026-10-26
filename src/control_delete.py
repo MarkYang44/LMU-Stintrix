@@ -13,30 +13,10 @@ def busy(center):
 
 def confirm(center,items):
     from track_names import display
+    from control_danger import confirm as ask
     details=[' · '.join((item['date'][:19],item['session_type'],display(item['track']),item['vehicle'])) for item in items]
-    prompt=tr('永久删除选中的赛事记录？')+f' ({len(items)})'
-    warning=tr('将从本机删除所选赛事的全部记录、圈文件与报告，无法恢复。')
-    if len(items)<=8:
-        return messagebox.askyesno(tr('删除赛事记录'),prompt+'\n\n'+'\n'.join(details)+'\n\n'+warning,parent=center.root,default='no')
-    dialog=tk.Toplevel(center.root);dialog.title(tr('删除赛事记录'));dialog.configure(bg=T.BG)
-    dialog.transient(center.root);dialog.geometry('880x480');dialog.minsize(620,360)
-    body=tk.Frame(dialog,bg=T.BG);body.pack(fill='both',expand=True,padx=24,pady=24)
-    center.label(body,prompt,14,T.FG,True).pack(anchor='w',pady=(0,12))
-    holder=tk.Frame(body,bg=T.FIELD);holder.pack(fill='both',expand=True)
-    listing=tk.Text(holder,bg=T.FIELD,fg=T.FG,font=(T.FONT,10),wrap='word',relief='flat',padx=12,pady=12)
-    scrollbar=tk.Scrollbar(holder,command=listing.yview);listing.configure(yscrollcommand=scrollbar.set)
-    scrollbar.pack(side='right',fill='y');listing.pack(fill='both',expand=True)
-    listing.insert('1.0','\n\n'.join(details));listing.configure(state='disabled')
-    label=center.label(body,warning,10,T.MUTED);label.pack(fill='x',pady=12)
-    label.bind('<Configure>',lambda event:label.configure(wraplength=event.width))
-    answer=[False]
-    def accept():answer[0]=True;dialog.destroy()
-    row=center.row(body)
-    cancel=center.button(row,tr('取消'),dialog.destroy,width=120)
-    center.button(row,tr('永久删除'),accept,True,width=160)
-    dialog.protocol('WM_DELETE_WINDOW',dialog.destroy);dialog.bind('<Escape>',lambda _:dialog.destroy())
-    dialog.update_idletasks();dialog.grab_set();cancel.focus_set();center.root.wait_window(dialog)
-    return answer[0]
+    return ask(center.root,'删除赛事记录',tr('永久删除选中的赛事记录？')+f' ({len(items)})',details,warning='将从本机删除所选赛事的全部记录、圈文件与报告，无法恢复。')
+
 
 def remove(center):
     if busy(center):return

@@ -23,7 +23,7 @@ def write_text(path,value):
 
 
 @serialized
-def generate(folder,car_directory=None,renderer=None):
+def generate(folder,car_directory=None,renderer=None,force=False):
     folder=Path(folder).resolve();meta=read_json(folder/'session.json',{})
     if meta.get('status')=='recording':raise ValueError('请等该场记录结束后再生成图片')
     from renderer_config import resolve
@@ -43,7 +43,7 @@ def generate(folder,car_directory=None,renderer=None):
     # JSON turns tuples into lists; keep the same canonical representation.
     fingerprint=json.loads(json.dumps(fingerprint))
     receipt=read_json(folder/'race_images.json',{})
-    if receipt.get('fingerprint')==fingerprint and receipt.get('files') and all(
+    if not force and receipt.get('fingerprint')==fingerprint and receipt.get('files') and all(
             Path(name).name==name and (folder/name).is_file() and signature(folder/name)==stamp
             for name,stamp in receipt['files'].items()):return receipt
     model=build_model(folder)
@@ -52,8 +52,8 @@ def generate(folder,car_directory=None,renderer=None):
     files={}
     try:
         old_mode=receipt.get('fingerprint',{}).get('renderer') or ('racecom' if 'RaceCom' in receipt.get('generator','') else 'native')
-        if receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION):
-            # A renderer change is reviewable and reversible, including old v0.1.4 PNGs.
+        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION):
+            # Explicit regeneration and renderer changes retain the prior reports.
             from uuid import uuid4
             prior=uuid4().hex[:12]
             backup=folder/'_report_history'/('renderer-'+prior)

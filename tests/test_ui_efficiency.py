@@ -87,4 +87,4 @@ class EfficiencyTests(unittest.TestCase):
             (folder/'curve.json').write_text(json.dumps(value));(folder/'report.html').write_text('report')
         window=show(app,root);self.pump(app,.5);table=window.results_table;chosen=table.get_children()[-1];table.selection_set((chosen,));self.pump(app,.05)
         window.refresh_results();self.pump(app,.3);self.assertEqual(table.selection(),(chosen,))
-        window.results_search.set('Fuji');self.assertEqual(len(table.get_children()),1);self.assertIn('Fuji',table.rows[table.get_children()[0]][1]);self.assertFalse(errors)
+        window.results_search.set('Fuji');self.pump(app,.12);self.assertEqual(len(table.get_children()),1);self.assertIn('Fuji',table.rows[table.get_children()[0]][1]);self.assertFalse(errors)

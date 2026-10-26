@@ -112,3 +112,7 @@
 **/cache_tokens.json
 
 **/video_result_summary.json
+**/hud_layouts.json
+**/hotkey_settings.json
+**/recent_session.json
+**/table_views.json

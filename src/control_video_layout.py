@@ -120,8 +120,10 @@ def calibration(w):
     actions=tk.Frame(tools,bg=T.CARD)
     Action(actions,'撤销一步',w.undo_calibration,95).pack(side='left');Action(actions,'重做本项',w.clear_target,95).pack(side='left',padx=px(body,5));Action(actions,'检查标定',w.check_calibration,95).pack(side='left')
     Action(actions,'方向与弧宽',w.toggle_calibration_options,120).pack(side='left',padx=px(body,5))
+    from control_video_close import save as save_draft
+    Action(actions,'保存标定草稿',lambda:save_draft(w),130).pack(side='left')
     def arrange(event):
-        wide=event.width>=px(tools,760)
+        wide=event.width>=controls.winfo_reqwidth()+actions.winfo_reqwidth()+px(tools,24)
         for group in (controls,actions):group.grid_forget()
         controls.grid(row=0,column=0,sticky='w')
         actions.grid(row=0 if wide else 1,column=1 if wide else 0,sticky='w')

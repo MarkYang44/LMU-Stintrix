@@ -6,19 +6,21 @@ from race_model import read_json
 from storage import atomic_json
 from collections import OrderedDict
 from threading import RLock
-import shutil
+import shutil,os
 _cache=OrderedDict();_lock=RLock()
 DEPENDENCIES=dict(endurance=('analysis',),review=('analysis','endurance','fastest'),compression=('analysis','endurance','fastest','review','images'))
 OUTPUTS=dict(analysis=('session_analysis.json','analysis_index.json'),endurance=('endurance_analysis.json',),fastest=('fastest_lap_summary.json','fastest_lap.json','fastest_lap.html'),review=('review.html',),images=('race_images.json','race_log.json','race_log.txt','圈速单.png','比赛日志.png'))
 
 def remember(folder,value):
+    key=os.path.normcase(os.path.abspath(folder))
     with _lock:
-        key=str(Path(folder).resolve());_cache[key]=value;_cache.move_to_end(key)
+        _cache[key]=value;_cache.move_to_end(key)
         while len(_cache)>64:_cache.popitem(last=False)
     return value
 
 def latest(folder):
-    with _lock:return _cache.get(str(Path(folder).resolve()))
+    key=os.path.normcase(os.path.abspath(folder))
+    with _lock:return _cache.get(key)
 
 STEPS=('analysis','endurance','fastest','review','images','compression')
 ERRORS=dict(analysis='analysis_error.txt',endurance='endurance_error.txt',fastest='fastest_lap_error.txt',images='race_images_error.txt',review='report_error.txt',compression='storage_compression_error.txt')

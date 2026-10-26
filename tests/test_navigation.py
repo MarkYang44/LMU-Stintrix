@@ -78,7 +78,8 @@ class NavigationTests(unittest.TestCase):
                 generation=center.scan_generation
                 center.request_page(2);center.root.update_idletasks()
                 self.assertFalse(old.winfo_ismapped())
-                self.assertTrue(center.shell.covering);self.assertEqual(center.scroll.itemcget(center.content_item,'state'),'hidden')
+                self.assertTrue(center.shell.covering);self.assertTrue(center.shell.surface.cover.winfo_ismapped())
+                self.assertEqual(center.shell.surface.cover.winfo_width(),center.shell.stage.winfo_width())
                 self.assertIsNotNone(center.pages.pending);self.assertIsNone(center.tree)
                 self.assertGreater(center.scan_generation,generation)
                 self.assertEqual(center.shell.navigation.position,2)

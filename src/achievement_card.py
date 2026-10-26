@@ -15,6 +15,7 @@ def payload(entry,details,show_name=False,show_date=False):
         track=display(entry['track']),layout=layout(entry['track'],entry['layout'],entry['length_m']) if entry.get('length_m') else display(entry['layout']),
         vehicle=str(s.get('vehicle') or tr('未知')),group=entry['vehicle_class'],
         time=f'{int(duration//60)}:{duration%60:06.3f}' if isinstance(duration,(int,float)) and duration>0 else tr('未知'),
+        time_label=tr('个人最快圈'),footer_label=tr('来自本机真实赛事记录'),
         conditions=[(tr('圈起点油量') if not podium else tr('记录起点油量'),number(c.get('fuel_l'),' L')),
             (tr('前轮胎种'),tire(c,'front')),(tr('赛道温度'),number(c.get('track_temp_c'),' °C')),
             (tr('路面湿度'),number(c.get('wetness')*100 if isinstance(c.get('wetness'),(int,float)) else None,' %',0))])
@@ -56,7 +57,7 @@ def compose(value):
     else:text(value['vehicle'],(120,520),30,width=790)
     text(value['group']+' · '+value['vehicle'],(116,832),25,strong=True,width=805)
     text(value['time'],(1020,350),106,color='#536623',strong=True,width=800)
-    text(tr('个人最快圈'),(1030,490),25,color='#687586')
+    text(value.get('time_label',tr('个人最快圈')),(1030,490),25,color='#687586')
     text(value['result'],(1030,550),28,strong=True,width=790)
     text(value['context'],(1030,600),26,color='#687586',width=790)
     for i,(label,data) in enumerate(value['conditions']):
@@ -66,13 +67,25 @@ def compose(value):
     footer=[]
     if 'driver' in value:footer.append(value['driver'])
     if 'date' in value:footer.append(value['date'])
-    text(' · '.join(footer) if footer else tr('来自本机真实赛事记录'),(80,955),25,color='#687586',width=1600)
+    text(' · '.join(footer) if footer else value.get('footer_label',tr('来自本机真实赛事记录')),(80,955),25,color='#687586',width=1600)
     text('LMU STINTRIX  /  DRIVE · RECORD · REFLECT',(80,1010),20,color='#87929e')
     return image
 
 
 def render(root,value):
-    image=compose(value)
+    return save_image(root,compose(value))
+
+
+def save_image(root,image):
+    """Write the approved full-resolution preview; never overwrite an older card."""
     folder=Path(root)/'PersonalRecords/AchievementCards';folder.mkdir(parents=True,exist_ok=True)
     path=folder/('stintrix-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')+'-'+uuid4().hex[:8]+'.png')
-    image.save(path,format='PNG');return str(path)
+    if path.exists():raise FileExistsError(str(path))
+    pending=folder/('.'+uuid4().hex+'.pending');created=False
+    try:
+        with pending.open('xb') as stream:created=True;image.save(stream,format='PNG')
+        # Windows rename is atomic and refuses to overwrite an existing target.
+        if path.exists():raise FileExistsError(str(path))
+        pending.rename(path);return str(path)
+    finally:
+        if created:pending.unlink(missing_ok=True)

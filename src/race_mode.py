@@ -10,7 +10,7 @@ def dated(value):
     try:
         d=datetime.fromisoformat(str(value).replace('Z','+00:00'));return (d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d).astimezone(timezone.utc)
     except (ValueError,TypeError):return None
-LABELS={'single':'单人','online':'线上','unknown':'未知'}
+LABELS={'single':'线下','online':'线上','unknown':'未知'}
 
 def mode(value):
     meta=value.get('session');meta=meta if isinstance(meta,dict) else value;v=value.get('race_mode',meta.get('race_mode'))
@@ -21,7 +21,7 @@ def xml_mode(setting):
 
 def overlay(root):
     value=read_json(Path(root)/'RaceModes/index.json',{})
-    if not isinstance(value,dict):return {}
+    if not isinstance(value,dict):value={}
     source=value.get('source_directory')
     try:
         if source and Path(source).is_dir() and Path(source).stat().st_mtime_ns!=value.get('source_mtime_ns'):
@@ -29,10 +29,13 @@ def overlay(root):
             refresh(root,source)
             value=read_json(Path(root)/'RaceModes/index.json',{})
     except (OSError,ValueError):pass
-    return value.get('entries',{})
+    from race_mode_overrides import apply
+    return apply(root,value.get('entries',{}))
 
 def annotate(meta,folder,modes):
     value=dict(meta);extra=modes.get(str(Path(folder).resolve()),{})
+    if extra.get('race_mode_manual') is True and extra.get('race_mode') in ('online','single'):
+        value.update(extra);return value
     known=mode(meta);other=extra.get('race_mode','unknown')
     if known=='unknown' and other in LABELS:value.update(extra)
     elif other!='unknown' and known!=other:value.update(race_mode='unknown',race_mode_source='Conflicting evidence')

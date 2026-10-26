@@ -20,7 +20,7 @@ class ProgressChart(tk.Canvas):
     def draw(self,_=None):
         self.motion.cancel();self.delete('all');self.points=[];self.cursor=None;self.tooltip=None;self.ring=None;w=self.winfo_width();h=self.winfo_height();left=px(self,85);right=w-px(self,25);top=px(self,25);bottom=h-px(self,40)
         if not self.entries:
-            self.create_text(w/2,h/2,text=tr('选择纪录查看该赛道与车辆的提升曲线'),fill=T.MUTED,font=(T.FONT,10));return
+            self.create_text(w/2,h/2,text=tr(getattr(self,'empty_text','选择纪录查看该赛道与车辆的提升曲线')),fill=T.MUTED,font=(T.FONT,10));return
         times=[dated(e['observed_utc']).timestamp() for e in self.entries];laps=[e['time_s'] for e in self.entries]
         low,high=min(laps),max(laps);padding=max(.05,(high-low)*.12);low-=padding;high+=padding
         for i in range(4):

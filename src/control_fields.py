@@ -10,7 +10,7 @@ from control_motion import Motion, blend,keyboard_action
 class Field(tk.Canvas):
     """An ordinary editable Entry inside a focus-aware, clipped-corner surface."""
     def __init__(self, parent, textvariable=None, width=26, font=None, height=42, **ignored):
-        self.s=scale(parent);self.amount=0.;self.focused=False
+        self.s=scale(parent);self.amount=0.;self.focused=False;self.error=''
         super().__init__(parent, bg=parent.cget('bg'), highlightthickness=0,
                          width=px(parent,width*8+28), height=px(parent,height))
         self.entry=tk.Entry(self,textvariable=textvariable,font=font or (T.FONT,10),
@@ -36,11 +36,12 @@ class Field(tk.Canvas):
         if not hasattr(self,'surface'):
             self.surface=rounded(self,0,0,1,1,1,tags='surface');self.underline=self.create_line(0,0,1,1,tags='surface')
         from control_widgets import polygon_points
-        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=T.FIELD,outline=blend(T.EDGE,T.ACCENT,self.amount))
+        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=T.FIELD,outline=T.RED if self.error else blend(T.EDGE,T.ACCENT,self.amount))
         self.coords(self.underline,12*s,h-2,12*s+(w-24*s)*self.amount,h-2);self.itemconfigure(self.underline,fill=T.ACCENT,width=s)
         self.tag_lower('surface');self.coords(self.item,14*s,h/2);self.itemconfigure(self.item,width=max(1,w-28*s))
     def get(self):return self.entry.get()
     def focus_set(self):self.entry.focus_set()
+    def set_error(self,message):self.error=message;self.paint()
 
 
 class Select(tk.Canvas):
@@ -52,7 +53,7 @@ class Select(tk.Canvas):
     def __init__(self,parent,textvariable=None,values=(),state='readonly',width=26,
                  height=7,font=None,style=None,labels=None,**kwargs):
         self.s=scale(parent);self.variable=textvariable or tk.StringVar(parent)
-        self.values=list(values);self.labels=labels or {};self.state=state;self.rows=max(1,min(8,int(height)))
+        self.values=list(values);self.labels=labels or {};self.compact_labels={};self.state=state;self.error='';self.rows=max(1,min(8,int(height)))
         self.font=tkfont.Font(parent,font=font or (T.FONT,10))
         self.amount=0.;self.focused=False;self.popup=None;self.offset=0;self.active=-1
         self.popup_motion=None;self.query='';self.query_job=None;self.owner_binding=None;self.owner_click=None;self.owner_focus=None;self.highlight_y=None
@@ -72,6 +73,7 @@ class Select(tk.Canvas):
         self.bind('<KeyPress>',self.key);self.bind('<MouseWheel>',lambda _:'break')
         self.bind('<Destroy>',self.dispose,add='+')
     def display(self,value):return tr(self.labels.get(value,str(value)))
+    def set_error(self,message):self.error=message;self.paint()
     def configure(self,cnf=None,**kwargs):
         if cnf is None and not kwargs:return super().configure()
         if cnf:kwargs.update(cnf)
@@ -114,14 +116,14 @@ class Select(tk.Canvas):
             self.caption=self.create_text(0,0,anchor='w',font=self.font,tags='surface') if not self.edit else None
         from control_widgets import polygon_points
         disabled=self.state=='disabled';foreground=T.MUTED if disabled else T.FG
-        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=blend(T.FIELD,T.HOVER,self.amount*.45),outline=T.EDGE if disabled else blend(T.EDGE,T.ACCENT,self.amount))
+        self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=blend(T.FIELD,T.HOVER,self.amount*.45),outline=T.RED if self.error else T.EDGE if disabled else blend(T.EDGE,T.ACCENT,self.amount))
         self.coords(self.divider,w-39*s,11*s,w-39*s,h-11*s);self.itemconfigure(self.divider,fill=T.EDGE)
         direction=-1 if self.popup else 1
         self.coords(self.arrow,w-27*s,h/2-2*s*direction,w-22*s,h/2+3*s*direction,w-17*s,h/2-2*s*direction);self.itemconfigure(self.arrow,fill=T.ACCENT if self.popup else T.MUTED,width=1.5*s)
         if self.edit:
             self.coords(self.edit_item,14*s,h/2);self.itemconfigure(self.edit_item,width=max(1,w-60*s));self.tag_lower('surface')
         else:
-            text=self.display(self.variable.get());maximum=max(1,w-66*s)
+            text=tr(self.compact_labels.get(self.variable.get(),self.display(self.variable.get())));maximum=max(1,w-66*s)
             if self.font.measure(text)>maximum:
                 while text and self.font.measure(text+'…')>maximum:text=text[:-1]
                 text+='…'

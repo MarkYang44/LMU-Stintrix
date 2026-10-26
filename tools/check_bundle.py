@@ -58,6 +58,56 @@ def main():
     assert {'library','laps','session_archive','sevenzip','archive_preferences'}<=modules
     assert {'control_forms','control_transfers','video_sampling','video_results','control_video_results'}<=modules
     assert {'control_context','control_toolbar','control_sections','control_data','control_disposal','control_video_options'}<=modules
+    assert {'control_surface','control_page_error'}<=modules
+    for name,required in [('race_mode_overrides',{'load','save','apply'}),('control_race_mode',{'show'}),('control_best_view',{'Layout','resize','details','listing'})]:
+        assert name in modules and required<={c.co_name for c in codes(embedded.extract(name))},'Shipping participation or record workflow is stale: '+name
+    for name,required in [('control_surface',{'begin','reveal','redraw'}),('control_pages',{'hold','commit','fail'}),('control_guide',{'install_actions'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping page handoff is stale: '+name
+    assert {'control_action_menu','control_search'}<=modules
+    for name,required in [('control_immediate_save',{'submit','retry','reload'}),('control_data_browser',{'mount','sync','install_actions','resize_table'}),('control_sampling_intro',{'build','refresh'})]:
+        assert name in modules and required<={c.co_name for c in codes(embedded.extract(name))},'Shipping compact data/settings workflow is stale: '+name
+    assert any(c.co_name=='flush' and 'force' in c.co_varnames for c in codes(embedded.extract('control_search'))),'Shipping search clear handling is stale'
+    for name,required in [('control_renderer',{'save','capture','close_draft'}),('control_table_layouts',{'compact','use','actions'}),('control_batch_results',{'sync','open_review','locate'}),('control_session_location',{'locate','augment','restore'})]:
+        assert name in modules and required<={c.co_name for c in codes(embedded.extract(name))},'Shipping draft/result workflow is stale: '+name
+    assert 'select' in {c.co_name for c in codes(embedded.extract('control_form_bar'))},'Shipping save scope is stale'
+    assert 'issue_text' in {c.co_name for c in codes(embedded.extract('control_batch'))},'Shipping batch errors can still be blank'
+    for name,required in [('control_library',{'show','Library','locate','restore_location','refresh'}),('control_library_actions',{'Actions','note','compare','reference','image'})]:
+        assert name in modules and required<={c.co_name for c in codes(embedded.extract(name))},'Shipping full-record manager is stale: '+name
+    video_codes=list(codes(embedded.extract('control_video_results')))
+    assert any(c.co_name=='refresh' and 'pending' in c.co_consts for c in video_codes),'Shipping video refresh requests are not bounded'
+    assert any(c.co_name=='selected' and 'len' in c.co_names for c in video_codes),'Shipping video single-item actions are unguarded'
+    assert {'hud_layouts','hud_presentation','layout_actions','shortcut_keys','native_hotkeys','shortcut_service','control_layouts','control_shortcuts','recent_session','control_recent_session'}<=modules
+    assert {'control_layout_preview','control_run_state','control_table_preferences'}<=modules
+    assert {'control_confirm','control_validation','control_settings_search','control_tooltip','preference_error'}<=modules
+    assert {'control_batch','control_video_close','control_table_sort'}<=modules
+    assert {'control_notes','control_danger','control_form_bar','control_flow'}<=modules
+    assert {'control_worklist','control_report_tasks','control_cache_panel'}<=modules
+    assert {'control_analysis_window','control_analysis_policy'}<=modules
+    assert 'control_record_browser' in modules
+    assert 'control_record_details' in modules
+    for name,required in [('control_best',{'detail_key','populate_best','render_selection','toggle_filters','install_actions'}),('control_guide_compare',{'Comparison','layout','fit','sources'}),('control_guide',{'go_page','update_pagers','focus_search','browse'})]:
+        assert name in modules and required<={c.co_name for c in codes(embedded.extract(name))},'Shipping record/library workflow is stale: '+name
+    assert any(c.co_name=='select' and 'failures' in c.co_names and '未提供错误详情' in c.co_consts for c in codes(embedded.extract('control_record_details'))),'Shipping detail retry handling is stale'
+    assert any(c.co_name=='run' and {'type','__name__'}<=set(c.co_names) for c in codes(embedded.extract('background'))),'Shipping background errors can still be blank'
+    for name,required in [('control_record_details',{'key','select','start','detach'}),('control_podiums',{'read_index','read_detail','detail_waiting','apply_detail','open_primary','refresh_records'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping podium browser is stale: '+name
+    assert any(c.co_name=='layout' and {'wrap','captions'}<=set(c.co_names) for c in codes(embedded.extract('control_metrics'))),'Shipping detail grid still uses self-sizing labels'
+    for name,required in [('control_record_browser',{'bind','read','start','dispose','curve_identity','save_curve'}),('control_history',{'report_update','render_selection','read_history'}),('control_official_results',{'read_results','sync_results','sync_folder'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping record browser is stale: '+name
+    for name,required in [('control_zone_editor',{'apply_form','reset','undo','commit','dispose'}),('control_training_goals',{'refresh','start','finish','dispose'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping training editor is stale: '+name
+    for name,required in [('control_analysis_window',{'existing','analyse','continue_scan','start','close','export'}),('control_analysis_policy',{'read','layout'}),('control_training',{'set_goal','render'}),('control_comparable',{'identity','render'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping analysis workflow is stale: '+name
+    assert {'control_report_images','control_image_viewport','report_images'}<=modules
+    for name,required in [('control_report_images',{'show','reread','generated'}),('control_image_viewport',{'paint','zoom','scrollbar'}),('report_images',{'request','poll','close'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping report viewer is stale: '+name
+    assert any(c.co_name=='generate' and 'force' in c.co_varnames for c in codes(embedded.extract('race_report')))
+    for name,required in [('control_achievement',{'record_key','start_preview','open_last','dispose'}),('achievement_card',{'save_image'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping achievement workflow is stale: '+name
+    for name,required in [('control_maintenance',{'offline_ready'}),('control_report_tasks',{'readable','progress'}),('control_worklist',{'load','dispose'}),('split_checks',{'checked_state','unmark'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping maintenance workflow is stale: '+name
+    for name,required in [('control_profile',{'defaults','recorded_cars','focus_field'}),('control_lap_pair',{'filter_events','select_initial','open_last'}),('control_batch',{'render','copy_errors'}),('control_video_results',{'open_result','dispose'}),('control_video_history',{'snapshot','dirty','source_text'})]:
+        assert required<={c.co_name for c in codes(embedded.extract(name))},'Shipping workflow is stale: '+name
     assert {'control_lap_pair','lap_comparison','lap_identity','personal_records','control_records','recording_policy'}<=modules
     assert {'track_names','record_presentation','control_metrics'}<=modules
     assert 'class_positions' in modules

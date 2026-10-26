@@ -3,7 +3,7 @@ from lap_identity import text
 from record_history import dated
 from race_mode import mode,pairs
 
-SORTS=('最新优先','最早优先','按赛道分类','按车辆分类','单人优先','线上优先')
+SORTS=('最新优先','最早优先','按赛道分类','按车辆分类','线下优先','线上优先')
 
 
 def filtered(entries,track='',car='',layout_key=None,sort=0,query='',race_mode=''):

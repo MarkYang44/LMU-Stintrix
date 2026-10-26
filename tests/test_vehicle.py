@@ -215,7 +215,7 @@ class VehicleTests(unittest.TestCase):
                 self.assertEqual(len(recorder.pending_reports),2)
                 gui=SimpleNamespace(root=Mock(),render_stop=threading.Event(),draw_job=None,render_waiter=Mock(),
                     engine=SimpleNamespace(stop=threading.Event(),thread=Mock(),recorder=recorder))
-                gui.engine.thread.is_alive.return_value=False;gui.close=lambda:app.App.close(gui)
+                gui.engine.thread.is_alive.return_value=False;gui.close=lambda keep_control_center=False:app.App.close(gui,keep_control_center)
                 try:
                     gui.close();gui.root.destroy.assert_not_called();gui.render_waiter.close.assert_not_called()
                     gui.root.after.assert_called_with(25,gui.close)

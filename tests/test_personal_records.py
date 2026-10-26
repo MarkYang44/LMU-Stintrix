@@ -124,7 +124,7 @@ class FeatureTests(unittest.TestCase):
             try:
                 center.show_page(1);center.root.update_idletasks()
                 pump(lambda:bool(center.tree.get_children()))
-                actions={center.review_menu.entrycget(i,'label'):i for i in range(center.review_menu.index('end')+1) if center.review_menu.type(i)=='command'}
+                actions={a.label:a.key for a in center.review_menu.actions}
                 self.assertTrue({'全选当前列表','清除选择'}.issubset(actions))
                 center.review_menu.invoke(actions['全选当前列表']);self.assertEqual(len(center.tree.selection()),len(center.tree.get_children()))
                 center.review_menu.invoke(actions['清除选择']);self.assertFalse(center.tree.selection())

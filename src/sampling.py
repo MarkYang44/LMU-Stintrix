@@ -3,6 +3,7 @@ import ctypes
 import json
 import math
 import time
+from preference_error import PreferenceError
 
 DEFAULTS = dict(mode='fixed', fixed_hz=120, min_hz=30, max_hz=240,
                 change_pct_s=12.0, hold_s=1.5, brake_pct=5.0, draw_mode='sync', draw_hz=120,
@@ -17,31 +18,31 @@ PRESETS = {
 def validate_settings(value):
     result = dict(DEFAULTS, **{k: v for k, v in value.items() if k in DEFAULTS})
     if result['mode'] not in ('fixed', 'dynamic'):
-        raise ValueError('请选择固定或动态采样模式。')
+        raise PreferenceError('请选择固定或动态采样模式。','mode')
     if result['draw_mode'] not in ('sync', 'manual'):
-        raise ValueError('请选择同步或手动 HUD 绘制模式。')
+        raise PreferenceError('请选择同步或手动 HUD 绘制模式。','draw_mode')
     if result['input_channel'] not in ('raw', 'filtered'):
-        raise ValueError('请选择原始或游戏过滤后的输入通道。')
+        raise PreferenceError('请选择原始或游戏过滤后的输入通道。','input_channel')
     labels = {'fixed_hz': '固定采样率', 'min_hz': '最低采样率', 'max_hz': '最高采样率', 'draw_hz': '绘制刷新率'}
     for key, label in labels.items():
         try:
             number = float(result[key])
         except (ValueError, TypeError):
-            raise ValueError(label + '必须是整数。') from None
+            raise PreferenceError(label + '必须是整数。',key) from None
         maximum = 4000
         if not math.isfinite(number) or not number.is_integer() or not 1 <= number <= maximum:
-            raise ValueError(f'{label}须为 1–{maximum} Hz 的整数。')
+            raise PreferenceError(f'{label}须为 1–{maximum} Hz 的整数。',key,limits=(1,maximum))
         result[key] = int(number)
     if result['min_hz'] > result['max_hz']:
-        raise ValueError('动态最低采样率不能大于最高采样率。')
+        raise PreferenceError('动态最低采样率不能大于最高采样率。','min_hz','max_hz')
     for key, label, low, high in (('change_pct_s','输入变化阈值',0.1,10000),
                                   ('hold_s','降频延迟',0.05,30), ('brake_pct','刹车升频阈值',0,100)):
         try:
             number = float(result[key])
         except (ValueError, TypeError):
-            raise ValueError(label + '必须是数值。') from None
+            raise PreferenceError(label + '必须是数值。',key) from None
         if not math.isfinite(number) or not low <= number <= high:
-            raise ValueError(f'{label}须在 {low}–{high} 之间。')
+            raise PreferenceError(f'{label}须在 {low}–{high} 之间。',key,limits=(low,high))
         result[key] = number
     return result
 

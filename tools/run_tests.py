@@ -1,5 +1,6 @@
 """Run Tcl and worker fixtures in separate processes; no personal fixtures."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -20,12 +21,38 @@ def main():
     if not args.quick:modules.extend(['tests.test_review_filters','tests.test_record_intelligence','tests.test_motion','tests.test_feedback','tests.test_career_analysis','tests.test_telemetry_continuity','tests.test_race_modes','tests.test_event_catalog','tests.test_event_filter_ui','tests.test_silent_recording'])
     if not args.quick:modules.extend(['tests.test_video_analysis','tests.test_video_ui','tests.test_video_motion','tests.test_video_history','tests.test_video_assist'])
     if not args.quick:modules.extend(['tests.test_storage40','tests.test_video_guide','tests.test_video_viewport','tests.test_video_resample','tests.test_audit_fixes','tests.test_ui_efficiency'])
+    if not args.quick:modules.append('tests.test_action_menu')
+    if not args.quick:modules.extend(['tests.test_hud_workflows','tests.test_hud_workflow_ui'])
+    if not args.quick:modules.append('tests.test_ui_polish51')
+    if not args.quick:modules.append('tests.test_ui_polish52')
+    if not args.quick:modules.append('tests.test_ui_polish53')
+    if not args.quick:modules.append('tests.test_ui_polish54')
+    if not args.quick:modules.append('tests.test_ui_polish55')
+    if not args.quick:modules.append('tests.test_ui_polish56')
+    if not args.quick:modules.append('tests.test_ui_polish57')
+    if not args.quick:modules.append('tests.test_ui_polish58')
+    if not args.quick:modules.append('tests.test_ui_polish59')
+    if not args.quick:modules.append('tests.test_ui_polish60')
+    if not args.quick:modules.append('tests.test_ui_polish61')
+    if not args.quick:modules.append('tests.test_ui_polish62')
+    if not args.quick:modules.append('tests.test_ui_polish63')
+    if not args.quick:modules.append('tests.test_ui_polish64')
+    if not args.quick:modules.append('tests.test_ui_polish65')
+    if not args.quick:modules.append('tests.test_ui_polish66')
+    if not args.quick:modules.append('tests.test_ui_polish67')
+    if not args.quick:modules.append('tests.test_ui_polish68')
+    if not args.quick:modules.append('tests.test_ui_polish69')
+    if not args.quick:modules.append('tests.test_ui_polish70')
+    if not args.quick:modules.append('tests.test_ui_polish71')
+    if not args.quick:modules.append('tests.test_ui_polish72')
+    if not args.quick:modules.append('tests.test_ui_polish73')
+    if not args.quick:modules.append('tests.test_ui_polish74')
     if args.modules:modules=args.modules
     names=[case.id() for module in modules for case in flatten(unittest.defaultTestLoader.loadTestsFromName(module))]
     if not args.quick and not args.modules:names.extend(case.id() for case in flatten(unittest.defaultTestLoader.loadTestsFromName('tests.test_workflow_polish')))
     failed=[]
     for name in names:
-        result=subprocess.run([sys.executable,'-m','unittest',name,'-q'],cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180)
+        result=subprocess.run([sys.executable,'-m','unittest',name,'-q'],cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180,env={**os.environ,'LMU_STINTRIX_HOTKEYS':'0'})
         print(('PASS' if result.returncode==0 else 'FAIL')+' '+name,flush=True)
         if result.returncode:failed.append(name);print(result.stdout+result.stderr,flush=True)
     print(f'{len(names)-len(failed)}/{len(names)} passed');return int(bool(failed))

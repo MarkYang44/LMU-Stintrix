@@ -15,8 +15,8 @@ def save(path,enabled):
 def apply(app,enabled):
     """Do not replace the engine, recorder, or any panel enable preferences."""
     app.silent_recording=bool(enabled)
-    if app.silent_recording:app.root.withdraw()
-    else:app.root.deiconify()
+    from hud_presentation import visible
+    app.root.deiconify() if visible(app,'main') else app.root.withdraw()
     for name in ('vehicle_panels','endurance_panels'):
         panels=getattr(app,name,None)
         if panels is not None:panels.refresh_visibility()

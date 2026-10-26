@@ -64,10 +64,12 @@ class Engine:
     def actual_rates(self):
         now = time.monotonic()
         if now-self._rates_at >= 0.25:
-            horizon = max(2.5, 2.5/self.target_hz)
-            with self.lock:
+            if not self.lock.acquire(blocking=False):return self._rates
+            try:
+                horizon = max(2.5, 2.5/self.target_hz)
                 self._rates = (window_rate(self.poll_times, now-horizon),
                                window_rate(self.sample_times, now-horizon))
+            finally:self.lock.release()
             self._rates_at = now
         return self._rates
 
@@ -112,13 +114,15 @@ class Engine:
         hz = min(4000, max(1, math.ceil(width*4/window)))
         scale = self.plot_y_scale if height is None else max(4,height*4)
         if hz != self.plot_hz or scale != self.plot_y_scale:
-            with self.lock:
+            if not self.lock.acquire(blocking=False):return
+            try:
                 self.plot_hz = hz
                 self.plot_y_scale = scale
                 self.plot_revision += 1
                 self.plot_points.clear()
                 for point in self.points:
                     self._add_display_point(point)
+            finally:self.lock.release()
 
     def finish_recording(self,reason,failure=None):
         folder=self.recorder.finish(reason,failure)

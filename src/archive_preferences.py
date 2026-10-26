@@ -10,4 +10,6 @@ def load(root):
     return dict(format=value.get('format') if value.get('format') in ('zip','7z') else 'zip',verify=False)
 def save(root,format,verify):
     if format not in ('zip','7z'):raise ValueError('请选择 ZIP 或 7z')
-    atomic_json(Path(root)/'archive_settings.json',dict(format=format,verify=False))
+    from preference_error import read_object
+    path=Path(root)/'archive_settings.json';value=read_object(path);value.update(format=format,verify=False)
+    atomic_json(path,value)

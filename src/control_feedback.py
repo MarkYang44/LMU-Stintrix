@@ -80,7 +80,7 @@ class ImageSurface(tk.Canvas):
         self.bind('<Configure>',self.layout);self.bind('<Destroy>',self.dispose,add='+')
     def pending(self,text=None):
         self.motion.cancel();self.image=None;self.photo=None;self.itemconfigure(self.bitmap,state='hidden',image='');self.itemconfigure(self.hint,text=text or tr('正在加载图片…'),state='normal');self.layout()
-    def show(self,image):self.image=image;self.layout(arrive=True)
+    def show(self,image,animate=True):self.image=image;self.layout(arrive=animate)
     def layout(self,event=None,arrive=False):
         width=max(1,self.winfo_width());height=max(1,self.winfo_height());self.coords(self.hint,width/2,height/2)
         if self.image is None:return
@@ -120,7 +120,7 @@ class ConnectionFeedback(tk.Canvas):
         self.dot=self.create_oval(5,5,13,13,fill=T.MUTED,outline='');self.mode=None;self.color=T.MUTED;self.motion=Motion(self)
     def set(self,mode):
         if self.mode==mode:return
-        self.mode=mode;start=self.color;target={'waiting':T.MUTED,'connected':T.GREEN,'recording':T.ACCENT}[mode]
+        self.mode=mode;start=self.color;target={'waiting':T.MUTED,'connected':T.GREEN,'recording':T.ACCENT,'saving':T.ACCENT}[mode]
         def paint(t):self.color=blend(start,target,t);self.itemconfigure(self.dot,fill=self.color)
         self.motion.animate('connection',paint,160)
 

@@ -15,6 +15,8 @@ def apply(module,updates,hud=None):
     if module=='sampling':sampling.save_settings(path,checked)
     else:atomic_json(path,checked)
     if hud is None or hud.closing:return checked
+    for key in updates:
+        if key.endswith('_enabled'):getattr(hud,'layout_visibility',{}).pop(key[:-8],None)
     if module=='sampling':
         hud.settings=checked;hud.input_channel.set(checked['input_channel'])
         if set(updates)=={'input_channel'}:hud.apply_input_channel()

@@ -11,6 +11,9 @@ class Page:
     forms:dict=field(default_factory=dict)
     form_baselines:dict=field(default_factory=dict)
     complete:bool=False
+    holds:int=0
+    built:bool=False
+    failed:bool=False
 
 class PageDeck:
     CACHE=(0,2)
@@ -21,14 +24,14 @@ class PageDeck:
         if self.pending is not None:self.owner.root.after_cancel(self.pending);self.pending=None
     def request(self,index):
         self.cancel_request()
-        if self.active is not None and self.index==index and self.active.complete and not self.owner.shell.covering:return
+        if self.active is not None and self.index==index and self.active.complete and not self.active.failed and not self.owner.shell.covering:return
         self.owner.browsing.capture(self.owner)
         self.owner.shell.cover_page();self.hide_active()
-        self.owner.root.update_idletasks()
         self.owner.scan_generation+=1;self.owner.tree=None;self.owner.guide_page=None
         self.owner.title.configure(text=self.owner.page_titles[index])
         self.owner.subtitle.configure(text=self.owner.page_subtitles[index])
         self.owner.shell.select(index)
+        self.owner.root.update_idletasks()
         def open_page():
             self.pending=None
             if not self.owner.closing:self.owner.show_page(index,progressive=True)
@@ -71,7 +74,7 @@ class PageDeck:
                 release(self.active,self.owner);self.pages.pop(self.index,None)
         self.active=None;self.building=None
     def mount(self,index,builder,progressive=False):
-        self.owner.shell.cover_page();self.retire()
+        self.surface=self.owner.shell.cover_page();self.retire()
         self.owner.root.update_idletasks()
         self.index=index
         cached=self.pages.get(index)
@@ -79,35 +82,61 @@ class PageDeck:
             self.active=cached;self.owner.content=cached.frame
             for name,value in cached.attributes.items():setattr(self.owner,name,value)
             cached.frame.pack(fill='x')
-            for refresh in cached.sync:refresh()
-            self.owner.shell.reveal_page();self.owner.install_toolbar();self.owner.browsing.restore(self.owner)
+            try:
+                for refresh in cached.sync:refresh()
+                self.commit()
+            except Exception as error:self.fail(error)
             return
         page=Page(tk.Frame(self.host,bg=self.host.cget('bg')));self.active=page
         if index in self.CACHE:self.pages[index]=page
         self.owner.content=page.frame;page.frame.pack(fill='x')
         self.before=dict(vars(self.owner));self.building=page
-        result=builder()
-        if result is not None and hasattr(result,'__next__'):
-            self.generator=result
-            if progressive:self.step();return
-            for _ in result:pass
-        self.finish()
+        try:
+            result=builder()
+            if result is not None and hasattr(result,'__next__'):
+                self.generator=result
+                if progressive:self.step();return
+                for _ in result:pass
+            self.finish()
+        except Exception as error:self.fail(error)
     def register(self,module,variables,refresh,baseline=None):
         self.building.forms[module]=variables;self.building.sync.append(refresh)
         self.building.form_baselines[module]=baseline if baseline is not None else {}
     def on_resume(self,refresh):self.building.sync.append(refresh)
+    def hold(self):
+        page=self.building;page.holds+=1;finished=False
+        def ready():
+            nonlocal finished
+            if finished:return
+            finished=True
+            if self.active is not page or self.owner.closing:return
+            page.holds-=1
+            if page.built and not page.holds:self.commit()
+        return ready
+    def commit(self):
+        self.active.complete=True;self.building=None
+        self.owner.install_toolbar();self.owner.browsing.restore(self.owner)
+        self.owner.shell.reveal_page(self.surface)
+    def fail(self,error):
+        self.cancel_build();self.building=None
+        from control_forms import capture
+        self.owner.form_drafts=capture(self,getattr(self.owner,'form_drafts',{}))
+        self.surface=self.owner.shell.cover_page()
+        from control_page_error import show
+        show(self,error)
     def finish(self):
         page=self.active
         page.attributes={name:value for name,value in vars(self.owner).items()
             if self.before.get(name) is not value and isinstance(value,(tk.Widget,tk.Variable))
             and name not in ('root','content','scroll','title','subtitle','tree','guide_page')}
-        page.complete=True;self.generator=None;self.job=None;self.building=None
-        self.owner.shell.reveal_page();self.owner.install_toolbar();self.owner.browsing.restore(self.owner)
+        page.built=True;self.generator=None;self.job=None
+        if not page.holds:self.commit()
     def step(self):
         self.job=None;start=time.perf_counter()
         try:
             while time.perf_counter()-start<.006:next(self.generator)
         except StopIteration:self.finish();return
+        except Exception as error:self.fail(error);return
         self.job=self.owner.root.after(16,self.step)
     def dispose(self):
         self.cancel_request();self.cancel_build()

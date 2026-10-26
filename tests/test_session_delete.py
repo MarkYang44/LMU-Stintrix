@@ -64,10 +64,10 @@ class DeleteTests(unittest.TestCase):
             try:
                 center.show_page(1);pump(center,lambda:bool(center.tree.get_children()) and not center.tasks.busy)
                 center.tree.selection_set(('0',))
-                with patch('control_delete.messagebox.askyesno',return_value=False) as ask:
+                with patch('control_danger.confirm',return_value=False) as ask:
                     control_delete.remove(center);ask.assert_called_once();self.assertTrue(self.folder.exists())
-                    self.assertIn('Test Circuit',ask.call_args.args[1])
-                with patch('control_delete.messagebox.askyesno',return_value=True):
+                    self.assertIn('Test Circuit',' '.join([str(ask.call_args.args[2]),*ask.call_args.args[3]]))
+                with patch('control_danger.confirm',return_value=True):
                     control_delete.remove(center)
                     pump(center,lambda:not self.folder.exists() and not center.tasks.busy)
                 self.assertFalse((self.root/'_Trash').exists())
@@ -93,11 +93,11 @@ class DeleteTests(unittest.TestCase):
                 self.assertTrue(center.tree.checkboxes)
                 ids=tuple(str(i) for i,item in enumerate(center.items) if item['track']!='Keep')
                 center.tree.selection_set(ids)
-                with patch('control_delete.messagebox.askyesno',return_value=False) as ask:
+                with patch('control_danger.confirm',return_value=False) as ask:
                     control_delete.remove(center)
-                    self.assertIn('(2)',ask.call_args.args[1]);self.assertIn('Second',ask.call_args.args[1])
+                    self.assertIn('(2)',' '.join([str(ask.call_args.args[2]),*ask.call_args.args[3]]));self.assertIn('Second',' '.join([str(ask.call_args.args[2]),*ask.call_args.args[3]]))
                     self.assertTrue(self.folder.exists())
-                with patch('control_delete.messagebox.askyesno',return_value=True):
+                with patch('control_danger.confirm',return_value=True):
                     control_delete.remove(center);settle(lambda:not self.folder.exists() and not center.tasks.busy)
                 self.assertFalse((self.root/'Logs/Second').exists());self.assertTrue((self.root/'Logs/Keep/session.json').exists())
             finally:center.close()

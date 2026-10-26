@@ -49,13 +49,16 @@ def recolor(widget,previous):
     mapping={color:PALETTES[T.mode][key] for key,color in PALETTES[previous].items()}
     options=widget.configure()
     for key in ('background','foreground','activebackground','activeforeground','selectcolor',
-                'insertbackground','disabledbackground','disabledforeground'):
+                'insertbackground','disabledbackground','disabledforeground','readonlybackground','selectbackground','selectforeground'):
         if key in options:
             current=str(widget.cget(key))
             color=mapping.get(current)
             if 'background' in key and current==PALETTES[previous]['BG']:color=T.BG
             if 'foreground' in key and current==PALETTES[previous]['ACCENT']:color=T.ACCENT
             if 'foreground' in key and current==PALETTES[previous]['INK']:color=T.INK
+            if 'foreground' in key and current==PALETTES[previous]['FG']==PALETTES[previous]['INK']:
+                background=str(widget.cget('background')) if 'background' in options else ''
+                color=T.INK if background in (T.BUTTON,T.BUTTON_HOVER) else T.FG
             if color:widget.configure(**{key:color})
     import tkinter as tk
     if isinstance(widget,tk.Canvas):
@@ -67,9 +70,10 @@ def recolor(widget,previous):
                     color=mapping[current]
                     if current==PALETTES[previous]['ACCENT']:color=T.ACCENT
                     if widget.type(item)=='text' and current==PALETTES[previous]['INK']:color=T.INK
+                    if widget.type(item)=='text' and current==PALETTES[previous]['FG']==PALETTES[previous]['INK']:color=T.INK if getattr(widget,'primary',False) else T.FG
                     widget.itemconfigure(item,**{key:color})
     for child in widget.winfo_children():recolor(child,previous)
-    if widget.__class__.__name__ in ('Field','Select','Switch','Pill','Navigation','LaunchArtwork','SessionList'):
+    if widget.__class__.__name__ in ('Field','SearchField','Select','Switch','Pill','Action','Result','Danger','Navigation','LaunchArtwork','SessionList'):
         widget.paint()
 
 

@@ -18,7 +18,7 @@ MODES={'普通 POV · 时间 / 地标':'time','距离 + 计时 HUD · OCR':'dist
 
 def show(app,root):
     existing=getattr(app,'video_window',None)
-    if existing is not None and existing.winfo_exists():existing.lift();return existing
+    if existing is not None and existing.winfo_exists():existing.deiconify();existing.lift();return existing
     window=panel(app,'Stintrix · 视频提取油刹曲线',1180,900);window.minsize(940,720);app.video_window=window
     wizard=VideoWizard(app,window,Path(root));window.video_wizard=wizard
     return window
@@ -301,6 +301,8 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
                 if done(result) is False:return
                 self.percent.configure(text=tr('预览就绪' if preview else '已完成'))
                 if not preview:self.bar.complete=True;self.bar['value']=100;self.bar.paint();self.feedback.success()
+            if not self.window.winfo_viewable():self.app.status.set(tr('视频任务已结束；可从视频分析入口查看结果'))
+            if getattr(self,'close_after_task',False):self.close_after_task=False;self.close()
         cancel,progress=self.cancel,self.progress
         self.app.run_background((lambda:work(cancel,progress)) if with_state else work,finished)
 
@@ -312,7 +314,14 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
         path=filedialog.askopenfilename(parent=self.window,filetypes=[('标定','calibration.json')])
         if not path:return
         try:
-            value=json.loads(Path(path).read_text(encoding='utf-8'));self.apply_geometry(value);self.undo_stack=[];self.redraw()
+            if Path(path).stat().st_size>2*1024*1024:raise ValueError('标定文件过大')
+            value=json.loads(Path(path).read_text(encoding='utf-8'))
+            from control_video_close import validate_draft
+            validate_draft(value);self.apply_geometry(value);self.undo_stack=[]
+            self.clicks=value.get('partial_points',[]);self.target.set(value.get('partial_target','throttle'));self.thickness.set(str(value.get('draft_thickness',self.thickness.get())))
+            from control_video_close import snapshot,restore_inputs
+            restore_inputs(self,value)
+            self.saved_calibration=snapshot(self);self.redraw()
             self.status.set('已加载几何标定。必须使用相同分辨率与 HUD 缩放；请读取新视频标定帧检查。')
         except (OSError,ValueError,KeyError,TypeError) as error:self.status.set(str(error))
 
@@ -348,6 +357,8 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
             return analyze(config,root,cancel,lambda p,t:progress.__setitem__(slice(None),[p,t]))
         def done(result):
             self.result=result;self.open.configure(state='normal');self.bar['value']=100
+            from control_video_close import snapshot
+            self.saved_calibration=snapshot(self)
             if result['quality']['pedal_readable_ratio']>=.9:
                 from video_preferences import remember
                 try:remember(self.root,config,self.image,self.media)
@@ -420,4 +431,10 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
                 except tk.TclError:pass
                 self.fit_job=None
 
-    def close(self):self.cancel.set();self.window.destroy()
+    def allow_exit(self):
+        from control_video_close import allow_exit
+        return allow_exit(self)
+
+    def close(self):
+        from control_video_close import close
+        close(self)

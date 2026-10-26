@@ -13,7 +13,8 @@ def load(root):
 
 
 def save(root,enabled):
-    atomic_json(Path(root)/'recording_settings.json',dict(practice_enabled=bool(enabled)))
+    from preference_error import read_object
+    path=Path(root)/'recording_settings.json';value=read_object(path);value.update(practice_enabled=bool(enabled));atomic_json(path,value)
 
 
 def should_record(session,demo=False,practice_enabled=False):

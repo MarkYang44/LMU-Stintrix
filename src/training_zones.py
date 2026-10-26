@@ -28,7 +28,11 @@ def load(root,entry):
 
 def save(root,entry,zones):
     values=validate(zones,entry['length_m']);p=path(root,entry);p.parent.mkdir(parents=True,exist_ok=True)
-    atomic_json(p,dict(version=1,zones=values,length_m=entry['length_m']));return values
+    saved=json.loads(p.read_text(encoding='utf-8-sig')) if p.is_file() else {}
+    if not isinstance(saved,dict):raise ValueError('Invalid zone settings')
+    updated={**saved,**dict(version=1,zones=values,length_m=entry['length_m'])}
+    if updated!=saved:atomic_json(p,updated)
+    return values
 
 def features(rows,start,end,length):
     intervals={k:[] for k in ('coast','abs','tc')};known={k:0. for k in intervals};coverage={k:[] for k in intervals};geometry=[];last=None;last_d=-1.;step=length/600

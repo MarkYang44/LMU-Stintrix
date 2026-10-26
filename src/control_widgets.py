@@ -69,13 +69,13 @@ class Pill(tk.Canvas):
 
 
 class GlassCard(tk.Canvas):
-    def __init__(self,parent):
-        self.s=scale(parent);self.margin=round(22*self.s)
+    def __init__(self,parent,compact=False):
+        self.s=scale(parent);self.margin=round((14 if compact else 22)*self.s);self.vertical=26 if compact else 42
         super().__init__(parent,bg=parent.cget('bg'),highlightthickness=0,height=100)
-        self.body=tk.Frame(self,bg=T.CARD);self.item=self.create_window(self.margin,round(20*self.s),anchor='nw',window=self.body)
+        self.body=tk.Frame(self,bg=T.CARD);self.item=self.create_window(self.margin,round((12 if compact else 20)*self.s),anchor='nw',window=self.body)
         self.bind('<Configure>',self.layout);self.body.bind('<Configure>',self.resize)
     def resize(self,_):
-        h=self.body.winfo_reqheight()+round(42*self.s)
+        h=self.body.winfo_reqheight()+round(self.vertical*self.s)
         if int(self.cget('height'))!=h:self.configure(height=h)
     def layout(self,_):
         s=self.s;w=self.winfo_width();h=self.winfo_height();self.itemconfigure(self.item,width=max(30,w-2*self.margin))
@@ -89,10 +89,14 @@ class GlassCard(tk.Canvas):
 
 class Switch(tk.Canvas):
     """Pointer feedback, velocity-preserving thumb travel, and retained artwork."""
-    def __init__(self,parent,text,variable,command):
-        self.s=scale(parent);self.variable=variable;self.command=command;self.text=text
+    def __init__(self,parent,text,variable,command,compact=False):
+        self.s=scale(parent);self.variable=variable;self.command=command;self.text=text;self.enabled=True
         self.value=float(variable.get());self.press_amount=0.;self.amount=0.;self.pressed=False;self.motion=None
-        super().__init__(parent,height=px(parent,48),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
+        options={}
+        if compact:
+            from tkinter import font as tkfont
+            measure=tkfont.Font(parent,font=(T.FONT,10));options['width']=measure.measure(tr(text))+px(parent,80);measure.__del__();measure.delete_font=False
+        super().__init__(parent,height=px(parent,38 if compact else 48),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2',**options)
         self.motion=Motion(self);self.bind('<Configure>',lambda _:self.paint())
         self.bind('<ButtonPress-1>',self.press);self.bind('<ButtonRelease-1>',self.release)
         self.bind('<Return>',lambda _:keyboard_action(self,self.toggle));self.bind('<space>',lambda _:keyboard_action(self,self.toggle))
@@ -105,6 +109,7 @@ class Switch(tk.Canvas):
             except (tk.TclError,AttributeError):pass
             self.variable=None;self.command=None
     def hover(self,target):
+        if not self.enabled:return
         start=self.amount
         def frame(t):self.amount=start+(target-start)*t;self.paint()
         self.motion.animate('hover',frame,125,curve='hover')
@@ -113,13 +118,27 @@ class Switch(tk.Canvas):
         def frame(t):self.press_amount=start+(target-start)*t;self.paint()
         self.motion.animate('press',frame,100 if target else 160)
     def press(self,_):
+        if not self.enabled:return 'break'
         self.winfo_toplevel()._motion_keyboard_until=0
         self.pressed=True;self.focus_set();self.pressure(1);self.paint()
     def release(self,event):
-        commit=self.pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height()
+        commit=self.enabled and self.pressed and 0<=event.x<self.winfo_width() and 0<=event.y<self.winfo_height()
         self.pressed=False;self.pressure(0)
         if commit:self.toggle()
-    def toggle(self):self.focus_set();self.variable.set(not self.variable.get());self.command()
+    def toggle(self):
+        if self.enabled:self.focus_set();self.variable.set(not self.variable.get());self.command()
+    def configure(self,cnf=None,**kwargs):
+        if isinstance(cnf,dict):kwargs={**cnf,**kwargs};cnf=None
+        if 'state' in kwargs:
+            self.enabled=kwargs.pop('state')!='disabled';self.pressed=False
+            kwargs.update(takefocus=self.enabled,cursor='hand2' if self.enabled else 'arrow')
+        result=super().configure(cnf,**kwargs)
+        if hasattr(self,'motion') and self.motion is not None:self.paint()
+        return result
+    config=configure
+    def cget(self,key):
+        if key=='state':return 'normal' if self.enabled else 'disabled'
+        return super().cget(key)
     def changed(self,*_):
         def paint(value):self.value=value;self.paint()
         self.motion.spring('toggle',paint,self.value,float(self.variable.get()),response=.28)
@@ -129,13 +148,13 @@ class Switch(tk.Canvas):
             self.caption=self.create_text(0,0,anchor='w',font=(T.FONT,10))
             self.track=rounded(self,0,0,1,1,1,outline=T.EDGE)
             self.thumb=rounded(self,0,0,1,1,1,outline='')
-        self.coords(self.caption,0,h/2);self.itemconfigure(self.caption,text=tr(self.text),fill=T.FG)
+        self.coords(self.caption,0,h/2);self.itemconfigure(self.caption,text=tr(self.text),fill=T.FG if self.enabled else T.MUTED)
         self.coords(self.track,*polygon_points(x,y,52*s,28*s,5*s))
         rail=blend(T.FIELD,T.SELECT,self.value)
         self.itemconfigure(self.track,fill=blend(rail,T.HOVER,self.amount*.18),outline=T.ACCENT if self.focus_get() is self else blend(T.EDGE,T.MUTED,self.amount*.35))
         cx=x+(14+24*self.value)*s;half=(9+1.5*self.press_amount)*s
         self.coords(self.thumb,*polygon_points(cx-half,y+4*s,half*2,20*s,3*s))
-        self.itemconfigure(self.thumb,fill=blend(T.MUTED,T.ACCENT,self.value))
+        self.itemconfigure(self.thumb,fill=blend(T.MUTED,T.ACCENT,self.value) if self.enabled else T.EDGE)
 
 
 class CardGrid(tk.Frame):

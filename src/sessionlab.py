@@ -24,10 +24,14 @@ def condition_check(a,b):
 
 
 def lap_conditions(rows,native=None,start=0,offset=0):
-    result={}
-    for k in (*CONDITION_RULES,'tyre_rear_compound','tyre_front_name','tyre_rear_name','ambient_temp_c','rain','track_grip'):
-        r=next((r for r in rows if k in r),None)
-        if r:result[k]=r[k]
+    keys=(*CONDITION_RULES,'tyre_rear_compound','tyre_front_name','tyre_rear_name','ambient_temp_c','rain','track_grip')
+    # Scratch layouts are fixed; absent columns cannot appear in a later row.
+    layout=getattr(rows,'layout',None);pending={k for k in keys if layout is None or k in layout};observed={}
+    for row in rows:
+        for key in tuple(pending):
+            if key in row:observed[key]=row[key];pending.remove(key)
+        if not pending:break
+    result={key:observed[key] for key in keys if key in observed}
     if native:
         for key,name in NATIVE_NAMES.items():
             s=native.get('channels',{}).get(name)
@@ -46,41 +50,37 @@ def spread(values):
 
 def actions(rows):
     """Time-based debounce; cannot infer grip or the cause of a correction."""
-    results={}
-    for prefix,names in [('raw',('throttle','brake','steering')),('filtered',('filtered_throttle','filtered_brake','filtered_steering'))]:
-        throttle,brake,steering=names;slopes=[];corrections=0;lift=0;last_sign=0;last_change=-100
-        extreme=rows[0].get(steering,0) if rows else 0
-        for a,b in zip(rows,rows[1:]):
-            dt=b['session_time_s']-a['session_time_s'];t=b['session_time_s']
-            if not 0<dt<=.2:continue
-            change=(b[brake]-a[brake])/dt
-            if a[brake]>.05 and change<-.02:slopes.append(-change*100)
-            value=b.get(steering,0);ds=value-extreme
-            sign=1 if ds>.025 else -1 if ds<-.025 else 0
-            if sign and sign!=last_sign:
-                if last_sign and t-last_change>.08:corrections+=1
-                last_change=t;last_sign=sign;extreme=value
-            elif last_sign==1:extreme=max(extreme,value)
-            elif last_sign==-1:extreme=min(extreme,value)
-            if a[throttle]>.8 and b[throttle]<.6:lift+=1
-        # Sustained lifts, not only adjacent abrupt transitions.
-        armed=False;since=None;lift=0
-        for r in rows:
-            if r[throttle]>.8:armed=True;since=None
-            elif armed and r[throttle]<.6:
-                if since is None:since=r['session_time_s']
-                if r['session_time_s']-since>=.06:lift+=1;armed=False
-        results[prefix]=dict(brake_release_pct_s=statistics.median(slopes) if slopes else None,
-            steering_corrections=corrections,throttle_lifts=lift)
+    states=[dict(prefix=prefix,names=names,slopes=[],corrections=0,last_sign=0,last_change=-100,extreme=0,armed=False,since=None,lift=0)
+            for prefix,names in [('raw',('throttle','brake','steering')),('filtered',('filtered_throttle','filtered_brake','filtered_steering'))]]
     dt_sum=0;differences=[0,0,0];abs_time=tc_time=0;abs_known=tc_known=False
-    for a,b in zip(rows,rows[1:]):
-        dt=b['session_time_s']-a['session_time_s']
-        if not 0<dt<=.2:continue
-        dt_sum+=dt
-        for i,(r,f) in enumerate(zip(('throttle','brake','steering'),('filtered_throttle','filtered_brake','filtered_steering'))):
-            if r in a and f in a:differences[i]+=abs(a[r]-a[f])*dt
-        if 'abs_active' in a:abs_known=True;abs_time+=bool(a['abs_active'])*dt
-        if 'tc_active' in a:tc_known=True;tc_time+=bool(a['tc_active'])*dt
+    previous=None
+    for row in rows:
+        t=row['session_time_s'];dt=t-previous['session_time_s'] if previous is not None else 0
+        for state in states:
+            throttle,brake,steering=state['names']
+            if previous is None:state['extreme']=row.get(steering,0)
+            elif 0<dt<=.2:
+                change=(row[brake]-previous[brake])/dt
+                if previous[brake]>.05 and change<-.02:state['slopes'].append(-change*100)
+                value=row.get(steering,0);ds=value-state['extreme'];sign=1 if ds>.025 else -1 if ds<-.025 else 0
+                if sign and sign!=state['last_sign']:
+                    if state['last_sign'] and t-state['last_change']>.08:state['corrections']+=1
+                    state.update(last_change=t,last_sign=sign,extreme=value)
+                elif state['last_sign']==1:state['extreme']=max(state['extreme'],value)
+                elif state['last_sign']==-1:state['extreme']=min(state['extreme'],value)
+            if row[throttle]>.8:state['armed']=True;state['since']=None
+            elif state['armed'] and row[throttle]<.6:
+                if state['since'] is None:state['since']=t
+                if t-state['since']>=.06:state['lift']+=1;state['armed']=False
+        if 0<dt<=.2:
+            dt_sum+=dt
+            for i,(raw,filtered) in enumerate(zip(('throttle','brake','steering'),('filtered_throttle','filtered_brake','filtered_steering'))):
+                if raw in previous and filtered in previous:differences[i]+=abs(previous[raw]-previous[filtered])*dt
+            if 'abs_active' in previous:abs_known=True;abs_time+=bool(previous['abs_active'])*dt
+            if 'tc_active' in previous:tc_known=True;tc_time+=bool(previous['tc_active'])*dt
+        previous=row
+    results={s['prefix']:dict(brake_release_pct_s=statistics.median(s['slopes']) if s['slopes'] else None,
+        steering_corrections=s['corrections'],throttle_lifts=s['lift']) for s in states}
     results.update(input_difference_pct=[v/max(1e-9,dt_sum)*100 for v in differences],
         abs_active_s=abs_time if abs_known else None,tc_active_s=tc_time if tc_known else None)
     return results
@@ -93,13 +93,20 @@ def analyze_session(folder):
     native=load_json(folder/'native_channels.json') if (folder/'native_channels.json').exists() else None
     from vehiclelab import load_recording,lap_telemetry
     vehicle_bundle=load_recording(folder)
-    summaries=[];recent=[]
+    from processing_context import current
+    shared=current(folder);summaries=[];recent=[];recent_rows=[]
+    from training_cache import warming
+    warmer=warming(folder)
+    if shared is not None:
+        for name in ('best','best_curve','best_conditions','best_actions','candidates','error','analysed'):shared.values.pop(name,None)
+        shared.values.update(native=native,vehicle=vehicle_bundle)
     clock_origin=None
     def collect(best):
         nonlocal clock_origin
         if clock_origin is None:clock_origin=best['rows'][0]['session_time_s']-best['rows'][0].get('time_s',best['rows'][0]['session_time_s'])
         condition=lap_conditions(best['rows'],native,best['start_s'],native.get('event_offset_s',0) if native else 0)
         action=actions(best['rows']);data=comparison_data(best)
+        if warmer is not None:warmer.feed(best,data,condition if native is None else None)
         brake=next((r[0] for r in data if r[3]>=.05),None)
         full=next((r[0] for r in data if r[2]>=.9),None)
         info=dict(number=best['number'],time_s=best['time_s'],validity=best['validity'],conditions=condition,
@@ -109,20 +116,29 @@ def analyze_session(folder):
         vehicle=lap_telemetry(best,vehicle_bundle)
         if vehicle:info['vehicle_summary']=vehicle['summary']
         summaries.append(info)
+        if shared is not None and ('best' not in shared.values or best['end_s']-best['start_s']<shared.values['best']['time_s']):
+            shared.values.update(best=best,best_curve=data,best_conditions=condition,best_actions=action)
         # Keep at most five actual candidates; representative is an observed lap.
         recent.append(info);del recent[:-5]
-    _,candidates,error=extract_best(folder/'inputs.csv',collect,retain_best=False)
+        recent_rows.append(best);del recent_rows[:-5]
+    from lap_scan_index import builder,save
+    from laps import _lap_inventory
+    scan_index=builder(folder)
+    _,candidates,error=extract_best(folder/'inputs.csv',collect,retain_best=False,_index=scan_index)
+    save(folder,_lap_inventory(scan_index['candidates'],error),scan_index)
+    if shared is not None:shared.check();shared.values.update(candidates=candidates,error=error,analysed=True)
     latest=recent[-1]['conditions'] if recent else {}
     training=[i for i in recent if condition_check(i['conditions'],latest)['allowed']]
     times=[i['time_s'] for i in training];stats=spread(times);reference=None
     if len(training)>=3:
         info=min(training,key=lambda i:abs(i['time_s']-stats['median']))
-        selected=[]
-        def select(best):
-            if best['number']==info['number'] and abs(best['start_s']-clock_origin-info['start_time_s'])<1e-6:
-                selected.append(best)
-        extract_best(folder/'inputs.csv',select,retain_best=False)
-        best=selected[0]
+        if sum(candidate['number']==info['number'] for candidate in candidates)>1:
+            # Retain historical epoch selection for ambiguous repeated numbers.
+            selected=[]
+            def select(best):
+                if best['number']==info['number'] and abs(best['start_s']-clock_origin-info['start_time_s'])<1e-6:selected.append(best)
+            extract_best(folder/'inputs.csv',select,retain_best=False);best=selected[0]
+        else:best=next(best for best in recent_rows if best['number']==info['number'] and abs(best['start_s']-clock_origin-info['start_time_s'])<1e-6)
         refinfo={k:best[k] for k in ('number','time_s','validity','timing_source','distance_source','cadence_s')}
         refinfo.update(track_length_m=best['length_m'],sample_count=len(best['rows']),start_session_time_s=best['start_s'],end_session_time_s=best['end_s'])
         data=comparison_data(best)
@@ -140,4 +156,6 @@ def analyze_session(folder):
         note='最近最多五个完整圈；明确条件不同的圈排除。稳定参考为实测中位附近的一圈；不足三圈不生成。交通需人工标记。动作计数是阈值统计，不自动认定驾驶错误。')
     write_json(folder/'session_analysis.json',detail)
     from analysis_headers import save as save_headers
-    save_headers(folder,detail);return detail
+    save_headers(folder,detail)
+    if warmer is not None:warmer.finish(candidates,error)
+    return detail

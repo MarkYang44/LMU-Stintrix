@@ -1755,5 +1755,20 @@
   "正在保存…": "Saving…",
   "▶  重新启动记录": "▶  Restart recording",
   "HUD 已隐藏 · 正在完成后台任务": "HUD hidden · Finishing background tasks",
-  "HUD 已关闭；可继续浏览，后台保存完成后可重新启动记录。": "HUD closed. Keep browsing; recording can restart when saving finishes."
+  "HUD 已关闭；可继续浏览，后台保存完成后可重新启动记录。": "HUD closed. Keep browsing; recording can restart when saving finishes.",
+  "清除条件": "Clear conditions",
+  "← 上一条": "← Previous",
+  "下一条 →": "Next →",
+  "第 {index} / {count} 条": "{index} / {count} records",
+  "分析与训练": "Analysis and training",
+  "整理纪录": "Manage record",
+  "最近导出": "Recent exports",
+  "纪录操作": "Record actions",
+  "请选择赛道": "Choose circuit",
+  "先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。": "Choose a circuit first, then a session and valid lap for A and B. Different cars are supported on the same layout.",
+  "在当前赛道搜索日期、车型或赛事": "Search date, car or session on this circuit",
+  "先选择赛道；仅在选择赛事后读取有效圈": "Choose a circuit; valid laps load only after selecting a session",
+  "请选择圈 A 和圈 B 的赛事；仅扫描所选记录": "Choose sessions for A and B; only selected records are scanned",
+  "已按圈 A 的赛道筛选，请重新选择圈 B 的赛事": "Filtered to lap A’s circuit. Choose a new session for lap B.",
+  "赛事数据已变化，请重新选择并重试": "Session data changed. Select it again and retry."
 }

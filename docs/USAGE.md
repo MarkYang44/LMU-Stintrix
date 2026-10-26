@@ -1,5 +1,53 @@
 # 使用说明 / Usage
 
+## v0.3.1 数据处理与分析
+
+圈分析、稳定参考、训练数据、最快圈和复盘共用可复用步骤，减少重复扫描。相邻样本和切片改为顺序分块读取，动作指标合并单次计算，原条件、阈值与精度保留。正常赛后分析顺带生成原格式训练缓存，之后训练优先级与进步分析可直接读取；缓存失效或未生成时仍可按原路径处理，可选缓存失败不会阻断主要报告。
+
+官方通道复盘缩放只遍历可见时间范围，仍绘制范围内全部采样。CSV 投影与普通行拆分减少解析开销，不降低采样率、压缩级别或图片／视频质量。保存、恢复、归档与来源检查继续保留，不批量改写历史赛事。实际计时与各功能边界见 [数据处理流程](DATA_PROCESSING.md)。
+
+Sequential slice reads, one-pass action metrics and exact CSV fast paths reduce shared processing work. Post-session analysis prepares the existing training cache from the lap it already owns; training and progress views reuse it. Optional cache failures preserve the ordinary analysis path. Native-channel plots visit every sample in the visible time range. Full precision, recording quality and recovery are preserved.
+
+## v0.2.80 圈 A／圈 B 与任意圈导出
+
+先选赛道、赛事和有效圈，之后按所选圈的位置读取原始数据。首次处理旧赛事需要完整校验，生成本机 `_lap_scan.json` 索引；后续选择及重启可复用。正常赛后分析顺带建立索引，无需额外预扫描。未能保存索引的只读目录仍可使用普通提取路径。
+
+已处理的单圈可以组成新的对比，避免重读车辆通道或重写该圈 CSV。源文件、版本、输出状态变化后重新处理，继续排除无效圈、进站圈、重复圈号及不兼容布局。索引不保存整场采样，不改写原始文件，不进入比赛归档或 GitHub。
+
+Verified lap inventories persist locally; extraction seeks the selected original CSV ranges or packed blocks. Processed laps can be recombined without repeating extraction. Source changes invalidate reuse. Initial validation of an older session still requires a full scan; normal post-session analysis builds the index during its existing read. Full samples, original fields and validity checks are preserved.
+
+## v0.2.79 赛后处理共用数据
+
+一次赛后任务内，圈分析、最快圈和复盘页共用已经读取并验证的数据；稳定参考优先使用最近五圈中保留的原始临时数据，避免再次扫描整场。重复圈号等歧义情形保留原有回退校验。任务结束或失败时释放共用数据，不跨赛事复用；原文件变化时拒绝继续使用旧数据。
+
+报告数字矩阵改用有界的快速编码，临时表按块顺序读取；无损列压缩复用完全相同的常量列编码，格式、压缩结果和精度保留。采集采样率、写盘检查点、图片规格、视频采样和归档完整性校验继续采用原设置。流程审查与测量范围见 [数据处理流程](DATA_PROCESSING.md)。
+
+Post-session stages share already validated data within one task. Sequential scratch reads and bounded numeric JSON encoding reduce repeated work; lossless constant-column compression reuses identical encoded bytes. Recording quality, image settings, video sampling and archive checks are preserved.
+
+## v0.2.78 赛道优先选圈与对比提速
+
+「圈 A／圈 B」先选赛道，两侧赛事列表只显示该赛道的已完成记录，再分别选择赛事和有效圈。窗口首次打开、切换赛道和搜索时不扫描遥测；从已选赛事打开时会自动带入赛道。同一赛道的不同布局仍明确标注，生成前继续检查布局与长度，禁止无效圈、进站圈、重复圈号及未验证旧圈。
+
+同一来源的两圈合并提取，附加车辆遥测只读取一次；完整圈校验合并重复遍历，保留每个采样、原有浮点值和全部通道。A／B 对同一文件的有效圈扫描可共用结果，最多保留 16 份轻量圈清单。已生成对比页在源数据、模板、主题与输出文件均未变化时直接复用；文件变化、缺失或缓存损坏会重新生成，缓存记录只写在本机派生输出目录。
+
+Choose a circuit before selecting sessions and valid laps for A/B. Unchanged comparison pages reopen directly; changing sources or report assets triggers regeneration. Full samples, precision and original telemetry files are preserved. Browser launch and rendering time depend on the browser and report size.
+
+## v0.2.77 资料页空间与对比选择
+
+赛道指南和车型图鉴默认收起组别、车型与收藏筛选，用「筛选条件」展开；当前条件仍显示为可移除的标签，展开状态在切换页面后保留。搜索框显示用途提示，Enter 立即应用，连续输入只合并处理一次；空结果可直接清空搜索并保留其他筛选。
+
+已选对比项目显示数量和独立标签，点 × 只移除对应项目，无需返回其原卡片。保留完整赛道／车型名称的悬停与键盘焦点提示，长名称省略后仍可查看完整内容。在对比画面移除到不足两项时，回到原资料页、页码和浏览位置。
+
+Guide filters collapse by default while active conditions remain visible and removable. Press Enter to apply search immediately, or recover empty results without losing filters. Each selected comparison item can be removed directly; dropping below two items returns to the original browsing context.
+
+## v0.2.76 筛选反馈与连续浏览
+
+个人纪录各列表和数据页收起筛选后，仍会显示当前条件标签；点标签上的 × 单独移除。「清除条件」保留搜索词和排序，完整重置仍可在展开的筛选面板内操作。排序标签也可单独移除。条件标签沿用切角工业风，并随窗口宽度换行。
+
+赛道最快圈详情增加「上一条」「下一条」和当前序号，按当前搜索、筛选及排序后的列表切换，到首尾停止。返回列表保留当前纪录；连续查看时不必反复往返列表。常用曲线、训练报告与战绩卡保持直接入口；整理纪录、同条件分析和最近导出集中在「更多操作」，也可右键纪录或按 Shift+F10 打开。详情读取失败时才显示「重试详情」。
+
+Collapsed filters on record and data lists keep their active condition chips visible. Remove individual conditions or clear conditions while keeping search and sort. Personal-best details support previous/next navigation within the current filtered order; record management and recent exports are available through More actions or the row context menu.
+
 ## v0.2.74 停止与后台保存
 
 「停止并保存」接受后会立即隐藏主 HUD 及全部附加面板，停止采样并在后台完成写盘、报告与已提交任务。控制中心会继续显示保存状态，可浏览其他页面；保存期间启动、演示和重复停止按钮禁用，完成后可「重新启动记录」。布局、尺寸、透明度与面板开关不因停止被改写。

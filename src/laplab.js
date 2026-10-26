@@ -40,7 +40,13 @@ const InputScopeLab=(()=>{
   const step=Math.max(1,(corner.end-corner.start)/1500),rows=[];
   for(let d=corner.start;d<corner.end;d+=step)rows.push(at(lap,d));rows.push(at(lap,corner.end));
   const brake=rows.find(r=>r[0]<=corner.apex&&r[offset+1]>=.05),released=brake?rows.find(r=>r[0]>brake[0]&&r[offset+1]<.05):null;
-  const after=rows.filter(r=>r[0]>=corner.apex),recovery=after.find((r,i)=>r[offset]>=.9&&after.slice(i).some(q=>q[0]>=r[0]+12)&&after.filter(q=>q[0]>=r[0]&&q[0]<=r[0]+12).every(q=>q[offset]>=.9));
+  const after=rows.filter(r=>r[0]>=corner.apex);let recovery=null,left=0,right=0,below=0;
+  // Inclusive 12 m windows, visited once instead of filtering the tail per row.
+  for(const r of after){
+   while(right<after.length&&after[right][0]<=r[0]+12){if(!(after[right][offset]>=.9))below++;right++}
+   while(left<after.length&&after[left][0]<r[0]){if(!(after[left][offset]>=.9))below--;left++}
+   if(r[offset]>=.9&&after.at(-1)[0]>=r[0]+12&&below===0){recovery=r;break}
+  }
   return {brake:brake?.[0]??null,release:released?.[0]??null,minimum:Math.min(...rows.map(r=>r[6])),entry:rows[0][6],exit:rows.at(-1)[6],full:recovery?.[0]??null,time:rows.at(-1)[1]-rows[0][1]};
  }
  return {lerp,wrap,validateCalibration,fraction,distance,baseline,corners,validateCorners,measure};

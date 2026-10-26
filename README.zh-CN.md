@@ -124,6 +124,7 @@ RaceCom 图片生成属于可选集成，需要用户自行提供生成器；核
 | [架构说明](docs/ARCHITECTURE.md) | 模块职责与开发边界 |
 | [性能说明](docs/PERFORMANCE.md) | 实测数据、测试场景与取舍 |
 | [无损存储](docs/STORAGE_OPTIMIZATION.md) | 存储格式、CSV 恢复与赛事归档 |
+| [数据处理](docs/DATA_PROCESSING.md) | 分析流程、训练复用、实测耗时与精度保护 |
 | [视频分析](docs/VIDEO_ANALYSIS.md) | 标定、工具要求、对比方式与精度边界 |
 | [隐私说明](docs/PRIVACY.md) | 本地数据、分享与迁移 |
 

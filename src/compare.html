@@ -82,8 +82,16 @@ function grid(v){
 function cornerStorageKey(){const b=base();return b?'inputscope.corners.v1.'+b.session.track.toLowerCase()+'.'+Math.round(b.lap.track_length_m):''}
 function loadCorners(){const b=base();if(!b){cornerSections=[];return}const key=cornerStorageKey();if(key!==cornerKey){cornerKey=key;cornerDefinitions=null;try{const value=JSON.parse(localStorage.getItem(key));if(value)cornerDefinitions=InputScopeLab.validateCorners(value,b.lap.track_length_m)}catch{}}
  cornerSections=cornerDefinitions||InputScopeLab.corners(b,InputScopeTrack.official(b.session.track,b.lap.track_length_m),grid(b).events);
+ const context=referenceId+'|'+$('#channel').value+'|'+JSON.stringify(cornerSections);
+ if(context!==cornerMeasureContext){cornerMeasureContext=context;cornerMeasureCache=new WeakMap()}
 }
-function cornerMeasurement(v,c){return InputScopeLab.measure(v,c,(lap,d)=>[d,...valueAt(lap,d).slice(1)],$('#channel').value==='raw'?2:4)}
+let cornerMeasureCache=new WeakMap(),cornerMeasureContext='';
+function cornerMeasurement(v,c){
+ let values=cornerMeasureCache.get(v);if(!values){values=new Map();cornerMeasureCache.set(v,values)}
+ const key=[c.start,c.apex,c.end].join('|');
+ if(!values.has(key))values.set(key,InputScopeLab.measure(v,c,(lap,d)=>[d,...valueAt(lap,d).slice(1)],$('#channel').value==='raw'?2:4));
+ return values.get(key);
+}
 function seekDistance(d,c=null){const b=base();if(!b)return;replayPlaying=false;$('#replay-play').textContent='▶ 同时间回放';replayTime=valueAt(b,d)[1];cursor=d;if(c){left=Math.max(0,c.start-15);right=Math.min(b.lap.track_length_m,c.end+15)}trackView.selectedCorner=c;trackView.key='';drawBackground();drawCursor()}
 trackView.onSeekDistance=d=>seekDistance(d);
 function fillCorners(){const b=base(),table=$('#corner-metrics');table.replaceChildren();$('#corner-editor').value=JSON.stringify(cornerSections.map(({name,start,apex,end})=>({name,start:Math.round(start),apex:Math.round(apex),end:Math.round(end)})),null,2);

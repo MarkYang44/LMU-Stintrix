@@ -298,6 +298,9 @@ def native_values(series,t,lookup,offset=0):
 
 
 def load_recording(folder):
+    from processing_context import current
+    shared=current(folder)
+    if shared is not None and 'vehicle' in shared.values:return shared.values['vehicle']
     path=Path(folder)/'vehicle.csv'
     if not path.exists():return None
     with path.open(encoding='utf-8-sig',newline='') as f:
@@ -315,9 +318,11 @@ def load_recording(folder):
         from analysis_spool import DiskTable
         data=DiskTable(records(),len(columns)+1,path.parent,nullable=True)
     meta=json.loads((Path(folder)/'session.json').read_text(encoding='utf-8'))
-    return dict(version=1,columns=columns,data=data,record_hz=meta.get('vehicle_telemetry',{}).get('target_hz'),
+    result=dict(version=1,columns=columns,data=data,record_hz=meta.get('vehicle_telemetry',{}).get('target_hz'),
         source=meta.get('source'),time_origin_s=origin or 0,profile=meta.get('vehicle_profile',DEFAULT_PROFILE),
         strategy=meta.get('vehicle_strategy',{}),strategy_history=meta.get('vehicle_settings_history',[]))
+    if shared is not None:shared.values['vehicle']=result
+    return result
 
 
 def lap_telemetry(best,bundle=None):

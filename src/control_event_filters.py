@@ -48,8 +48,11 @@ class EventControls(tk.Frame):
             MenuAction('columns','列设置',lambda:self.column_editor(),enabled=lambda:hasattr(self,'column_editor'),hint='显示、隐藏与固定列；拖动表头边界调整列宽'),
             MenuAction('delete','删除视图',self.delete_view,enabled=lambda:self.view.get() not in BUILTINS and self.view.get() in self.views,hint='选择已保存的自定义视图后可删除',danger=True)],'管理视图')
         tools.bind('<Configure>',lambda e:self.arrange_toolbar(e,tools))
-        self.chips=tk.Frame(self,bg=T.CARD);self.chips.pack(fill='x');self.chip_widgets=[];self.chips.bind('<Configure>',lambda _:self.arrange_chips())
-        self.summary=tk.StringVar(self);app.label(self,self.summary,9,T.MUTED).pack(fill='x',pady=4)
+        # A sibling can be packed inside this panel or above its table. Keeping
+        # one set of chips avoids hiding active conditions with the disclosure.
+        self.chips=tk.Frame(self.master,bg=T.CARD);self.chip_widgets=[];self.compact_target=None;self.chips.bind('<Configure>',lambda _:self.arrange_chips())
+        self.bind('<Destroy>',self.dispose_chips,add='+')
+        self.summary=tk.StringVar(self);self.summary_label=app.label(self,self.summary,9,T.MUTED);self.summary_label.pack(fill='x',pady=4)
         self.selection_detail=tk.StringVar(self);self.detail=app.label(self,self.selection_detail,9,T.ACCENT);self.detail.bind('<Configure>',lambda e:self.detail.configure(wraplength=max(100,e.width)))
         self.hint=app.label(self,'天气与车辆条件仅代表已记录有效圈；最快圈页按候选圈条件筛选后再选纪录。比赛时长缺少起终点时不推算。',9,T.MUTED);self.hint.bind('<Configure>',lambda e:self.hint.configure(wraplength=max(100,e.width)))
         self.update_views();self.update_options([]);self.pack(fill='x',pady=8)
@@ -144,19 +147,46 @@ class EventControls(tk.Frame):
             if key not in self.choices:var.set(self.state.get(key,''))
         self.update_chips()
     def update_chips(self):
+        focused=self.chips.focus_get() in self.chip_widgets
         for w in self.chip_widgets:w.destroy()
         self.chip_widgets=[]
         for key,value in self.state.items():
             if key not in self.variables or value in ('',None) or value==DEFAULTS.get(key):continue
             text=self.variables[key].get()
             if key in ('start','end','min_laps') or key.endswith(('_min','_max')):text=tr(self.titles[key])+' '+str(value)
-            self.chip_widgets.append(self.app.button(self.chips,text+' ×',lambda k=key:self.remove(k),False,max(105,min(260,len(text)*10+28))))
-        self.arrange_chips()
+            text=tr(self.titles[key])+' · '+text if key in self.choices else text
+            self.chip_widgets.append(self.app.button(self.chips,text+' ×',lambda k=key:self.remove(k),False,105))
+        if any(v!=DEFAULTS.get(k) for k,v in self.state.items() if k in self.variables and k!='sort'):
+            self.chip_widgets.append(self.app.button(self.chips,'清除条件',self.clear_conditions,False,100))
+        for w in self.chip_widgets:w.configure(height=px(w,34))
+        self.sync_chips();self.arrange_chips()
+        if focused:
+            if self.chip_widgets:self.chip_widgets[0].focus_set()
+            elif self.compact_target is not None:self.compact_target.viewport.focus_set()
+    def compact(self,before):
+        self.compact_target=before;self.sync_chips()
+    def sync_chips(self):
+        if not self.chips.winfo_exists():return
+        expanded=bool(self.winfo_manager()) or self.compact_target is None
+        parent=self if expanded else self.master;before=self.summary_label if expanded else self.compact_target
+        if not self.chip_widgets:self.chips.pack_forget();return
+        current=self.chips.pack_info() if self.chips.winfo_manager() else {}
+        if current.get('in') is not parent:
+            self.chips.pack_forget();self.chips.pack(in_=parent,fill='x',pady=(4,0),before=before)
+            self.arrange_chips()
+    def dispose_chips(self,event):
+        if event.widget is self and self.chips.winfo_exists():self.chips.destroy()
+    def clear_conditions(self):
+        for key in self.variables:
+            if key!='sort':self.state[key]=DEFAULTS[key]
+        if hasattr(self,'query'):self.state['query']=self.query.get()
+        self.update_options(self.items);self.persist();self.callback()
     def arrange_chips(self):
         self.flow(self.chips,self.chip_widgets,max(190,self.chips.winfo_width()))
     def remove(self,key):
         self.state[key]=DEFAULTS[key]
         if key=='track':self.state['layout']=''
+        if hasattr(self,'query'):self.state['query']=self.query.get()
         self.update_options(self.items);self.persist();self.callback()
     def pairs(self,values,query=''):
         if hasattr(self,'sort_table'):self.sort_table()

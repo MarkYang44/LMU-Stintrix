@@ -32,7 +32,7 @@ def write_json(path, value):
         if pending.exists():pending.unlink()
 
 
-def read_rows(path):
+def read_rows(path,start=0,end=None,cookies=(),capture=None):
     with Path(path).open(encoding='utf-8-sig',newline='') as stream:
         reader=csv.DictReader(stream)
         numbers = {'time_s','session_time_s','lap','lap_distance_m','throttle','brake',
@@ -43,7 +43,8 @@ def read_rows(path):
                    'tyre_rear_compound','ambient_temp_c','rain','track_grip'}
         layout={k:i for i,k in enumerate(dict.fromkeys(k for k in reader.fieldnames or () if k in numbers))}
         last_utc=None
-        for row in reader:
+        from lap_scan_index import raw_rows
+        for row in raw_rows(path,start,end,cookies,capture):
             try:
                 numeric=[]
                 for key in layout:
@@ -71,7 +72,31 @@ def lap_key(row):
     return ('counter',int(row['lap']))
 
 
-def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=True):
+def _distances(path):
+    """The length pass needs two exact fields, not every numeric channel."""
+    from pathlib import Path as NativePath
+    path=NativePath(path)
+    if not path.is_file():
+        from column_store import rows
+        pairs=((r['lap_distance_m'],r['track_length_m']) for r in rows(path,('lap_distance_m','track_length_m')))
+        yield from _distance_values(pairs);return
+    with path.open(encoding='utf-8-sig',newline='') as stream:
+        reader=csv.reader(stream);positions={key:i for i,key in enumerate(next(reader,[]))}
+        def field(row,key):
+            i=positions.get(key);return row[i] if i is not None and i<len(row) else ''
+        yield from _distance_values((field(row,'lap_distance_m'),field(row,'track_length_m')) for row in reader if row)
+
+
+def _distance_values(pairs):
+    for distance,length in pairs:
+        try:
+            distance=float(distance);length=float(length) if length else 0.
+            if not math.isfinite(distance) or not math.isfinite(length):raise ValueError('Non-finite telemetry')
+        except (ValueError,TypeError) as error:raise ValueError('CSV contains an incomplete or invalid telemetry row') from error
+        yield distance,length
+
+
+def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=True,_index=None):
     """Require two observed boundaries, or an exact recorded first-lap start.
 
     Legacy CSVs use successive lap-counter transitions and never promote the
@@ -80,11 +105,11 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
     """
     inferred_length = 0
     known_lengths = []
-    for row in read_rows(csv_path):
-        inferred_length = max(inferred_length,row['lap_distance_m'])
-        length = row.get('track_length_m',0)
+    for distance,length in _distances(csv_path):
+        inferred_length = max(inferred_length,distance)
         if length>100 and len(known_lengths)<1000:
             known_lengths.append(length)
+        if len(known_lengths)>=1000:break
     length = statistics.median(known_lengths) if known_lengths else inferred_length
     if length<=100:
         return None,[], 'No usable track distance'
@@ -93,6 +118,7 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
     group = LapRows(Path(csv_path).parent)
     key = None
     seen_boundary = False
+    first_row=0
 
     def complete(next_row):
         nonlocal best
@@ -101,13 +127,26 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
         end = lap_key(next_row)[1] if timer else next_row['session_time_s']
         duration = end-start
         number = int(group[0]['lap'])
-        checked = all('lap_invalidated' in r and 'in_pits' in r for r in group)
         reason = None
-        positive=array('d');nonmonotonic=False
-        for a,b in zip(group,group[1:]):
-            dt=b['session_time_s']-a['session_time_s']
-            if dt>0:positive.append(dt)
-            else:nonmonotonic=True
+        positive=array('d');nonmonotonic=False;checked=True;invalidated=False;in_pits=False
+        beginning=None;maximum=-math.inf;backwards=False;previous_time=None;previous_distance=None
+        # These facts used to reread the disk-backed lap in several full passes.
+        # Collect the same facts once; keep all source samples and float64 times.
+        for index,row in enumerate(group):
+            when=row['session_time_s'];distance=row['lap_distance_m']
+            if previous_time is not None:
+                dt=when-previous_time
+                if dt>0:positive.append(dt)
+                else:nonmonotonic=True
+            previous_time=when
+            checked=checked and 'lap_invalidated' in row and 'in_pits' in row
+            invalidated=invalidated or row.get('lap_invalidated',0)>0
+            in_pits=in_pits or row.get('in_pits',0)>0
+            if beginning is None and -20<=distance<=min(80,length*.05):beginning=index
+            if beginning is not None:
+                maximum=max(maximum,distance)
+                if previous_distance is not None and distance<previous_distance-20:backwards=True
+                previous_distance=distance
         largest=max(positive,default=0)
         cadence = median(positive) if positive else 0
         threshold = min(2.5,max(1.5,cadence*3))
@@ -120,46 +159,57 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
             reason = 'insufficient or nonmonotonic samples'
         elif max(largest,next_row['session_time_s']-group[-1]['session_time_s'])>threshold:
             reason = 'telemetry gap'
-        elif not include_flagged and any(r.get('lap_invalidated',0)>0 for r in group):
+        elif not include_flagged and invalidated:
             reason = 'invalidated lap'
-        elif not include_flagged and any(r.get('in_pits',0)>0 for r in group):
+        elif not include_flagged and in_pits:
             reason = 'pit lane lap'
         # Initial high distances may belong to the preceding lap's stale scoring
         # update. Only a genuine near-zero section followed by near-full distance
         # constitutes a recorded complete circuit.
-        beginning = next((i for i,r in enumerate(group)
-                          if -20<=r['lap_distance_m']<=min(80,length*.05)),None)
-        usable = group[beginning:] if beginning is not None else []
-        if reason is None and (not usable or max(r['lap_distance_m'] for r in usable)<length*.95):
+        if reason is None and (beginning is None or maximum<length*.95):
             reason = 'incomplete distance coverage'
-        if reason is None and any(b['lap_distance_m']<a['lap_distance_m']-20
-                                  for a,b in zip(usable,usable[1:])):
+        if reason is None and backwards:
             reason = 'distance moved backwards or reset'
         info = dict(number=number,time_s=round(duration,6),track_length_m=length,eligible=reason is None,
                     exclusion=reason,validity='verified' if checked else 'unverified_legacy',
-                    lap_invalidated=any(r.get('lap_invalidated',0)>0 for r in group),
-                    in_pits=any(r.get('in_pits',0)>0 for r in group))
+                    lap_invalidated=invalidated,in_pits=in_pits)
         candidates.append(info)
-        if reason is None:
+        indexed_reason=reason
+        if _index is not None:
+            if reason in ('invalidated lap','pit lane lap'):
+                indexed_reason=('incomplete distance coverage' if beginning is None or maximum<length*.95 else
+                                'distance moved backwards or reset' if backwards else None)
+            indexed_info={**info,'eligible':indexed_reason is None,'exclusion':indexed_reason}
+            _index['candidates'].append(indexed_info)
+        if reason is None or _index is not None and indexed_reason is None:
             value = dict(**info,start_s=start,end_s=end,rows=group,
                         next_row=dict(next_row),length_m=length,
                         timing_source='game_lap_start' if timer else 'lap_counter_estimate',
                         distance_source='game_track_length' if known_lengths else 'recorded_maximum_estimate',
                         first_distance_index=beginning,cadence_s=cadence)
-            if on_candidate:on_candidate(value)
-            if retain_best and (best is None or duration<best['time_s']):best=value
+            if _index is not None:_index['groups'].append({k:(dict(v) if k=='next_row' else v) for k,v in value.items() if k!='rows'}|indexed_info|{'_range':[first_row,ordinal]})
+            if reason is None:
+                if on_candidate:on_candidate(value)
+                if retain_best and (best is None or duration<best['time_s']):best=value
 
-    for row in read_rows(csv_path):
+    previous_time=None
+    from lap_scan_index import STEP
+    for ordinal,row in enumerate(read_rows(csv_path,capture=_index['cookies'] if _index is not None else None)):
+        if _index is not None and ordinal%STEP==0:_index['clocks'].append([ordinal,row['session_time_s']])
+        if _index is not None and previous_time is not None and row['session_time_s']<previous_time:_index['monotonic']=False
+        previous_time=row['session_time_s']
         next_key = lap_key(row)
         if group and next_key!=key:
             group.seal()
             complete(row)
             group = LapRows(Path(csv_path).parent)
             seen_boundary = True
+            first_row=ordinal
         key = next_key
         group.append(row)
     if group:
         candidates.append(dict(number=int(group[0]['lap']),eligible=False,exclusion='end of lap missing'))
+        if _index is not None:_index['candidates'].append(dict(candidates[-1]))
     return best,candidates,None
 
 
@@ -315,10 +365,12 @@ def finished_metadata(folder):
     return metadata
 
 
-def lap_record(folder,best,metadata=None,native=None,kind='fastest'):
+def lap_record(folder,best,metadata=None,native=None,kind='fastest',vehicle_bundle=...):
     """Common full-resolution payload for fastest and explicitly selected laps."""
     folder=Path(folder)
     if metadata is None:metadata=finished_metadata(folder)
+    from processing_context import current
+    shared=current(folder);reused=shared.values if shared is not None and shared.values.get('best') is best else {}
     info = {k:best[k] for k in ('number','time_s','validity','timing_source','distance_source','cadence_s')}
     info.update(track_length_m=round(best['length_m'],3),start_session_time_s=best['start_s'],
                 end_session_time_s=best['end_s'],sample_count=sum(best['start_s']<=r['session_time_s']<best['end_s'] for r in best['rows']),
@@ -327,22 +379,24 @@ def lap_record(folder,best,metadata=None,native=None,kind='fastest'):
     result = dict(format=FORMAT,version=1,id=folder.name+':'+str(info['number']),
                   session={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc',
                            'ended_utc','session','source','end_reason','track_layout','vehicle_class')},lap=info,
-                  data_columns=DATA_COLUMNS,data=comparison_data(best),reference_kind=kind)
+                  data_columns=DATA_COLUMNS,data=reused['best_curve'] if 'best_curve' in reused else comparison_data(best),reference_kind=kind)
     result['trajectory'] = trajectory_data(best,result['data'])
     from sessionlab import lap_conditions,actions
     if native is None and (folder/'native_channels.json').exists():native=load_json(folder/'native_channels.json')
-    result['conditions']=lap_conditions(best['rows'],native,best['start_s'],native.get('event_offset_s',0) if native else 0)
+    result['conditions']=dict(reused['best_conditions']) if 'best_conditions' in reused else lap_conditions(best['rows'],native,best['start_s'],native.get('event_offset_s',0) if native else 0)
     # Text channels stay in CSV, outside the float64 scratch matrix.
     with (folder/'inputs.csv').open(encoding='utf-8-sig',newline='') as stream:
         reader=csv.DictReader(stream)
         if 'tyre_front_name' in (reader.fieldnames or ()):
-            for row in reader:
+            from lap_scan_index import raw_rows
+            span=best.get('_text_range');text_rows=raw_rows(folder/'inputs.csv',*span[:2],cookies=span[2]) if span else reader
+            for row in text_rows:
                 if best['start_s']<=float(row['session_time_s'])<best['end_s']:
                     result['conditions'].update({k:row[k] for k in ('tyre_front_name','tyre_rear_name') if row.get(k)})
                     break
-    result['actions']=actions(best['rows'])
+    result['actions']=reused['best_actions'] if 'best_actions' in reused else actions(best['rows'])
     from vehiclelab import lap_telemetry,load_recording
-    result['vehicle_telemetry']=lap_telemetry(best,load_recording(folder))
+    result['vehicle_telemetry']=lap_telemetry(best,load_recording(folder) if vehicle_bundle is ... else vehicle_bundle)
     if result['trajectory'] and metadata.get('position_source'):result['trajectory']['source'] = metadata['position_source']
     if native:
         result['native_context'] = dict(metadata=metadata.get('native_metadata',{}),source=metadata.get('native_source',{}),channels={})
@@ -363,7 +417,9 @@ def _write_lap_csv(path,best,metadata,source=None):
             reader=csv.DictReader(stream);basic={k:metadata.get(k,'') for k in ('track','vehicle','driver','started_utc')}
             writer=csv.DictWriter(output,fieldnames=list(dict.fromkeys([*basic,'lap_time_s',*(reader.fieldnames or ())])))
             writer.writeheader()
-            for row in reader:
+            from lap_scan_index import raw_rows
+            span=best.get('_range');rows=raw_rows(source,*span[:2],cookies=span[2]) if span else reader
+            for row in rows:
                 when=float(row['session_time_s'])
                 if best['start_s']<=when<best['end_s'] and int(float(row['lap']))==best['number']:
                     writer.writerow({**row,**basic,'lap_time_s':round(when-best['start_s'],6)})
@@ -386,7 +442,20 @@ def write_lap_csv(path,best,metadata,source=None):
 def complete_laps(folder):
     """Only structurally complete laps; racing validity flags remain explicit."""
     folder=Path(folder);finished_metadata(folder)
-    _,candidates,error=extract_best(folder/'inputs.csv',include_flagged=True)
+    from comparison_cache import scan
+    return scan(folder,lambda:_complete_laps(folder))
+
+
+def _complete_laps(folder):
+    from lap_scan_index import load,builder,save
+    indexed=load(folder)
+    if indexed is not None:return indexed['inventory']
+    index=builder(folder)
+    _,candidates,error=extract_best(folder/'inputs.csv',include_flagged=True,retain_best=False,_index=index)
+    result=_lap_inventory(candidates,error);save(folder,result,index);return result
+
+
+def _lap_inventory(candidates,error):
     counts={}
     for v in candidates:counts[v['number']]=counts.get(v['number'],0)+1
     for v in candidates:
@@ -400,13 +469,30 @@ def export_selected_laps(folder,numbers,template=None):
             any(isinstance(n,bool) or not isinstance(n,int) or n<0 for n in numbers)):
         raise ValueError('请选择一个或两个非负整数圈号')
     if len(set(numbers))!=len(numbers):raise ValueError('圈 A 和圈 B 必须选择不同圈')
-    folder=Path(folder);metadata=finished_metadata(folder);selected={};counts={}
-    from lap_exports import cached,remember,link_fastest
+    folder=Path(folder);finished_metadata(folder)
+    from lap_exports import cached
     existing=cached(folder,numbers,template)
     if existing:return existing
-    def collect(best):
-        if best['number'] in numbers:selected[best['number']]=best
-    _,candidates,error=extract_best(folder/'inputs.csv',collect,include_flagged=True)
+    metadata,selected=_select_laps(folder,numbers)
+    return _export_laps(folder,numbers,metadata,selected,template)[0]
+
+
+def _select_laps(folder,numbers):
+    folder=Path(folder);metadata=finished_metadata(folder);selected={};counts={}
+    from lap_scan_index import load,builder,restore,save,ranges
+    indexed=load(folder)
+    if indexed is not None:
+        selected=restore(folder,numbers,indexed);candidates=indexed['inventory']['candidates'];error=indexed['inventory']['error']
+    else:
+        index=builder(folder)
+        def collect(best):
+            if best['number'] in numbers:selected[best['number']]=best
+        _,candidates,error=extract_best(folder/'inputs.csv',collect,include_flagged=True,retain_best=False,_index=index)
+        save(folder,_lap_inventory(candidates,error),index)
+        if index['monotonic']:
+            for best in selected.values():
+                group=next(value for value in index['groups'] if value['number']==best['number'] and value['start_s']==best['start_s'])
+                ranges(best,*group['_range'],index)
     for v in candidates:counts[v['number']]=counts.get(v['number'],0)+1
     for n in numbers:
         if counts.get(n,0)>1:raise ValueError(f'第 {n} 圈的圈号重复，无法唯一提取')
@@ -416,8 +502,15 @@ def export_selected_laps(folder,numbers,template=None):
                 'incomplete distance coverage':'距离覆盖不完整','timing reset':'计时重置',
                 'insufficient or nonmonotonic samples':'采样不足或时间倒退','distance moved backwards or reset':'距离倒退或重置'}.get(item.get('exclusion') if item else '',error or '记录中没有该圈')
             raise ValueError(f'第 {n} 圈不是可提取的完整圈：{reason}')
+    return metadata,selected
+
+
+def _export_laps(folder,numbers,metadata,selected,template=None):
+    from lap_exports import remember,link_fastest
     native=load_json(folder/'native_channels.json') if (folder/'native_channels.json').exists() else None
-    records=[lap_record(folder,selected[n],metadata,native,'selected') for n in numbers]
+    from vehiclelab import load_recording
+    vehicle=load_recording(folder)
+    records=[lap_record(folder,selected[n],metadata,native,'selected',vehicle) for n in numbers]
     output=folder/'SelectedLaps';output.mkdir(exist_ok=True);exports=[]
     for n,value in zip(numbers,records):
         stem=f"Selected_Lap_{n}_{safe_name(metadata.get('vehicle'))}_{safe_name(metadata.get('track'))}"
@@ -430,16 +523,22 @@ def export_selected_laps(folder,numbers,template=None):
         page=output/('Compare_Laps_'+('_'.join(map(str,numbers)))+'.html')
         write_compare(page,template,records,'selected_complete_laps',reference_id=records[0]['id'])
     result=dict(folder=str(output),exports=exports,comparison=str(page) if page else None)
-    remember(folder,numbers,template,result);return result
+    remember(folder,numbers,template,result)
+    for item in exports:remember(folder,[item['number']],None,dict(folder=str(output),exports=[item],comparison=None),individual=True)
+    return result,records
 
 
 def export_fastest(folder, template, library=None):
     folder=Path(folder);metadata=finished_metadata(folder)
-    best,candidates,error = extract_best(folder/'inputs.csv')
+    from processing_context import current
+    shared=current(folder)
+    if shared is not None and shared.values.get('analysed'):
+        best=shared.values.get('best');candidates=shared.values['candidates'];error=shared.values['error']
+    else:best,candidates,error = extract_best(folder/'inputs.csv')
     summary = dict(status='saved' if best else 'no_complete_lap',candidates=candidates,error=error)
     result = None
     if best:
-        result=lap_record(folder,best,metadata);info=result['lap']
+        result=lap_record(folder,best,metadata,native=shared.values.get('native') if shared is not None else None);info=result['lap']
         name = f"Fastest_Lap_{info['number']}_{safe_name(metadata['vehicle'])}_{safe_name(metadata['track'])}.lap.json"
         write_json(folder/name,result)
         write_lap_csv(folder/'fastest_lap.csv',best,metadata,folder/'inputs.csv')

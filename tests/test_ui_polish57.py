@@ -21,7 +21,7 @@ class UI(unittest.TestCase):
         for target,value in [('inventory',items),('valid_laps',LAPS)]:
             guard=patch('control_lap_pair.'+target,return_value=value);guard.start();self.addCleanup(guard.stop)
         guard=patch('control_lap_pair.finished_metadata',side_effect=lambda folder:next(v for v in items if Path(v['folder'])==Path(folder)));guard.start();self.addCleanup(guard.stop)
-        w=show(app,root);self.pump(app,.4);return w,w.pair_controls
+        w=show(app,root,[v['folder'] for v in items[:2]]);self.pump(app,.4);return w,w.pair_controls
     def profile(self,app,root):
         import vehiclelab
         from control_profile import show
@@ -89,7 +89,7 @@ class UI(unittest.TestCase):
         from control_profile import show as profile
         app,root,errors=self.app();items=records(root);jobs=[]
         with patch.object(app,'run_background',side_effect=lambda work,done:jobs.append((work,done))),patch('control_lap_pair.inventory',return_value=items):
-            w=show(app,root);work,done=jobs.pop(0);done(work(),None);a_old=jobs.pop(0)[1];jobs.pop(0)
+            w=show(app,root,[v['folder'] for v in items[:2]]);work,done=jobs.pop(0);done(work(),None);a_old=jobs.pop(0)[1];jobs.pop(0)
             c=w.pair_controls;c['events']['A'].set(list(c['state']['events'])[1]);c['scan']('A');a_new=jobs.pop(0)[1]
             a_new(dict(laps=LAPS,session=items[1]),None);a_old(dict(laps=[dict(number=9,time_s=1)],session=items[0]),None);self.assertNotIn(9,c['state']['rows']['A'])
             p=profile(app);work,done=jobs.pop(0);p.destroy();done([dict(vehicle='Late')],None)

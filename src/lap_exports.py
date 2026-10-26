@@ -4,8 +4,9 @@ from pathlib import Path
 
 
 def signature(folder):
-    from telemetry_file import Path as ReadPath
-    return [[name,p.stat().st_size,p.stat().st_mtime_ns] for name in ('inputs.csv','vehicle.csv','native_channels.json','session.json') if (p:=ReadPath(folder)/name).is_file()]
+    from comparison_cache import source
+    from paths import app_version
+    return dict(version=2,app=app_version(),source=source(folder))
 
 
 def template_stamp(template):
@@ -14,10 +15,10 @@ def template_stamp(template):
     return [[str(p),p.stat().st_size,p.stat().st_mtime_ns] for p in paths if p.is_file()]
 
 
-def cached(folder,numbers,template):
+def cached(folder,numbers,template,individual=False):
     path=Path(folder)/'SelectedLaps/_exports.json'
     try:
-        value=json.loads(path.read_text(encoding='utf8'));entry=value['_'.join(map(str,numbers))]
+        value=json.loads(path.read_text(encoding='utf8'));entry=value[('lap:' if individual else '')+'_'.join(map(str,numbers))]
         if entry['signature']!=signature(folder) or entry['template']!=template_stamp(template):return None
         for name,stamp in entry['outputs'].items():
             s=(path.parent/name).stat()
@@ -26,14 +27,14 @@ def cached(folder,numbers,template):
     except (OSError,ValueError,KeyError,TypeError):return None
 
 
-def remember(folder,numbers,template,result):
+def remember(folder,numbers,template,result,individual=False):
     from storage import atomic_json
     path=Path(folder)/'SelectedLaps/_exports.json'
     try:value=json.loads(path.read_text(encoding='utf8'))
     except (OSError,ValueError):value={}
     files=[p for item in result['exports'] for p in (Path(item['json']),Path(item['csv']))]
     if result['comparison']:files.append(Path(result['comparison']))
-    value['_'.join(map(str,numbers))]=dict(signature=signature(folder),template=template_stamp(template),
+    value[('lap:' if individual else '')+'_'.join(map(str,numbers))]=dict(signature=signature(folder),template=template_stamp(template),
         outputs={p.name:[p.stat().st_size,p.stat().st_mtime_ns] for p in files},result=result)
     atomic_json(path,value)
 

@@ -67,7 +67,9 @@ class BestUI(unittest.TestCase):
         self.assertIsNone(p.state['error']);self.assertFalse(p.buttons['retry'].enabled);self.assertFalse(errors)
     def test_empty_selection_disables_actions_and_explains_keyboard_open(self):
         app,root,errors=self.app();p,_=self.mount(app,root);p.query.set('no match');p.search_field.flush() # Enter applies a pending search immediately.
-        for key in ('curve','training','card','comparable','note','folder'):self.assertFalse(p.buttons[key].enabled)
+        for key in ('curve','training','card'):self.assertFalse(p.buttons[key].enabled)
+        for action in p.menu.actions:
+            if action.key in ('comparable','note','folder'):self.assertFalse(action.enabled())
         self.assertTrue(all(not b.enabled for b in p.fixed.values()));p.primary();self.assertIn('先选择',p.status.get());self.assertIsNone(p.state['data']);self.assertFalse(errors)
     def test_keyboard_open_uses_selected_record_and_f5_refreshes(self):
         app,root,errors=self.app();p,_=self.mount(app,root)

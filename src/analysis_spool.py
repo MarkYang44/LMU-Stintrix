@@ -7,6 +7,11 @@ from buffers import CompactRow
 class Slice(Sequence):
     def __init__(self,source,indices):self.source,self.indices=source,indices
     def __len__(self):return len(self.indices)
+    def __iter__(self):
+        if self.indices.step==1 and hasattr(self.source,'iter_range'):
+            yield from self.source.iter_range(self.indices.start,self.indices.stop)
+        else:
+            for index in self.indices:yield self.source[index]
     def __getitem__(self,index):
         if isinstance(index,slice):return Slice(self.source,self.indices[index])
         return self.source[self.indices[index]]
@@ -15,12 +20,14 @@ class Column(Sequence):
     """Zero-copy column view for bisect and chronological lookup."""
     def __init__(self,source,index=0,offset=0):self.source,self.index,self.offset=source,index,offset
     def __len__(self):return len(self.source)
+    def __iter__(self):
+        for row in self.source:yield row[self.index]-self.offset
     def __getitem__(self,index):
         if isinstance(index,slice):return Slice(self,range(len(self))[index])
         return self.source[index][self.index]-self.offset
 
 class DiskTable(Sequence):
-    """Fixed-width float64 records; at most two 64 KiB pages retained in Python."""
+    """Float64 records; two random-read pages plus one block per active iterator."""
     def __init__(self,rows,width,directory=None,nullable=False):
         self.width=width;self.nullable=nullable;self.record=struct.Struct('<'+str(width)+'d')
         self._file=tempfile.TemporaryFile(dir=directory);self._cache=OrderedDict();self._size=0;self._sealed=False
@@ -36,6 +43,20 @@ class DiskTable(Sequence):
         self._cache.clear()
     def seal(self):self._file.flush();self._sealed=True;return self
     def __len__(self):return self._size
+    def __iter__(self):
+        yield from self.iter_range()
+    def iter_range(self,start=0,stop=None):
+        # Sequential consumers need neither per-row seeks nor LRU updates.
+        # Each iterator owns one small byte block; nested/random reads are safe.
+        if not self._sealed:self._file.flush()
+        position=start
+        while position<(self._size if stop is None else min(stop,self._size)):
+            count=min(self.page_rows,(self._size if stop is None else min(stop,self._size))-position)
+            self._file.seek(position*self.record.size);block=self._file.read(count*self.record.size)
+            if len(block)!=count*self.record.size:raise ValueError('Incomplete scratch table')
+            for values in self.record.iter_unpack(block):
+                yield [None if math.isnan(v) else v for v in values] if self.nullable else list(values)
+            position+=count
     def __getitem__(self,index):
         if isinstance(index,slice):return Slice(self,range(self._size)[index])
         if index<0:index+=self._size
@@ -61,6 +82,16 @@ class LapRows(Sequence):
     def __init__(self,directory):
         self.directory=directory;self.layout=None;self.table=None;self.utc=tempfile.TemporaryFile(dir=directory)
     def __len__(self):return len(self.table) if self.table is not None else 0
+    def __iter__(self):
+        yield from self.iter_range()
+    def iter_range(self,start=0,stop=None):
+        if self.table is None:return
+        block=b'';first=0
+        for row in self.table.iter_range(start,stop):
+            offset=int(row[-2]);length=int(row[-1]);end=offset+length
+            if not first<=offset<=end<=first+len(block):
+                self.utc.seek(offset);block=self.utc.read(max(65536,length));first=offset
+            yield CompactRow(self.layout,row[:-2],block[offset-first:end-first].decode('utf-8'))
     def append(self,row):
         if self.table is None:
             self.layout=row.layout;self.table=DiskTable((),len(self.layout)+2,self.directory);self.table._sealed=False

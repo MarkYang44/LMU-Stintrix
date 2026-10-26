@@ -87,7 +87,7 @@ class UI(unittest.TestCase):
         app,root,errors=self.app();records=[dict(folder=str(root/f'Logs/{i}'),key=f'Logs/{i}',track='Circuit',track_layout=str(i),track_length_m=5000,vehicle='BMW',date='2026-10-20',session_type='Race',status='complete') for i in range(2)]
         laps=[dict(number=1,time_s=100,track_length_m=5000),dict(number=2,time_s=98,track_length_m=5000)]
         with patch('control_lap_pair.inventory',return_value=records),patch('control_lap_pair.valid_laps',return_value=laps),patch('control_lap_pair.finished_metadata',side_effect=lambda folder:next(item for item in records if item['folder']==str(folder))),patch('control_lap_pair.export_pair') as export:
-            w=show(app,root);self.pump(app,.5);c=w.pair_controls;self.assertTrue(c['compare'].enabled)
+            w=show(app,root,[records[0]['folder'],records[0]['folder']]);self.pump(app,.5);c=w.pair_controls;self.assertTrue(c['compare'].enabled)
             c['quick']['A'].invoke();self.assertFalse(c['compare'].enabled);self.assertIn('不同圈',c['status'].get())
             c['numbers']['A'].set(next(iter(c['state']['laps']['A'])));c['refresh']();a=c['numbers']['A'].get();b=c['numbers']['B'].get();c['quick']['swap'].invoke();self.assertEqual((c['numbers']['A'].get(),c['numbers']['B'].get()),(b,a))
             c['events']['B'].set(list(c['state']['events'])[1]);c['scan']('B');self.pump(app,.4);self.assertFalse(c['compare'].enabled);c['compare'].invoke();export.assert_not_called()

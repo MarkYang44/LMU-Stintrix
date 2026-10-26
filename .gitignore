@@ -110,6 +110,7 @@
 **/ReportAssets/
 **/ExportCache/
 **/cache_tokens.json
+**/_lap_scan.json
 
 **/video_result_summary.json
 **/hud_layouts.json

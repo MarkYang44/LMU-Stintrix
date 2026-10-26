@@ -10,7 +10,7 @@ from lap_comparison import valid_laps,export_pair
 from management import panel
 from paths import ASSETS
 from control_feedback import StatusFeedback
-from track_names import display
+from track_names import display,layout_label
 from control_video_widgets import Action
 from laps import finished_metadata
 from lap_identity import same_layout
@@ -31,18 +31,44 @@ def show(app,root,initial=()):
     status=tk.StringVar(window,value=tr('正在读取赛事…'));events={};numbers={};lap_boxes={};event_boxes={}
     footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=20,pady=(4,14))
     def say(message):state['message']=str(message);status.set(tr(str(message)))
-    Label(window,text='分别选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同赛道同布局。',bg=T.BG,fg=T.FG,
-          wraplength=940,justify='left').pack(fill='x',padx=20,pady=16)
-    query=tk.StringVar(window);matches=tk.StringVar(window)
+    intro=Label(window,text='先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。',bg=T.BG,fg=T.FG,wraplength=940,justify='left');intro.pack(fill='x',padx=20,pady=16)
+    intro.bind('<Configure>',lambda e:intro.configure(wraplength=max(100,e.width)))
+    query=tk.StringVar(window);matches=tk.StringVar(window);track=tk.StringVar(window)
     search_row=tk.Frame(window,bg=T.BG);search_row.pack(fill='x',padx=20)
-    Label(search_row,text='搜索赛事',bg=T.BG,fg=T.MUTED).pack(side='left',padx=(0,10))
-    search=SearchField(search_row,query);search.pack(side='left',fill='x',expand=True)
+    Label(search_row,text='赛道',bg=T.BG,fg=T.MUTED).pack(side='left',padx=(0,10))
+    track_box=Select(search_row,textvariable=track,values=[],state='disabled',width=29);track_box.pack(side='left',padx=(0,10))
+    search=SearchField(search_row,query,placeholder='在当前赛道搜索日期、车型或赛事');search.pack(side='left',fill='x',expand=True)
     Label(window,textvariable=matches,bg=T.BG,fg=T.MUTED,anchor='w').pack(fill='x',padx=20,pady=(4,0))
     def filter_events(*_):
         words=query.get().strip().casefold().split()
-        values=[label for label,event in state['events'].items() if all(word in (label+' '+search_text(event.get('track',''))+' '+search_text(event.get('track_layout',''))).casefold() for word in words)]
+        scoped=[(label,event) for label,event in state['events'].items() if circuit_key(event)==track.get() and track.get()]
+        values=[label for label,event in scoped if all(word in (label+' '+search_text(event.get('track',''))+' '+search_text(event.get('track_layout',''))).casefold() for word in words)]
         for box in event_boxes.values():box.configure(values=values)
-        matches.set(tr('匹配 {shown}/{total} 场 · 筛选不改变已选赛事').format(shown=len(values),total=len(state['events'])))
+        matches.set(tr('匹配 {shown}/{total} 场 · 筛选不改变已选赛事').format(shown=len(values),total=len(scoped)) if track.get() else tr('先选择赛道；仅在选择赛事后读取有效圈'))
+    def circuit_key(event):return str(event.get('track','')).strip().casefold()
+    def event_labels(values):
+        result={}
+        for event in values:
+            if event['status'] in ('recording','write_error'):continue
+            layout=event.get('track_layout') or event['track'];length=event.get('track_length_m')
+            circuit=display(event['track'])+(' / '+layout_label(event['track'],layout) if layout!=event['track'] else '')+(f' / {length:.0f} m' if isinstance(length,(int,float)) else '')
+            result[f"{event['date'][:19]} · {event['session_type']} · {circuit} · {event['vehicle']} · {event['key']}"]=event
+        return result
+    def track_choices():
+        labels={};counts={}
+        for event in state['events'].values():
+            key=circuit_key(event)
+            if key:labels.setdefault(key,event['track']);counts[key]=counts.get(key,0)+1
+        shown={key:display(value) for key,value in labels.items()}
+        track_box.labels={'':'请选择赛道',**{key:(name+(' / '+labels[key] if list(shown.values()).count(name)>1 else '')+f' · {counts[key]}') for key,name in shown.items()}}
+        track_box.configure(values=['',*sorted(labels,key=lambda k:shown[k].casefold())]);track_box.paint()
+    def choose_track(_=None):
+        if state['busy']:return
+        for key in ('A','B'):
+            state['generation'][key]+=1;state['loading'].discard(key);state['laps'][key]={};state['rows'][key]={};state['headers'].pop(key,None)
+            events[key].set('');numbers[key].set('');lap_boxes[key].configure(values=[])
+        filter_events();say('请选择圈 A 和圈 B 的赛事；仅扫描所选记录' if track.get() else '先选择赛道；仅在选择赛事后读取有效圈');refresh()
+    track_box.bind('<<ComboboxSelected>>',choose_track)
     def lap_labels(rows):
         return {f"{tr('第 ')}{v['number']}{tr(' 圈')} · {int(v['time_s']//60)}:{v['time_s']%60:06.3f}":v['number'] for v in rows}
     query_trace=query.trace_add('write',filter_events)
@@ -60,14 +86,15 @@ def show(app,root,initial=()):
         button.configure(state='normal' if ready else 'disabled')
         reopen.configure(state='normal' if state['result'] and not state['busy'] else 'disabled')
         for key in ('A','B'):
-            event_boxes[key].configure(state='disabled' if state['busy'] or not state['inventory_ready'] else 'readonly')
+            event_boxes[key].configure(state='disabled' if state['busy'] or not state['inventory_ready'] or not track.get() else 'readonly')
             lap_boxes[key].configure(state='disabled' if state['busy'] or key in state['loading'] or not state['laps'][key] else 'readonly')
-        for key,action in quick.items():action.configure(state='normal' if state['inventory_ready'] and not state['busy'] and not state['loading'] and (key=='swap' or state['laps'][key]) else 'disabled')
+        for key,action in quick.items():action.configure(state='normal' if state['inventory_ready'] and not state['busy'] and not state['loading'] and (all(events[k].get() for k in ('A','B')) if key=='swap' else state['laps'][key]) else 'disabled')
+        track_box.configure(state='disabled' if state['busy'] or not state['inventory_ready'] else 'readonly')
         feedback.busy('scan',bool(state['loading']) or state['busy'])
     def scan(key):
         if state['busy']:return
         label=events[key].get();event=state['events'].get(label)
-        if event is None:return
+        if event is None or circuit_key(event)!=track.get():return
         state['generation'][key]+=1;generation=state['generation'][key]
         state['laps'][key]={};state['rows'][key]={};numbers[key].set('');lap_boxes[key].configure(state='disabled')
         state['loading'].add(key);say('后台扫描有效完整圈…');refresh()
@@ -82,7 +109,8 @@ def show(app,root,initial=()):
                 if values:numbers[key].set(next(iter(values)))
                 say('仅显示已验证的有效完整圈；排除无效圈、进站圈与未验证旧圈。')
                 if not values:say('这场赛事没有已验证的有效完整圈')
-                if key=='B' and events['A'].get()==label and len(values)>1:numbers['B'].set(list(values)[1])
+                a=state['events'].get(events['A'].get())
+                if key=='B' and a and a['folder']==event['folder'] and len(values)>1:numbers['B'].set(list(values)[1])
             refresh()
         app.run_background(lambda:dict(laps=valid_laps(event['folder']),session=finished_metadata(event['folder'])),done)
     for key in ('A','B'):
@@ -140,44 +168,44 @@ def show(app,root,initial=()):
         if any(not any(Path(event['folder']).resolve()==path for event in state['events'].values()) for path in state['initial']):
             state['inventory_ready']=False;feedback.busy('inventory');say('正在更新赛事清单…');refresh()
             app.run_background(lambda:inventory(root),loaded);return True
+        first=next((event for event in state['events'].values() if state['initial'] and Path(event['folder']).resolve()==state['initial'][0]),None)
+        if first is not None and track.get()!=circuit_key(first):track.set(circuit_key(first));choose_track()
         changed=False
         for index,key in enumerate(('A','B')):
             if index>=len(state['initial']):break
             label=next((label for label,event in state['events'].items() if Path(event['folder']).resolve()==state['initial'][index]),None)
             if label is None:continue
+            if circuit_key(state['events'][label])!=track.get():say('已按圈 A 的赛道筛选，请重新选择圈 B 的赛事');continue
             if events[key].get()!=label:events[key].set(label);scan(key);changed=True
+        filter_events();refresh()
         return changed
     def loaded(result,error):
         if app.closing or not window.winfo_exists():return
         feedback.busy('inventory',False)
         if error:state['inventory_ready']=bool(state['events']);say(error);refresh();return
-        values={}
-        for event in result:
-            if event['status'] in ('recording','write_error'):continue
-            layout=event.get('track_layout') or event['track'];length=event.get('track_length_m')
-            circuit=display(event['track'])+(' / '+display(layout) if layout!=event['track'] else '')+(f' / {length:.0f} m' if isinstance(length,(int,float)) else '')
-            label=f"{event['date'][:19]} · {event['session_type']} · {circuit} · {event['vehicle']} · {event['key']}"
-            values[label]=event
+        values=event_labels(result)
         state['events']=values;state['inventory_ready']=True
+        track_choices()
+        if track.get() and track.get() not in track_box.values:track.set('');choose_track()
         filter_events()
-        for index,key in enumerate(('A','B')):
-            event_boxes[key].configure(state='readonly')
-            previous=events[key].get()
-            chosen=next((label for label,event in values.items() if index<len(state['initial']) and Path(event['folder']).resolve()==Path(state['initial'][index]).resolve()),previous if previous in values else next(iter(values),''))
-            events[key].set(chosen)
-            if chosen and (chosen!=previous or not state['laps'][key]):scan(key)
-            elif not chosen:
-                state['laps'][key]={};state['rows'][key]={};numbers[key].set('');lap_boxes[key].configure(values=[])
+        available=tuple(path for path in state['initial'] if any(Path(event['folder']).resolve()==Path(path).resolve() for event in values.values()))
+        missing=len(available)!=len(state['initial'])
+        if available:select_initial(available)
+        elif not track.get():say('先选择赛道；仅在选择赛事后读取有效圈')
         if not values:say('尚无已完成的赛事记录')
-        elif any(not any(Path(event['folder']).resolve()==Path(path).resolve() for event in values.values()) for path in state['initial']):say('所选赛事当前不可用，已保留其他选择。')
+        elif missing:say('所选赛事当前不可用，已保留其他选择。')
         refresh()
     app.run_background(lambda:inventory(root),loaded)
     def dispose(event):
         if event.widget is window:
             query.trace_remove('write',query_trace)
-            for variable in (query,matches,status,*events.values(),*numbers.values()):variable.__del__();variable._tk=None
+            for variable in (query,matches,status,track,*events.values(),*numbers.values()):variable.__del__();variable._tk=None
     window.bind('<Destroy>',dispose,add='+')
     def translate():
+        selected={key:state['events'].get(events[key].get(),{}).get('folder') for key in ('A','B')}
+        state['events']=event_labels(list(state['events'].values()))
+        for key,folder in selected.items():events[key].set(next((label for label,value in state['events'].items() if value['folder']==folder),''))
+        track_choices()
         filter_events()
         status.set(tr(state['message']))
         for key in ('A','B'):
@@ -188,5 +216,5 @@ def show(app,root,initial=()):
         for row in (actions,bottom_actions):row.event_generate('<Configure>',width=row.winfo_width())
         refresh()
     window.retranslate=translate
-    window.pair_controls=dict(events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=footer)
+    window.pair_controls=dict(events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=footer,track=track,track_box=track_box,choose_track=choose_track)
     return window

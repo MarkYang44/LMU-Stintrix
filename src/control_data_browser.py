@@ -19,6 +19,7 @@ class DataBrowser:
         self.filter_button=app.button(app.search_target.master,'筛选条件',self.toggle_filters,False,110)
         self.filters_open=getattr(app,'data_filters_open',False)
         if not self.filters_open:self.filters.pack_forget()
+        self.filters.compact(self.table)
         self.summary=tk.StringVar(summary_host);summary_host.selection_summary=self.summary
         self.count=tk.StringVar(summary_host);summary_host.selection_count=self.count;row=app.row(summary_host);row.pack_configure(pady=2)
         app.label(row,self.count,9,T.MUTED).pack(side='left',fill='x',expand=True)
@@ -95,6 +96,7 @@ class DataBrowser:
         actions.extend(column_actions(self.table));menu=ActionMenu(trigger,actions,'数据操作',lambda:app.selected_count.get());self.menu=menu;self.sync()
     def sync(self):
         if not self.alive():return
+        self.filters.sync_chips()
         from event_filters import DEFAULTS
         from control_batch import running
         import i18n

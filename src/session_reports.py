@@ -5,9 +5,11 @@ from app_config import ROOT
 from laps import export_fastest, library_laps, track_script, write_compare
 from paths import ASSETS
 from sessionlab import analyze_session
+from processing_context import scoped
 
 
 @reporting.serialized
+@scoped
 def make_report(folder,isolated=None):
     # Portable builds isolate large Python/native heaps; source callers can opt in.
     import sys

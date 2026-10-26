@@ -15,11 +15,13 @@ class UI(unittest.TestCase):
         laps=[dict(number=1,time_s=100,track_length_m=5000),dict(number=2,time_s=98,track_length_m=5000)]
         with patch('control_lap_pair.inventory',return_value=records),patch('control_lap_pair.valid_laps',return_value=laps) as scan,patch('control_lap_pair.finished_metadata',return_value=records[0]):
             w=show(app,root);self.pump(app,.4);c=w.pair_controls
+            scan.assert_not_called();c['track'].set('fuji speedway');c['choose_track']();scan.assert_not_called()
+            c['events']['A'].set(c['event_boxes']['A'].values[0]);c['scan']('A');self.pump(app,.15)
             before=[v.get() for v in c['events'].values()];numbers=[v.get() for v in c['numbers'].values()]
             c['query'].set('富士 Ferrari');self.assertEqual(len(c['event_boxes']['A'].values),1)
             c['query'].set('no matches');self.assertEqual(c['event_boxes']['A'].values,[])
             self.assertEqual([v.get() for v in c['events'].values()],before);self.assertEqual([v.get() for v in c['numbers'].values()],numbers)
-            c['search'].clear();self.assertEqual(len(c['event_boxes']['B'].values),2);self.assertEqual(scan.call_count,2)
+            c['search'].clear();self.assertEqual(len(c['event_boxes']['B'].values),1);self.assertEqual(scan.call_count,1)
             app.root.focus_force();w.focus_force();w.event_generate('<Control-f>');self.pump(app,.05);self.assertIs(w.focus_get(),c['search'].entry)
             w.destroy();self.pump(app,.05)
         self.assertFalse(errors)

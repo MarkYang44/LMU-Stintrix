@@ -92,8 +92,8 @@ class UI(unittest.TestCase):
             app.request_page(0);self.settle(app);app.request_page(2);self.settle(app)
         self.assertIs(app.content,frame);self.assertEqual(form['fixed_hz'].get(),'731.125');self.assertEqual(app.scroll.coords(app.content_item),[0,0]);self.assertFalse(app.shell.motion.jobs);self.assertFalse(errors)
     def test_leave_during_pending_guide_search_does_not_change_new_page(self):
-        app,root,errors=self.app();app.request_page(5);self.settle(app);old=app.guide_page;old.variables['query'].set('Ferrari');self.assertIsNotNone(old.job);app.request_page(1);self.settle(app);self.pump(app,.25)
-        self.assertTrue(old.closed);self.assertIsNone(old.job);self.assertIsNone(old.card_job);self.assertEqual(app.page,1);self.assertFalse(app.shell.covering);self.assertFalse(errors)
+        app,root,errors=self.app();app.request_page(5);self.settle(app);old=app.guide_page;old.variables['query'].set('Ferrari');self.assertIsNotNone(old.search_field.pending);app.request_page(1);self.settle(app);self.pump(app,.25)
+        self.assertTrue(old.closed);self.assertIsNone(old.search_field.pending);self.assertIsNone(old.card_job);self.assertEqual(app.page,1);self.assertFalse(app.shell.covering);self.assertFalse(errors)
     def test_fixed_compare_action_returns_to_original_library_context(self):
         app,root,errors=self.app();app.request_page(4);self.settle(app);g=app.guide_page
         for key in list(g.library.recommendations)[:2]:g.select(key)

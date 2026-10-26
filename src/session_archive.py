@@ -17,7 +17,7 @@ from laps import safe_name
 from legacy_identity import ARCHIVE_FORMAT
 FORMAT='stintrix.session-archive'
 COLLECTIONS=('Logs','ImportedLogs','RecoveredLogs','DemoLogs')
-LOCAL_FILES={'_archive_receipt.json','_archive_note.json','_exports.json','_fastest_source.json'}
+LOCAL_FILES={'_archive_receipt.json','_archive_note.json','_exports.json','_fastest_source.json','_lap_scan.json'}
 CHUNK=1048576
 MAX_FILES=50000
 MAX_BYTES=32*1024**3

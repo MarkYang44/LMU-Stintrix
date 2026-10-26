@@ -12,6 +12,7 @@ import zlib
 
 _lock=threading.RLock()
 _encoder=json.JSONEncoder(ensure_ascii=False,separators=(',',':'),allow_nan=False)
+_numeric_types=(int,float,bool,type(None))
 REVIEW_COLUMNS=('time_s','lap','lap_distance_m','throttle','brake','steering',
     'filtered_throttle','filtered_brake','filtered_steering','speed_kmh',
     'world_x_m','world_z_m','track_length_m')
@@ -31,6 +32,10 @@ class JSONFile:
 class VehicleJSON:
     def __init__(self,folder,meta):self.folder,self.meta=Path(folder),meta
     def chunks(self):
+        from processing_context import current
+        shared=current(self.folder)
+        if shared is not None and shared.values.get('vehicle') is not None:
+            yield from json_chunks(shared.values['vehicle']);return
         from vehiclelab import COLUMNS,DEFAULT_PROFILE,number
         columns=[k for k in COLUMNS if k not in ('time_s','session_time_s')]
         with (self.folder/'vehicle.csv').open(encoding='utf-8-sig',newline='') as f:
@@ -70,8 +75,11 @@ def json_chunks(value,open_object=False):
         yield b'['
         for i,row in enumerate(value):
             if i:yield b','
-            yield from json_chunks(row)
+            if len(row)<=256:yield _encoder.encode(row).encode('utf-8')
+            else:yield from json_chunks(row)
         yield b']'
+    elif isinstance(value,(list,tuple)) and len(value)<=256 and all(type(v) in _numeric_types for v in value):
+        yield _encoder.encode(value).encode('utf-8')
     elif isinstance(value,(list,tuple)) and any(isinstance(v,(dict,list,tuple,NumericTable,DiskTable,JSONFile,VehicleJSON)) for v in value):
         yield b'['
         for i,item in enumerate(value):

@@ -52,6 +52,7 @@ class BestPage(RecordPage):
         for key,_,width in COLUMNS:self.table.column(key,width=width*self.table.s,minwidth=(80 if key=='class' else 65)*self.table.s,stretch=key in ('track','layout','car'))
         from control_table_preferences import install as preferences
         preferences(app,self.table,'best',self.modes,frozen=('track','time'));self.table.pack(fill='x',pady=8)
+        self.modes.compact(self.table)
         info=app.card('纪录详情','双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。',compact=True)
         from control_best_view import Layout
         self.view_layout=Layout(self,info)
@@ -62,22 +63,33 @@ class BestPage(RecordPage):
         self.date_label=self.hint(self.header.text,'')
         self.badge=self.hint(self.header.text,'',10,T.ACCENT,True)
         self.message=self.variable('message');self.hint(info,self.message)
+        navigation=self.row(info)
+        self.button(navigation,'previous','← 上一条',lambda:self.neighbor(-1),lambda:self.can_step(-1))
+        self.position=self.variable('position');app.label(navigation,self.position,10,T.MUTED).pack(side='left',padx=8)
+        self.button(navigation,'next','下一条 →',lambda:self.neighbor(1),lambda:self.can_step(1))
+        self.button(navigation,'list','返回纪录列表',self.view_layout.listing)
         actions=self.row(info)
         self.exporter=getattr(app,'best_curve_export',None) or CurveExport(app);app.best_curve_export=self.exporter
         ready=lambda:self.selected is not None
         self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:ready() and not self.exporter.busy,True)
         self.button(actions,'training','训练优先级报告',self.training,ready)
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
-        self.button(actions,'comparable','同条件进步分析',self.comparable,ready)
-        self.button(actions,'note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),lambda:ready() and not self.loader.running)
-        self.button(actions,'folder','打开赛事目录',lambda:self.open(self.selected['folder']),ready)
-        self.button(actions,'mode','更正参赛方式',self.correct_mode,lambda:ready() and not self.loader.running)
-        self.button(actions,'list','返回纪录列表',self.view_layout.listing)
-        self.button(actions,'goals','训练目标跟进',self.goals)
-        self.button(actions,'retry','重试详情',lambda:self.details.select(self.selected,True),lambda:ready() and self.state['error'] is not None and not self.state['loading'])
-        saved_actions=self.row(info)
-        self.button(saved_actions,'reopen','打开上次曲线',lambda:self.exporter.open(self),lambda:bool(self.exporter.path) and not self.exporter.busy)
-        self.button(saved_actions,'export-folder','打开导出目录',lambda:self.open(Path(self.exporter.path).parent),lambda:bool(self.exporter.path))
+        from control_action_menu import ActionMenu,MenuAction
+        more=self.button(actions,'more','更多操作 ▾',lambda:self.menu.toggle())
+        self.menu=ActionMenu(more,[
+            MenuAction('comparable','同条件进步分析',self.comparable,'分析与训练',ready),
+            MenuAction('goals','训练目标跟进',self.goals,'分析与训练'),
+            MenuAction('note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),'整理纪录',lambda:ready() and not self.loader.running),
+            MenuAction('mode','更正参赛方式',self.correct_mode,'整理纪录',lambda:ready() and not self.loader.running),
+            MenuAction('folder','打开赛事目录',lambda:self.open(self.selected['folder']),'整理纪录',ready),
+            MenuAction('reopen','打开上次曲线',lambda:self.exporter.open(self),'最近导出',lambda:bool(self.exporter.path) and not self.exporter.busy),
+            MenuAction('export-folder','打开导出目录',lambda:self.open(Path(self.exporter.path).parent),'最近导出',lambda:bool(self.exporter.path))
+        ],'纪录操作',lambda:self.track_title.cget('text')+' · '+self.time_label.cget('text'))
+        from control_list_context import install as context_menu
+        context_menu(self.table,self.menu)
+        # Retry occupies space only when a detail read actually failed.
+        retry=tk.Frame(info,bg=T.CARD);retry.pack(fill='x');self.retry_row=retry
+        self.button(retry,'retry','重试详情',lambda:self.details.select(self.selected,True),lambda:ready() and self.state['error'] is not None and not self.state['loading'])
         self.saved=self.variable('saved');self.saved_frame=tk.Frame(info,bg=T.CARD)
         self.report_caption=self.hint(self.saved_frame,'')
         path_entry=tk.Entry(self.saved_frame,textvariable=self.saved,state='readonly',readonlybackground=T.FIELD,fg=T.FG,selectbackground=T.SELECT,selectforeground=T.FG,font=(T.FONT,9),relief='flat')
@@ -127,7 +139,21 @@ class BestPage(RecordPage):
         if opened:self.modes.pack(fill='x',pady=8,before=self.table)
         else:self.modes.pack_forget()
         self.buttons['filters'].configure(selected=opened)
+        self.modes.sync_chips()
         self.view_layout.schedule()
+
+    def can_step(self,delta):
+        chosen=next(iter(self.table.selection()),None)
+        return chosen in self.table.order and 0<=self.table.order.index(chosen)+delta<len(self.table.order)
+
+    def neighbor(self,delta):
+        if not self.can_step(delta):return
+        index=self.table.order.index(self.table.selection()[0])+delta;key=self.table.order[index]
+        self.table.selection_set((key,));self.table.cursor=key;self.table.anchor=key
+        # Keep the list ready for Return to list without scrolling the detail.
+        top=index*self.table.rowheight;bottom=top+self.table.rowheight
+        if top<self.table.offset:self.table.set_offset(top)
+        elif bottom>self.table.offset+self.table.viewport.winfo_height():self.table.set_offset(bottom-self.table.viewport.winfo_height())
 
     def render_selection(self):
         e=self.selected;self.state.update(data=None,error=None,loading=False);self.modes.describe(e)
@@ -209,6 +235,11 @@ class BestPage(RecordPage):
     def sync(self):
         super().sync()
         if not self.alive():return
+        selected=next(iter(self.table.selection()),None);index=self.table.order.index(selected)+1 if selected in self.table.order else 0
+        self.position.set(tr('第 {index} / {count} 条').format(index=index,count=len(self.table.order)))
+        retry=self.buttons['retry']
+        if retry.enabled and not retry.winfo_manager():retry.pack(side='left')
+        elif not retry.enabled:retry.pack_forget()
         for key,b in self.fixed.items():
             if b.winfo_exists():b.configure(state='normal' if self.selected is not None and (key!='curve' or not self.exporter.busy) and (key!='mode' or not self.loader.running) else 'disabled')
 

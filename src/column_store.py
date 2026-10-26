@@ -4,7 +4,7 @@ Values stay as original UTF-8 field bytes, including quotes and line endings.
 Each 2048-row / ~2 MiB block compresses its columns independently.
 """
 import csv,io,json,os,struct,zlib
-from functools import cached_property
+from functools import cached_property,lru_cache
 from pathlib import Path
 from uuid import uuid4
 MAGIC=b'STXCOL2\n';END=b'STXEND2\n';LEGACY_MAGIC=b'STXCOL1\n';LEGACY_END=b'STXEND1\n'
@@ -25,6 +25,7 @@ def _records(stream):
 
 
 def _fields(record):
+    if b'"' not in record:return record.split(b',')
     result=[];start=0;quoted=False
     for i,value in enumerate(record):
         if value==34:quoted=not quoted
@@ -51,6 +52,15 @@ def _read_varint(raw,pos):
 
 def _encode(values):
     values=tuple(values)
+    if values and len(values)<=2048 and len(values[0])<=256 and values.count(values[0])==len(values):return _constant(values[0],len(values))
+    return _encode_uncached(values)
+
+
+@lru_cache(maxsize=128)
+def _constant(value,count):return _encode_uncached((value,)*count)
+
+
+def _encode_uncached(values):
     out=bytearray();prefix=bytearray();compact=bytearray();last=None;count=0;previous=b''
     for value in values:
         shared=0
@@ -185,10 +195,16 @@ def rows(path,columns=None,start_row=0,end_row=None):
             yield from csv.DictReader(io.StringIO(block.decode('utf-8'),newline=''),fieldnames=names)
     else:
         with path.open(encoding='utf-8-sig',newline='') as stream:
-            for i,row in enumerate(csv.DictReader(stream)):
+            if not columns:reader=csv.DictReader(stream)
+            else:
+                raw=csv.reader(stream);positions={name:i for i,name in enumerate(next(raw,[]))}
+                indexes=[positions.get(name) for name in columns]
+                reader=({name:(row[index] if index is not None and index<len(row) else None if index is not None else '')
+                         for name,index in zip(columns,indexes)} for row in raw if row)
+            for i,row in enumerate(reader):
                 if i<start_row:continue
                 if end_row is not None and i>=end_row:break
-                yield {k:row.get(k,'') for k in columns} if columns else row
+                yield row
 
 
 def convert(path,replace=False):

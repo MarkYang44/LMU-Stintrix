@@ -14,14 +14,14 @@ import zipfile
 ROOT=Path(__file__).resolve().parents[1]
 ASSET_NAMES=('report.html','compare.html','dataview.js','trackview.js','laplab.js','vehicleview.js','enduranceview.js','interface_theme.js','tracks/catalog.json','guide/catalog.json','guide/provenance.json','locales/en.json')
 STARTERS=('Start.cmd','Start Clean.cmd','Start Clean Controls.cmd','Start Demo.cmd','Demo.cmd')
-PORTABLE_DOCS=('USAGE.md','PRIVACY.md','VIDEO_ANALYSIS.md','STORAGE_OPTIMIZATION.md')
+PORTABLE_DOCS=('USAGE.md','PRIVACY.md','VIDEO_ANALYSIS.md','STORAGE_OPTIMIZATION.md','DATA_PROCESSING.md')
 PORTABLE_ROOT_FILES={'LMU-Stintrix.exe','README.md','LICENSE','THIRD_PARTY_NOTICES.md','VERSION','build-manifest.json',*STARTERS}
 
 def bundle_audit(folder):
     private={'data','logs','demologs','importedlogs','recoveredlogs','selectedlaps','videocurves','diagnostics','.venv','_local','_backup','_verification','racecomrenderer','_racecom','_report_history'}
     denied={'recording_settings.json','recording_visibility.json','local_settings.json','settings.json','session.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json',
         'race_log.json','race_summary.json','race_images.json','race_events_checkpoint.json','race_images_error.txt','car_calibration.json',
-        'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json','hud_layouts.json','hotkey_settings.json','recent_session.json','table_views.json'}
+        'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json','_lap_scan.json','hud_layouts.json','hotkey_settings.json','recent_session.json','table_views.json'}
     for file in Path(folder).rglob('*'):
         if not file.is_file():continue
         rel=file.relative_to(folder)

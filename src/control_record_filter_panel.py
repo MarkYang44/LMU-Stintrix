@@ -10,6 +10,7 @@ class Panel:
         siblings=self.filters.master.pack_slaves();index=siblings.index(self.filters);self.before=siblings[index+1] if index+1<len(siblings) else None
         self.row=page.buttons['refresh'].master;self.button=page.button(self.row,'filters','筛选条件',self.toggle)
         if not page.context.get('filters_open',False):self.filters.pack_forget()
+        self.filters.compact(page.table)
         self.sync()
     def toggle(self):
         opened=not bool(self.filters.winfo_manager());self.page.context['filters_open']=opened
@@ -17,6 +18,7 @@ class Panel:
         else:self.filters.pack_forget()
         self.sync()
     def sync(self):
+        self.filters.sync_chips()
         count=sum(value!=DEFAULTS.get(key) for key,value in self.filters.state.items() if key not in ('query','sort'))
         title=tr('筛选条件')+(f' · {count}' if count else '')
         if self.button.label!=title:

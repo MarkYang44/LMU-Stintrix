@@ -124,6 +124,7 @@ Detailed guides are currently primarily in Chinese.
 | [Architecture](docs/ARCHITECTURE.md) | Module responsibilities and development boundaries |
 | [Performance](docs/PERFORMANCE.md) | Measured results, workloads, and tradeoffs |
 | [Storage](docs/STORAGE_OPTIMIZATION.md) | Lossless storage, CSV recovery, and archives |
+| [Data processing](docs/DATA_PROCESSING.md) | Shared analysis, training reuse, measured timings, and precision guarantees |
 | [Video analysis](docs/VIDEO_ANALYSIS.md) | Calibration, tools, comparisons, and accuracy limits |
 | [Privacy](docs/PRIVACY.md) | Local data, sharing, and migration |
 

@@ -21,6 +21,15 @@ def cache_path(root,folder):
     return path(root,folder)
 
 
+def lap_profile(best,data=None,conditions=None):
+    if data is None:data=comparison_data(best)
+    sample=[interpolate(data,best['length_m']*i/600) for i in range(601)]
+    from training_zones import features
+    return dict(features=features(best['rows'],best['start_s'],best['end_s'],best['length_m']),
+        number=best['number'],time_s=best['time_s'],length_m=best['length_m'],
+        conditions=lap_conditions(best['rows']) if conditions is None else conditions,data=sample)
+
+
 @serialized
 def profiles(root,folder):
     path=cache_path(root,folder)
@@ -30,12 +39,7 @@ def profiles(root,folder):
     found=[];path.parent.mkdir(parents=True,exist_ok=True)
     def collect(best):
         if best['validity']!='verified':return
-        data=comparison_data(best)
-        # Fixed distance samples keep memory bounded per lap; no fake curve.
-        sample=[interpolate(data,best['length_m']*i/600) for i in range(601)]
-        from training_zones import features
-        extras=features(best['rows'],best['start_s'],best['end_s'],best['length_m'])
-        lap=dict(features=extras,number=best['number'],time_s=best['time_s'],length_m=best['length_m'],conditions=lap_conditions(best['rows']),data=sample)
+        lap=lap_profile(best)
         filename='lap-'+str(len(found))+'.json';write_json(path.parent/filename,lap)
         found.append({k:v for k,v in lap.items() if k not in ('data','features')}|dict(file=filename))
     _,candidates,error=extract_best(folder/'inputs.csv',collect,retain_best=False)

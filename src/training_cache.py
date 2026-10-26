@@ -1,5 +1,6 @@
 """Per-lap curve files and a lightweight index, keyed by metadata without hashing."""
 import json
+from pathlib import Path as NativePath
 from functools import wraps
 from telemetry_file import Path
 from uuid import uuid4
@@ -20,6 +21,8 @@ def path(root,folder):
     for name in ('inputs.csv','session.json','vehicle.csv','native_channels.json'):
         p=folder/name
         if p.is_file():s=p.stat();signature.append([name,s.st_size,s.st_mtime_ns])
+        if name in ('inputs.csv','vehicle.csv') and not NativePath(p).is_file() and p.is_file():
+            packed=NativePath(str(p)+'.stc');s=packed.stat();signature.append([name+'.stc',s.st_size,s.st_mtime_ns,s.st_ino])
     if not (folder/'inputs.csv').is_file():raise ValueError('Missing telemetry')
     base=root/'PersonalRecords/TrainingCache'
     with _lock:
@@ -50,3 +53,44 @@ class Laps:
 def read(path):
     value=read_json(path,{})
     return dict(value,laps=Laps(path.parent,value.get('laps',[])))
+
+
+def warming(folder):
+    """Populate the existing training cache while analysis already owns a lap."""
+    folder=Path(folder).resolve()
+    if folder.parent.name not in ('Logs','ImportedLogs','RecoveredLogs'):return None
+    try:return Warmer(folder)
+    except Exception:return None  # Optional cache work must not block race reports.
+
+
+class Warmer:
+    def __init__(self,folder):
+        from comparison_cache import source
+        self.folder=folder;self.signature=source(folder);self.path=path(folder.parent.parent,folder)
+        self.enabled=not self.path.is_file();self.found=[]
+        if self.enabled:
+            self.path.parent.mkdir(parents=True,exist_ok=True)
+            from cache_budget import hold
+            hold(self,self.path.parent)
+    def feed(self,best,data,conditions=None):
+        if not self.enabled or best['validity']!='verified':return
+        try:
+            from training_report import lap_profile
+            from laps import write_json
+            lap=lap_profile(best,data,conditions);filename='lap-'+str(len(self.found))+'.json'
+            with _lock:write_json(self.path.parent/filename,lap)
+            self.found.append({k:v for k,v in lap.items() if k not in ('data','features')}|dict(file=filename))
+        except Exception:self.enabled=False
+    def finish(self,candidates,error):
+        if not self.enabled:return
+        try:
+            from comparison_cache import source
+            from laps import write_json
+            if source(self.folder)!=self.signature:return
+            counts={}
+            for item in candidates:counts[item.get('number')]=counts.get(item.get('number'),0)+1
+            found=[lap for lap in self.found if counts[lap['number']]==1]
+            value=dict(laps=found,excluded=len(candidates)-len(found),error=error)
+            with _lock:
+                write_json(self.path,value);write_json(self.path.with_name('index.json'),value)
+        except Exception:self.enabled=False

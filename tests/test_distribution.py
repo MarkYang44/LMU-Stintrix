@@ -197,6 +197,25 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaises(ValueError):choose_wheel(files[1:])
         with self.assertRaises(ValueError):choose_wheel([files[0],files[0]])
 
+    def test_stable_abi_wheel_supports_evo_renderer_and_keeps_platform_guards(self):
+        filenames=('resvg_py-0.5.0-cp310-abi3-win32.whl',
+            'resvg_py-0.5.0-cp310-abi3-win_amd64.whl',
+            'resvg_py-0.5.0-cp310-abi3-win_arm64.whl',
+            'resvg_py-0.5.0-cp314-cp314t-win_amd64.whl',
+            'resvg_py-0.5.0-cp315-abi3.abi3t-win_amd64.whl',
+            'resvg_py-0.5.0-cp314-abi3-win_amd64.whl')
+        files=[{'filename':name} for name in filenames]
+        self.assertIs(choose_wheel(files),files[1])
+        with self.assertRaises(ValueError):choose_wheel(files[:1]+files[2:])
+        with self.assertRaises(ValueError):choose_wheel([{**files[1],'yanked':True}])
+        with self.assertRaises(ValueError):choose_wheel([files[1],files[1]])
+        older={'filename':'resvg_py-0.5.0-cp39-abi3-win_amd64.whl'}
+        self.assertIs(choose_wheel([older,*files]),files[1])
+        exact={'filename':'resvg_py-0.5.0-cp313-cp313-win_amd64.whl'}
+        self.assertIs(choose_wheel([*files,exact]),exact)
+        universal={'filename':'example-1-py3-none-any.whl'}
+        self.assertIs(choose_wheel([universal]),universal)
+
     def test_bundle_audit_rejects_accidentally_copied_logs(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'_internal').mkdir();(root/'_internal'/'app.dll').write_bytes(b'dll')

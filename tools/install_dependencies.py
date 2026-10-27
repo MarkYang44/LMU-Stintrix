@@ -13,6 +13,17 @@ ROOT=Path(__file__).resolve().parents[1]
 def choose_wheel(files):
     suffixes=('none-any.whl','none-win_amd64.whl','cp313-cp313-win_amd64.whl')
     wheels=[f for f in files if any(f['filename'].endswith(s) for s in suffixes) and not f.get('yanked')]
+    if not wheels:
+        # Stable-ABI wheels built for an older CPython also run on 3.13.
+        # Keep Windows x64, reject newer minimum versions and free-threaded ABIs.
+        compatible=[]
+        for file in files:
+            match=re.search(r'-cp3(\d+)-abi3-win_amd64\.whl$',file['filename'])
+            if match and 2<=int(match[1])<=13 and not file.get('yanked'):
+                compatible.append((int(match[1]),file))
+        if compatible:
+            latest=max(version for version,_ in compatible)
+            wheels=[file for version,file in compatible if version==latest]
     if len(wheels)!=1:raise ValueError('Expected one compatible Windows x64 / Python 3.13 wheel')
     return wheels[0]
 

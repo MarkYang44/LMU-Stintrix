@@ -7,7 +7,7 @@
 3. 执行 `.venv\Scripts\python.exe tools/check_bundle.py --smoke --no-checksums`：按构建清单核对文件与大小，确认 ZIP 与 EXE 不带开发测试代码，然后以独立私有目录启动实际发布 EXE 的 DEMO，正常关闭后检查完整圈、离线报告及比赛包导入导出。测试代码与结果留在 `tests/` 和 `_local/`，不植入发布 EXE。
 4. 使用明确文件清单暂存源码，然后执行 `.venv\Scripts\python.exe tools/audit_publication.py`。检查 `git diff --cached --stat`。不要暂存 dist 或任何个人记录。
 5. 正常提交后运行 `tools/Publish.cmd`；它检查远程 URL、main 分支、已提交状态与隐私规则，再进行普通推送。Git 的浏览器登录由维护者本人完成。`tools/Publish.cmd -CheckOnly` 只检查、不上传。main/PR 的 CI 默认只做源码审查与改动相关检查；不再为普通推送重复构建整包。
-6. 推送与 VERSION 一致的 `v*` 标签。标签会按上一版本以来的改动选择相关检查，执行隐私审查、构建及独立便携版验证；通过后，工作流自动发布附带便携 ZIP 的公开 Release。当前流水线不生成独立 SHA256 附件。只推送 main 不再生成整包，也不创建 Release。推送标签前应完成上述本地检查。
+6. 推送与 VERSION 一致的 `v*` 标签。标签会按上一个已发布正式 Release 以来的改动选择相关检查，避免失败但已存在的标签缩小验证范围；执行隐私审查、构建及独立便携版验证，通过后自动发布附带便携 ZIP 的公开 Release。当前流水线不生成独立 SHA256 附件。只推送 main 不再生成整包，也不创建 Release。推送标签前应完成上述本地检查。
 
 ZIP 内包括独立解释器、Tk、DuckDB、离线模板、许可证及 build-manifest.json，不要求用户安装 RaceCom 或 Python。GitHub 的源码 Download ZIP 不包含二进制，但 Setup.cmd 可一次配置并启动。
 

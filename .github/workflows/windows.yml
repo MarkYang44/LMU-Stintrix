@@ -39,14 +39,17 @@ jobs:
         env:
           STINTRIX_FULL_TESTS: ${{ inputs.full_regression }}
           STINTRIX_TEST_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if ($env:STINTRIX_FULL_TESTS -eq 'true') {
             python tools/run_tests.py --full
           } else {
             $testBase = $env:STINTRIX_TEST_BASE
             if ($env:GITHUB_REF -like 'refs/tags/*') {
-              $testBase = git describe --tags --match 'v*' --abbrev=0 'HEAD^'
-              if ($LASTEXITCODE -ne 0) { $testBase = 'HEAD^' }
+              $releases = Invoke-RestMethod -Uri "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases?per_page=100" -Headers @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+              $previous = $releases | Where-Object { -not $_.draft -and -not $_.prerelease -and $_.tag_name -ne $env:GITHUB_REF_NAME } | Select-Object -First 1
+              $testBase = if ($previous) { $previous.tag_name } else { 'HEAD^' }
+              Write-Host "Selecting related checks since published release: $testBase"
             }
             if (-not $testBase -or $testBase -match '^0+$') { $testBase = 'HEAD^' }
             python tools/run_tests.py --base $testBase

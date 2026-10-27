@@ -133,9 +133,17 @@ class FeatureTests(unittest.TestCase):
                 center.set_theme('light');center.toggle_language();center.root.update()
                 self.assertEqual(center.title.cget('text'),'Personal track records')
                 center.show_page(1);center.selected_laps();window=center.lap_pair_window
-                boxes=[w for w in descendants(window) if isinstance(w,Select)]
-                pump(lambda:len(boxes)==4 and all(w.cget('state')=='readonly' for w in boxes))
-                self.assertEqual(len(boxes[1].cget('values')),2)
+                controls=window.pair_controls
+                pump(lambda:controls['state']['inventory_ready'])
+                self.assertFalse(controls['track'].get())
+                self.assertTrue(all(box.cget('state')=='disabled' for box in controls['event_boxes'].values()))
+                controls['track'].set(next(value for value in controls['track_box'].values if value));controls['choose_track']()
+                self.assertEqual(len(controls['event_boxes']['A'].values),2)
+                for key,index in (('A',0),('B',1)):
+                    controls['events'][key].set(controls['event_boxes'][key].values[index]);controls['scan'](key)
+                pump(lambda:controls['compare'].enabled)
+                self.assertTrue(all(box.cget('state')=='readonly' for box in (*controls['event_boxes'].values(),*controls['lap_boxes'].values())))
+                self.assertEqual(len(controls['lap_boxes']['A'].values),2)
                 window.destroy();self.assertFalse(errors,errors)
             finally:center.close();i18n.set_language('zh')
 

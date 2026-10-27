@@ -19,6 +19,11 @@ UI=(
     'tests.test_ui_polish52.PolishUITests.test_home_controls_fit_with_recent_session_in_both_languages',
 )
 GROUPS=(
+    (('control_report_tasks',),('tests.test_processing316.Data.test_report_receipts_use_game_steps_exclude_foreign_data_and_do_not_scan_samples','tests.test_processing316.UI.test_evo_shared_selection_recovery_only_failed_stage_and_cache_view')),
+    (('curve_exports',),('tests.test_processing315.Processing.test_curve_reuse_across_views_invalidates_source_assets_and_missing_output',)),
+    (('evo_comparison','evo_laps','evo_control','evo_compare'),('tests.test_evo_comparison314',)),
+    (('report_pipeline','simulator_profiles'),('tests.test_refactor313.Reports','tests.test_refactor313.Capabilities')),
+    (('control_view_state','control_run_actions'),('tests.test_refactor313.UI',)),
     (('hud_shutdown','control_hud_stop','hud'),('tests.test_ui_polish74',)),
     (('hud_layouts','hud_presentation','layout_actions','native_hotkeys','shortcut_','control_layouts','control_layout_','control_shortcuts'),('tests.test_hud_workflows',)),
     (('control_shell','control_widgets','control_theme','control_motion','control_pages','control_surface','control_toolbar','control_flow'),UI),

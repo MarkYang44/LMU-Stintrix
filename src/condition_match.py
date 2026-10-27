@@ -1,9 +1,12 @@
 """Comparable-condition policy. Unknowns stay unknown; no corrected lap predictions."""
 import math
+from functools import partial
+from types import MappingProxyType
 from lap_identity import text
 from i18n import tr
 
 DEFAULTS=dict(fuel_l=2.,track_temp_c=5.,ambient_temp_c=5.,wetness=.1,rain=.05,include_unknown=False,min_laps=3,cross_mode=False,cross_phase=False)
+_NUMERIC=(('fuel_l',0,2000),('track_temp_c',-100,150),('ambient_temp_c',-100,100),('wetness',0,1),('rain',0,1),('track_grip',0,255),('tc_level',0,255),('abs_level',0,255))
 
 def settings(value=None):
     out=dict(DEFAULTS);out.update(value or {})
@@ -18,12 +21,20 @@ def settings(value=None):
     return out
 
 def match(a,b,policy=None):
-    p=settings(policy);unknown=[];different=[];known=[]
-    for key in ('fuel_l','track_temp_c','ambient_temp_c','wetness','rain','track_grip','tc_level','abs_level'):
+    return _match(a,b,settings(policy))
+
+
+def matcher(reference,policy=None):
+    """One job's frozen reference/config; every candidate still gets full checks."""
+    return partial(_match,dict(reference),p=MappingProxyType(settings(policy)))
+
+
+def _match(a,b,p):
+    unknown=[];different=[];known=[]
+    for key,low,high in _NUMERIC:
         x,y=a.get(key),b.get(key)
-        if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in (x,y)):unknown.append(key);continue
-        low,high={'fuel_l':(0,2000),'track_temp_c':(-100,150),'ambient_temp_c':(-100,100),'wetness':(0,1),'rain':(0,1),'track_grip':(0,255),'tc_level':(0,255),'abs_level':(0,255)}[key]
-        if not all(low<=v<=high for v in (x,y)):unknown.append(key);continue
+        if not isinstance(x,(int,float)) or isinstance(x,bool) or not math.isfinite(x) or not isinstance(y,(int,float)) or isinstance(y,bool) or not math.isfinite(y):unknown.append(key);continue
+        if not (low<=x<=high and low<=y<=high):unknown.append(key);continue
         known.append(key)
         if abs(x-y)>p.get(key,0):different.append(key)
     for name,index in (('tyre_front_name','tyre_compound'),('tyre_rear_name','tyre_rear_compound')):

@@ -25,6 +25,8 @@ def condition_check(a,b):
 
 def lap_conditions(rows,native=None,start=0,offset=0):
     keys=(*CONDITION_RULES,'tyre_rear_compound','tyre_front_name','tyre_rear_name','ambient_temp_c','rain','track_grip')
+    from analysis_spool import project_rows
+    rows=project_rows(rows,keys)
     # Scratch layouts are fixed; absent columns cannot appear in a later row.
     layout=getattr(rows,'layout',None);pending={k for k in keys if layout is None or k in layout};observed={}
     for row in rows:
@@ -50,6 +52,8 @@ def spread(values):
 
 def actions(rows):
     """Time-based debounce; cannot infer grip or the cause of a correction."""
+    from analysis_spool import numeric_rows
+    rows=numeric_rows(rows,('session_time_s','throttle','brake','steering','filtered_throttle','filtered_brake','filtered_steering','abs_active','tc_active'))
     states=[dict(prefix=prefix,names=names,slopes=[],corrections=0,last_sign=0,last_change=-100,extreme=0,armed=False,since=None,lift=0)
             for prefix,names in [('raw',('throttle','brake','steering')),('filtered',('filtered_throttle','filtered_brake','filtered_steering'))]]
     dt_sum=0;differences=[0,0,0];abs_time=tc_time=0;abs_known=tc_known=False

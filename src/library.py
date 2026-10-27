@@ -33,7 +33,10 @@ def inventory(root):
             if folder in hidden:continue
             if not folder.is_relative_to(root):continue
             try:
-                meta=annotate(json.loads(meta_path.read_text(encoding='utf-8')),folder,modes);summary={};analysis={}
+                meta=json.loads(meta_path.read_text(encoding='utf-8'))
+                from simulators import accepts
+                if not accepts(root,meta):continue
+                meta=annotate(meta,folder,modes);summary={};analysis={}
                 for file,target in [('fastest_lap_summary.json',summary),('session_analysis.json',analysis)]:
                     path=folder/file
                     if path.exists() and file!='session_analysis.json':target.update(json.loads(path.read_text(encoding='utf-8')))

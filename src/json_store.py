@@ -92,10 +92,27 @@ class Reader:
                 raise
         value=self.scalar();return value if keep else None
 
+def _metadata_only(value,depth=0):
+    if depth>100:raise ValueError('JSON nesting exceeds 100')
+    if isinstance(value,list):return False
+    return not isinstance(value,dict) or all(_metadata_only(item,depth+1) for item in value.values())
+
+
 def load(path,fields=None,chunk_size=65536):
     """Large numeric arrays spill next to the source; no permanent format change."""
     path=Path(path)
+    if fields is not None:fields=set(fields)
     with path.open(encoding='utf-8-sig') as stream:
+        # Small headers use the standard C decoder, without building scratch
+        # directories or resolving game preferences. Arrays retain the bounded
+        # streaming/table reader and its existing numeric representation.
+        if path.stat().st_size<=65536:
+            text=stream.read(65537)
+            if len(text)<=65536:
+                value=json.loads(text)
+                if _metadata_only(value):
+                    return {k:v for k,v in value.items() if k in fields} if fields is not None and isinstance(value,dict) else value
+            stream.seek(0)
         from paths import data_directory
         scratch=data_directory()/'_work'
         if fields is None:scratch.mkdir(parents=True,exist_ok=True)

@@ -51,8 +51,10 @@ class Select(tk.Canvas):
     continue to the intended control; temporary owner bindings are removed.
     """
     def __init__(self,parent,textvariable=None,values=(),state='readonly',width=26,
-                 height=7,font=None,style=None,labels=None,**kwargs):
+                 height=7,font=None,style=None,labels=None,images=None,**kwargs):
         self.s=scale(parent);self.variable=textvariable or tk.StringVar(parent)
+        self.images=dict(images or {});self.icon_space=max((i.width() for i in self.images.values()),default=0)
+        if self.icon_space:self.icon_space+=px(parent,9)
         self.values=list(values);self.labels=labels or {};self.compact_labels={};self.state=state;self.error='';self.rows=max(1,min(8,int(height)))
         self.font=tkfont.Font(parent,font=font or (T.FONT,10))
         self.amount=0.;self.focused=False;self.popup=None;self.offset=0;self.active=-1
@@ -114,6 +116,7 @@ class Select(tk.Canvas):
         if not hasattr(self,'surface'):
             self.surface=rounded(self,0,0,1,1,1,tags='surface');self.divider=self.create_line(0,0,1,1,tags='surface');self.arrow=self.create_line(0,0,1,1,tags='surface')
             self.caption=self.create_text(0,0,anchor='w',font=self.font,tags='surface') if not self.edit else None
+            self.icon=self.create_image(0,0,anchor='w',tags='surface') if self.images else None
         from control_widgets import polygon_points
         disabled=self.state=='disabled';foreground=T.MUTED if disabled else T.FG
         self.coords(self.surface,*polygon_points(1,1,w-2,h-2,6*s));self.itemconfigure(self.surface,fill=blend(T.FIELD,T.HOVER,self.amount*.45),outline=T.RED if self.error else T.EDGE if disabled else blend(T.EDGE,T.ACCENT,self.amount))
@@ -123,11 +126,13 @@ class Select(tk.Canvas):
         if self.edit:
             self.coords(self.edit_item,14*s,h/2);self.itemconfigure(self.edit_item,width=max(1,w-60*s));self.tag_lower('surface')
         else:
-            text=tr(self.compact_labels.get(self.variable.get(),self.display(self.variable.get())));maximum=max(1,w-66*s)
+            text=tr(self.compact_labels.get(self.variable.get(),self.display(self.variable.get())));maximum=max(1,w-66*s-self.icon_space)
             if self.font.measure(text)>maximum:
                 while text and self.font.measure(text+'…')>maximum:text=text[:-1]
                 text+='…'
-            self.coords(self.caption,14*s,h/2);self.itemconfigure(self.caption,text=text,fill=foreground)
+            self.coords(self.caption,14*s+self.icon_space,h/2);self.itemconfigure(self.caption,text=text,fill=foreground)
+            if self.icon is not None:
+                self.coords(self.icon,14*s,h/2);self.itemconfigure(self.icon,image=self.images.get(self.variable.get(),''))
     def toggle(self,_=None):
         if self.state=='disabled':return 'break'
         if self.popup:self.close()
@@ -146,7 +151,7 @@ class Select(tk.Canvas):
         self.panel=tk.Canvas(self.popup,bg=T.CARD,highlightthickness=1,highlightbackground=T.EDGE)
         self.panel.pack(fill='both',expand=True);self.popup_motion=Motion(self.panel)
         availablew=self.owner.winfo_width();availableh=self.owner.winfo_height()
-        width=min(availablew-px(self,24),max(self.winfo_width(),min(px(self,620),max(self.font.measure(self.display(v)) for v in self.values)+px(self,66))))
+        width=min(availablew-px(self,24),max(self.winfo_width(),min(px(self,620),max(self.font.measure(self.display(v)) for v in self.values)+px(self,66)+self.icon_space)))
         originx=self.winfo_rootx()-self.owner.winfo_rootx();originy=self.winfo_rooty()-self.owner.winfo_rooty()
         x=max(px(self,12),min(availablew-width-px(self,12),originx));bottom=originy+self.winfo_height()+px(self,5)
         self.above=bottom+self.full_h>availableh-px(self,16)
@@ -211,7 +216,8 @@ class Select(tk.Canvas):
             y=px(self,6)+row*self.row_h;chosen=self.values[index]==self.variable.get()
             if chosen:panel.create_rectangle(5*s,y,w-5*s,y+self.row_h,fill=T.SELECT,outline='')
             if chosen:panel.create_rectangle(5*s,y+9*s,8*s,y+self.row_h-9*s,fill=T.ACCENT,outline='')
-            panel.create_text(19*s,y+self.row_h/2,text=self.display(self.values[index]),anchor='w',font=self.font,fill=T.FG)
+            if self.values[index] in self.images:panel.create_image(19*s,y+self.row_h/2,image=self.images[self.values[index]],anchor='w')
+            panel.create_text(19*s+self.icon_space,y+self.row_h/2,text=self.display(self.values[index]),anchor='w',font=self.font,fill=T.FG)
             if chosen:panel.create_text(w-24*s,y+self.row_h/2,text='✓',font=(T.FONT,11),fill=T.ACCENT)
         panel.create_rectangle(5*s,self.highlight_y+9*s,8*s,self.highlight_y+self.row_h-9*s,fill=T.ACCENT,outline='')
         if self.offset>0:panel.create_line(w-12*s,3*s,w-34*s,3*s,fill=T.ACCENT,width=2*s)
@@ -277,3 +283,4 @@ class Select(tk.Canvas):
             self.font.__del__();self.font.delete_font=False;self.edit=None
             try:self.variable.trace_remove('write',self.trace)
             except tk.TclError:pass
+            self.images.clear()

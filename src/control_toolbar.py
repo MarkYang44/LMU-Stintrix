@@ -4,6 +4,7 @@ from control_theme import T
 from i18n import tr
 from control_widgets import px
 from control_motion import keyboard_action
+from simulator_profiles import profile
 
 
 def install(app):
@@ -20,6 +21,9 @@ def install(app):
     if app.page==0:
         from control_recent_session import install
         install(app)
+    elif profile(getattr(app,'simulator','lmu')).catalogue=='official' and app.page in (1,4,5):
+        from evo_control import toolbar
+        toolbar(app)
     elif app.page==1:
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
         app.review_actions={'open':app.button(host,'打开赛事复盘',lambda:app.report('review.html'),True,130),
@@ -104,7 +108,7 @@ def update(app):
         if browser is not None:browser.sync()
     for key,button in getattr(app,'review_actions',{}).items():
         if not button.winfo_exists():continue
-        ready=bool(app.tree and len(app.tree.selection())==1) if key in ('open','laps','journal') else bool(getattr(app,'items',[]))
+        ready=bool(app.tree and len(app.tree.selection())==1) if key in ('open','laps','journal') else bool(app.tree and app.tree.selection()) if key=='delete' else bool(getattr(app,'items',[]))
         state='normal' if ready else 'disabled'
         if button.cget('state')!=state:button.configure(state=state)
     if app.page==0:

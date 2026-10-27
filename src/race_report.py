@@ -9,7 +9,7 @@ from race_model import build_model,describe,elapsed,lap_status,lap_time,read_jso
 from reporting import serialized
 from storage import atomic_json
 
-RENDER_VERSION=9
+RENDER_VERSION=11
 
 
 def signature(path):
@@ -26,11 +26,19 @@ def write_text(path,value):
 def generate(folder,car_directory=None,renderer=None,force=False):
     folder=Path(folder).resolve();meta=read_json(folder/'session.json',{})
     if meta.get('status')=='recording':raise ValueError('请等该场记录结束后再生成图片')
+    from runtime_activity import busy
+    if busy():
+        from report_worker import ReportDeferred
+        raise ReportDeferred('请先停止 HUD，再生成报告图片；原始记录已保留')
     from renderer_config import resolve
     # Synthetic demos and explicitly selected compatibility previews stay self-contained.
     mode=renderer or ('native' if meta.get('source')=='Synthetic demo' or folder.parent.name=='DemoLogs' else None)
     config=resolve(mode)
     art=select_car(meta.get('vehicle',''),car_directory)
+    if meta.get('simulator_id')=='ac_evo' and car_directory is None:
+        from evo_art import item
+        official=item('cars',meta.get('vehicle',''))
+        if official:art=(Path(official['local_image']),(0,0,1,1))
     inputs={name:signature(folder/name) for name in ('inputs.csv','session.json','race_events.csv','race_summary.json') if (folder/name).is_file()}
     fingerprint=dict(version=RENDER_VERSION,inputs=inputs,car=None,renderer=config['mode'])
     if config['mode']=='racecom':
@@ -61,7 +69,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
             for name in ('圈速单.png','比赛日志.png','race_log.json','race_log.txt','race_images.json'):
                 if (folder/name).is_file() and not (backup/name).exists():shutil.copy2(folder/name,backup/name)
         atomic_json(folder/'race_log.json',model)
-        lines=['LMU STINTRIX · 比赛日志',f"{model['session_type']} / {meta.get('track','')} / {meta.get('vehicle','')}",
+        lines=[('AC EVO' if meta.get('simulator_id')=='ac_evo' else 'LMU')+' STINTRIX · 比赛日志',f"{model['session_type']} / {meta.get('track','')} / {meta.get('track_layout','')} / {meta.get('vehicle','')}",
             f"车手：{meta.get('driver','')}  开始：{meta.get('started_utc','')}",model['note'],'','圈速单：']
         from class_positions import inline_positions
         start_text,end_text=inline_positions(model)

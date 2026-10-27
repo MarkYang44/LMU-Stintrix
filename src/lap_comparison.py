@@ -7,6 +7,9 @@ from lap_identity import same_layout
 
 
 def valid_laps(folder):
+    if finished_metadata(folder).get('simulator_id')=='ac_evo':
+        from evo_comparison import valid_laps as evo_valid
+        return evo_valid(folder)
     scan=complete_laps(folder)
     return [v for v in scan['laps'] if v.get('validity')=='verified'
             and not v.get('lap_invalidated') and not v.get('in_pits')]
@@ -60,7 +63,12 @@ def export_pair(root,selections,template):
     identities=[(Path(folder).resolve(),number) for folder,number in selections]
     if any(type(number) is not int or number<0 for _,number in identities):raise ValueError('请选择有效圈号')
     if identities[0]==identities[1]:raise ValueError('圈 A 和圈 B 必须选择不同圈')
-    for folder,_ in identities:finished_metadata(folder)
+    metadata=[finished_metadata(folder) for folder,_ in identities]
+    from simulators import accepts
+    if any(not accepts(root,meta) for meta in metadata):raise ValueError('只能对比当前游戏的赛事记录')
+    if any(meta.get('simulator_id')=='ac_evo' for meta in metadata):
+        from evo_comparison import export_pair as evo_pair
+        return evo_pair(root,identities)
     output=root/'LapComparisons';key=hashlib.sha256(repr(identities).encode()).hexdigest()[:16];page=output/('Compare_'+key+'.html')
     from comparison_cache import Pair
     cache=Pair(root,identities,template,page);existing=cache.read()

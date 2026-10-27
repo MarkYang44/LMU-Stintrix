@@ -14,6 +14,7 @@ LABELS={'single':'线下','online':'线上','unknown':'未知'}
 
 def mode(value):
     meta=value.get('session');meta=meta if isinstance(meta,dict) else value;v=value.get('race_mode',meta.get('race_mode'))
+    if v=='offline' and meta.get('simulator_id')=='ac_evo':return 'single'
     return v if v in LABELS else 'unknown'
 
 def xml_mode(setting):

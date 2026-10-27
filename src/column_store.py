@@ -40,8 +40,11 @@ def _varint(value):
 
 
 def _read_varint(raw,pos):
-    value=0
-    for shift in range(0,35,7):
+    if pos>=len(raw):raise ValueError('Incomplete column integer')
+    byte=raw[pos];pos+=1
+    if byte<128:return byte,pos
+    value=byte&127
+    for shift in range(7,35,7):
         if pos>=len(raw):raise ValueError('Incomplete column integer')
         byte=raw[pos];pos+=1;value|=(byte&127)<<shift
         if not byte&128:
@@ -98,14 +101,23 @@ def _decode(data,rows):
                 length,pos=_read_varint(raw,pos)
                 if pos+length>len(raw):raise ValueError('Incomplete column dictionary')
                 dictionary.append(raw[pos:pos+length]);pos+=length
+            # Valid one-byte IDs can be bounds-checked once and mapped in C.
+            # Other/noncanonical encodings retain the original integer reader.
+            if count<=128 and len(raw)-pos==rows:
+                indexes=raw[pos:]
+                if max(indexes,default=0)<count:return list(map(dictionary.__getitem__,indexes))
         for _ in range(rows):
             if kind==4:
                 index,pos=_read_varint(raw,pos)
                 if index>=len(dictionary):raise ValueError('Invalid dictionary index')
                 result.append(dictionary[index]);continue
             shared=0
-            if kind==2:shared,pos=_read_varint(raw,pos)
-            length,pos=_read_varint(raw,pos)
+            if kind==2 and pos+1<len(raw) and raw[pos]<128 and raw[pos+1]<128:
+                shared=raw[pos];length=raw[pos+1];pos+=2
+            else:
+                if kind==2:shared,pos=_read_varint(raw,pos)
+                if pos<len(raw) and raw[pos]<128:length=raw[pos];pos+=1
+                else:length,pos=_read_varint(raw,pos)
             if shared>len(previous) or pos+length>len(raw):raise ValueError('Invalid compact column')
             previous=previous[:shared]+raw[pos:pos+length];result.append(previous);pos+=length
         if pos!=len(raw):raise ValueError('Unexpected trailing column bytes')
@@ -144,7 +156,7 @@ class Reader:
             if f.read(8)!=(END if self.version==2 else LEGACY_END) or n>16*1048576:raise ValueError('Incomplete column store')
             f.seek(-16-n,2);return json.loads(f.read(n))
 
-    def chunks(self,columns=None,start_row=0,end_row=None):
+    def _selected(self,columns=None,start_row=0,end_row=None):
         indexes=list(range(self.width)) if columns is None else [self.columns.index(k) if k in self.columns else None for k in columns]
         full=columns is None;position=0
         with self.path.open('rb') as f:
@@ -156,15 +168,46 @@ class Reader:
                     if i is None:values.append([b'']*count);continue
                     offset,size=block['columns'][i];f.seek(offset);values.append(_decode(f.read(size),count))
                 begin=max(0,start_row-first);end=min(count,end_row-first) if end_row is not None else count
-                def record(j):
-                    if full:return b','.join(v[j] for v in values)
-                    fields=[]
-                    for i,v in zip(indexes,values):
-                        field=v[j]
-                        if i==self.width-1:field=field[:-2] if field.endswith(b'\r\n') else field[:-1] if field.endswith((b'\n',b'\r')) else field
-                        fields.append(field)
-                    return b','.join(fields)+b'\n'
-                yield b''.join(record(j) for j in range(begin,end))
+                # Keep original field bytes; transpose each decoded block in C.
+                # The physical last column owns the original record terminator.
+                if not full:
+                    for j,i in enumerate(indexes):
+                        if i==self.width-1:
+                            values[j]=[v[:-2] if v.endswith(b'\r\n') else v[:-1] if v.endswith((b'\n',b'\r')) else v for v in values[j]]
+                yield values,begin,end
+
+    def chunks(self,columns=None,start_row=0,end_row=None):
+        from itertools import islice
+        full=columns is None
+        for values,begin,end in self._selected(columns,start_row,end_row):
+            if not values:
+                yield b'\n'*(end-begin);continue
+            records=islice(zip(*values),begin,end)
+            yield b''.join(b','.join(row) for row in records) if full else b''.join(b','.join(row)+b'\n' for row in records)
+
+    def values(self,columns,start_row=0,end_row=None):
+        """Decode simple lexical fields in columns; complex CSV keeps its parser."""
+        from itertools import islice
+        from csv_projection import projector
+        columns=tuple(columns);project=projector(columns,columns)
+        for values,begin,end in self._selected(columns,start_row,end_row):
+            count=end-begin
+            if not values or count<=0:continue
+            joined=[b'\0'.join(column[begin:end]) for column in values]
+            simple=all(raw.count(b'\0')==count-1 and not any(c in raw for c in (b'"',b',',b'\r',b'\n')) for raw in joined)
+            if simple:
+                # Replace the block's byte columns rather than retaining both
+                # representations. No samples escape into a persistent cache.
+                for i,raw in enumerate(joined):values[i]=raw.decode('utf-8').split('\0')
+                del joined
+                for row in zip(*values):
+                    # csv.reader skips a blank line, but not two empty fields.
+                    if len(row)>1 or row[0]:yield project(row)
+            else:
+                del joined
+                block=b''.join(b','.join(row)+b'\n' for row in islice(zip(*values),begin,end))
+                for row in csv.reader(io.StringIO(block.decode('utf-8'),newline='')):
+                    if row:yield project(row)
 
     def bytes(self):
         yield self.header
@@ -185,6 +228,23 @@ class Stream(io.RawIOBase):
 def open_csv(path,mode='r',encoding='utf-8',errors=None,newline=None):
     stream=io.BufferedReader(Stream(Reader(packed(path))))
     return stream if 'b' in mode else io.TextIOWrapper(stream,encoding=encoding or 'utf-8',errors=errors,newline=newline)
+
+
+def values(path,columns,start_row=0,end_row=None):
+    """Projected field values without a transient dictionary per numeric row."""
+    path=Path(path)
+    from csv_projection import projector
+    if not path.is_file() and packed(path).is_file():
+        reader=Reader(packed(path))
+        yield from reader.values(columns,start_row,end_row)
+    else:
+        with path.open(encoding='utf-8-sig',newline='') as stream:
+            reader=csv.reader(stream);project=projector(next(reader,[]),columns);position=0
+            for row in reader:
+                if not row:continue
+                if end_row is not None and position>=end_row:break
+                if position>=start_row:yield project(row)
+                position+=1
 
 
 def rows(path,columns=None,start_row=0,end_row=None):

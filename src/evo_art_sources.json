@@ -1,0 +1,1366 @@
+{
+  "version": 3,
+  "source": "https://assettocorsa.gg/assetto-corsa-evo/",
+  "checked": "2026-10-27",
+  "notice": "KUNOS/505 Games and circuit operators official artwork; URLs only. Layout inventory is independent of available maps. Local downloads are not redistributed.",
+  "cars": [
+    {
+      "name": "Abarth 695 Biposto (2022)",
+      "aliases": [
+        "Abarth 695 Biposto"
+      ],
+      "file": "car-abarth-695-biposto.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Abarth-695-Biposto-1080x608.jpg",
+      "brand": "Abarth",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alfa Romeo 75 1.8 Turbo Evoluzione (1987)",
+      "aliases": [
+        "Alfa Romeo 75 1.8 Turbo Evoluzione"
+      ],
+      "file": "car-alfa-romeo-75-1-8-turbo-evoluzione.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alfa-Romeo-75-Turbo-Evoluzione-1080x608.jpg",
+      "brand": "Alfa Romeo",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alfa Romeo Giulia GTAm (2021)",
+      "aliases": [
+        "Alfa Romeo Giulia GTAm"
+      ],
+      "file": "car-alfa-romeo-giulia-gtam.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alfa-Romeo-Giulia-GTAm-1080x608.jpg",
+      "brand": "Alfa Romeo",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alfa Romeo Junior Elettrica Veloce (2024)",
+      "aliases": [
+        "Alfa Romeo Junior Elettrica Veloce"
+      ],
+      "file": "car-alfa-romeo-junior-elettrica-veloce.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alfa-Romeo-Junior-1080x608.jpg",
+      "brand": "Alfa Romeo",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alpine A110 S (2020)",
+      "aliases": [
+        "Alpine A110 S"
+      ],
+      "file": "car-alpine-a110-s.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alpine-A110-S-1080x608.jpg",
+      "brand": "Alpine",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alpine A290_β (2023)",
+      "aliases": [
+        "Alpine A290_β",
+        "Alpine A290_"
+      ],
+      "file": "car-alpine-a290.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alpine-A290B-concept-1080x608.jpg",
+      "brand": "Alpine",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Audi RS 3 Sportback (2022)",
+      "aliases": [
+        "Audi RS 3 Sportback"
+      ],
+      "file": "car-audi-rs-3-sportback.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-RS-3-Sportback-1080x608.jpg",
+      "brand": "Audi",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Audi R8 V10 performance quattro",
+      "aliases": [
+        "Audi R8 V10 performance quattro"
+      ],
+      "file": "car-audi-r8-v10-performance-quattro.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-R8-V10-performance-quattro-1080x608.jpg",
+      "brand": "Audi",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Audi Sport quattro (1983)",
+      "aliases": [
+        "Audi Sport quattro"
+      ],
+      "file": "car-audi-sport-quattro.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-Sport-Quattro-1080x608.jpg",
+      "brand": "Audi",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "BMW M3 E46 CSL (2003)",
+      "aliases": [
+        "BMW M3 E46 CSL"
+      ],
+      "file": "car-bmw-m3-e46-csl.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M3-E46-CSL-ACE_EA_04-1080x608.jpg",
+      "brand": "BMW",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Audi RS 6 Avant",
+      "aliases": [
+        "Audi RS 6 Avant",
+        "Audi RS 6 Avant"
+      ],
+      "file": "car-audi-rs-6-avant.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-RS-6-Avant-1080x608.jpg",
+      "brand": "Audi",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "BMW M2 Coupe (G87)",
+      "aliases": [
+        "BMW M2 Coupe (G87)"
+      ],
+      "file": "car-bmw-m2-coupe-g87.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M2-Coupe-G87-1080x608.jpg",
+      "brand": "BMW",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "BMW M4 CSL G82 (2022)",
+      "aliases": [
+        "BMW M4 CSL G82"
+      ],
+      "file": "car-bmw-m4-csl-g82.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M4-CSL-1080x608.jpg",
+      "brand": "BMW",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "BMW M8 Competition (2022)",
+      "aliases": [
+        "BMW M8 Competition"
+      ],
+      "file": "car-bmw-m8-competition.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M8-Competition-ACE_EA_04-1080x608.jpg",
+      "brand": "BMW",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "BMW M3 Sport Evo (E30)",
+      "aliases": [
+        "BMW M3 Sport Evo (E30)"
+      ],
+      "file": "car-bmw-m3-sport-evo-e30.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M3-E30-Sport-Evo-1080x608.jpg",
+      "brand": "BMW",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Caterham 485 CSR",
+      "aliases": [
+        "Caterham 485 CSR"
+      ],
+      "file": "car-caterham-485-csr.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Caterham-485-CSR-1080x608.jpg",
+      "brand": "Caterham",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Chevrolet Camaro ZL1 (2022)",
+      "aliases": [
+        "Chevrolet Camaro ZL1"
+      ],
+      "file": "car-chevrolet-camaro-zl1.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Chevrolet-Camaro-ZL1-1080x608.jpg",
+      "brand": "Chevrolet",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Dallara EXP",
+      "aliases": [
+        "Dallara EXP"
+      ],
+      "file": "car-dallara-exp.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Dallara-EXP-1080x608.jpg",
+      "brand": "Dallara",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Dallara Stradale",
+      "aliases": [
+        "Dallara Stradale"
+      ],
+      "file": "car-dallara-stradale.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Dallara-Stradale-1080x608.jpg",
+      "brand": "Dallara",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Ferrari 288 GTO",
+      "aliases": [
+        "Ferrari 288 GTO"
+      ],
+      "file": "car-ferrari-288-gto.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-288-GTO-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Ferrari 296 GTB (2021)",
+      "aliases": [
+        "Ferrari 296 GTB"
+      ],
+      "file": "car-ferrari-296-gtb.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-296-GTB-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Ferrari Daytona SP3 (2021)",
+      "aliases": [
+        "Ferrari Daytona SP3"
+      ],
+      "file": "car-ferrari-daytona-sp3.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-Daytona-SP3-ACE_EA_04-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Ford Escort RS Cosworth (1994)",
+      "aliases": [
+        "Ford Escort RS Cosworth"
+      ],
+      "file": "car-ford-escort-rs-cosworth.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ford-Escort-RS-Cosworth-1080x608.jpg",
+      "brand": "Ford",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Honda NSX-R (1992)",
+      "aliases": [
+        "Honda NSX-R"
+      ],
+      "file": "car-honda-nsx-r.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Honda-NSX-R-92R-1080x608.jpg",
+      "brand": "Honda",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Honda S-2000 (2003)",
+      "aliases": [
+        "Honda S-2000"
+      ],
+      "file": "car-honda-s-2000.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Honda-S-2000-1080x608.jpg",
+      "brand": "Honda",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Hyundai i30 N Hatchback (2021)",
+      "aliases": [
+        "Hyundai i30 N Hatchback"
+      ],
+      "file": "car-hyundai-i30-n-hatchback.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Hyundai-i30-N-Hatchback-1080x608.jpg",
+      "brand": "Hyundai",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Lamborghini Countach",
+      "aliases": [
+        "Lamborghini Countach"
+      ],
+      "file": "car-lamborghini-countach.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Lamborghini-Countach-1080x608.jpg",
+      "brand": "Lamborghini",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Lamborghini Huracán STO (2021)",
+      "aliases": [
+        "Lamborghini Huracán STO",
+        "Lamborghini Huracan STO"
+      ],
+      "file": "car-lamborghini-huracan-sto.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Lamborghini-Huracan-STO-1080x608.jpg",
+      "brand": "Lamborghini",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Lancia Delta HF Integrale “Evoluzione 2” (1993)",
+      "aliases": [
+        "Lancia Delta HF Integrale “Evoluzione 2”",
+        "Lancia Delta HF Integrale Evoluzione 2"
+      ],
+      "file": "car-lancia-delta-hf-integrale-evoluzione-2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/LANCIA-DELTA-HF-INTEGRALE-EVOLUZIONE-II-1-1080x608.jpg",
+      "brand": "Lancia",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Lotus Emira (2021)",
+      "aliases": [
+        "Lotus Emira"
+      ],
+      "file": "car-lotus-emira.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Lotus-Emira-1080x608.jpg",
+      "brand": "Lotus",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Lotus Exige V6 Cup (2014)",
+      "aliases": [
+        "Lotus Exige V6 Cup"
+      ],
+      "file": "car-lotus-exige-v6-cup.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Lotus-Exige-V6-Cup-1080x608.jpg",
+      "brand": "Lotus",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Mazda MX-5 NA (1994)",
+      "aliases": [
+        "Mazda MX-5 NA"
+      ],
+      "file": "car-mazda-mx-5-na.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mazda-MX5-Miata-Na-1080x608.jpg",
+      "brand": "Mazda",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Mazda RX-7 FD",
+      "aliases": [
+        "Mazda RX-7 FD"
+      ],
+      "file": "car-mazda-rx-7-fd.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mazda-RX-7-FD-1080x608.jpg",
+      "brand": "Mazda",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Mini John Cooper S Mk VI (1990)",
+      "aliases": [
+        "Mini John Cooper S Mk VI"
+      ],
+      "file": "car-mini-john-cooper-s-mk-vi.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mini-John-Cooper-S-Mk-VI-ACE_EA_04-1080x608.jpg",
+      "brand": "Mini",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Mercedes-Benz 190E AMG 2.5-16 Evo II",
+      "aliases": [
+        "Mercedes-Benz 190E AMG 2.5-16 Evo II"
+      ],
+      "file": "car-mercedes-benz-190e-amg-2-5-16-evo-ii.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mercedes-Benz-190E-AMG-2.5-16-Evo-II-1080x608.jpg",
+      "brand": "Mercedes-Benz / AMG",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Nissan Datsun 240Z (S30)",
+      "aliases": [
+        "Nissan Datsun 240Z (S30)"
+      ],
+      "file": "car-nissan-datsun-240z-s30.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nissan-Datsun-240Z-S30-1080x608.jpg",
+      "brand": "Nissan",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Nissan Datsun 240Z (S30) – Tuned",
+      "aliases": [
+        "Nissan Datsun 240Z (S30) – Tuned",
+        "Nissan Datsun 240Z (S30)  Tuned"
+      ],
+      "file": "car-nissan-datsun-240z-s30-tuned.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nissan-Datsun-240Z-S30-Tuned-1080x608.jpg",
+      "brand": "Nissan",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Porsche 718 Cayman GT4 RS (2024)",
+      "aliases": [
+        "Porsche 718 Cayman GT4 RS"
+      ],
+      "file": "car-porsche-718-cayman-gt4-rs.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-718-Cayman-GT4-RS-ACE_EA_04-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Porsche 911 Turbo 3.6 [964] (1993)",
+      "aliases": [
+        "Porsche 911 Turbo 3.6 [964]"
+      ],
+      "file": "car-porsche-911-turbo-3-6-964.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-964-Turbo-3.6-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Porsche 911 (992) GT3 RS",
+      "aliases": [
+        "Porsche 911 (992) GT3 RS"
+      ],
+      "file": "car-porsche-911-992-gt3-rs.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-911-992-GT3-RS-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Peugeot 205 T16 (1984)",
+      "aliases": [
+        "Peugeot 205 T16"
+      ],
+      "file": "car-peugeot-205-t16.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Peugeot-205-T16-ACE_EA_04-1080x608.jpg",
+      "brand": "Peugeot",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Renault 5 GT Turbo (1990)",
+      "aliases": [
+        "Renault 5 GT Turbo"
+      ],
+      "file": "car-renault-5-gt-turbo.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Renault-5-GT-Turbo-ACE_EA_04-1080x608.jpg",
+      "brand": "Renault",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Toyota AE86",
+      "aliases": [
+        "Toyota AE86"
+      ],
+      "file": "car-toyota-ae86.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Toyota-AE86-1-1080x608.jpg",
+      "brand": "Toyota",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Toyota AE86 Tuned",
+      "aliases": [
+        "Toyota AE86 Tuned"
+      ],
+      "file": "car-toyota-ae86-tuned.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Toyota-AE86-2-1080x608.jpg",
+      "brand": "Toyota",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Toyota GR86 (2024)",
+      "aliases": [
+        "Toyota GR86"
+      ],
+      "file": "car-toyota-gr86.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Toyota-GR86-1080x608.jpg",
+      "brand": "Toyota",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Toyota Supra Turbo RZ (1998)",
+      "aliases": [
+        "Toyota Supra Turbo RZ"
+      ],
+      "file": "car-toyota-supra-turbo-rz.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Toyota-Supra-Turbo-RZ-MK-IV-ACE_EA_04-1080x608.jpg",
+      "brand": "Toyota",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Toyota Supra Turbo RZ V2 DRIFT",
+      "aliases": [
+        "Toyota Supra Turbo RZ V2 DRIFT"
+      ],
+      "file": "car-toyota-supra-turbo-rz-v2-drift.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Supra-Turbo-RZ-MK-IV-V2-DRIFT-KIK-ACE_EA_04-1080x608.jpg",
+      "brand": "Toyota",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Volkswagen Golf 8 GTI Clubsport (2022)",
+      "aliases": [
+        "Volkswagen Golf 8 GTI Clubsport"
+      ],
+      "file": "car-volkswagen-golf-8-gti-clubsport.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Volkswagen-Golf-8-GTI-Clubsport-1080x608.jpg",
+      "brand": "Volkswagen",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Volkswagen Golf 8 R",
+      "aliases": [
+        "Volkswagen Golf 8 R"
+      ],
+      "file": "car-volkswagen-golf-8-r.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Volkswagen-Golf-8-R-1080x608.jpg",
+      "brand": "Volkswagen",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Volkswagen Golf GTI MK1",
+      "aliases": [
+        "Volkswagen Golf GTI MK1"
+      ],
+      "file": "car-volkswagen-golf-gti-mk1.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/VW-Golf-GTI-Mk1-1080x608.jpg",
+      "brand": "Volkswagen",
+      "category": "road",
+      "group": "road"
+    },
+    {
+      "name": "Alfa Romeo Giulia Sprint GTA (1965)",
+      "aliases": [
+        "Alfa Romeo Giulia Sprint GTA"
+      ],
+      "file": "car-alfa-romeo-giulia-sprint-gta.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Alfa-Romeo-Giulia-Sprint-GTA-1080x608.jpg",
+      "brand": "Alfa Romeo",
+      "category": "racing",
+      "group": "racing"
+    },
+    {
+      "name": "Audi R8 LMS GT2",
+      "aliases": [
+        "Audi R8 LMS GT2"
+      ],
+      "file": "car-audi-r8-lms-gt2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-R8-LMS-GT2-1-1080x608.jpg",
+      "brand": "Audi",
+      "category": "racing",
+      "group": "gt2"
+    },
+    {
+      "name": "Audi R8 LMS GT3 Evo II",
+      "aliases": [
+        "Audi R8 LMS GT3 Evo II"
+      ],
+      "file": "car-audi-r8-lms-gt3-evo-ii.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-R8-LMS-GT3-Evo-II-1080x608.jpg",
+      "brand": "Audi",
+      "category": "racing",
+      "group": "gt3"
+    },
+    {
+      "name": "Audi R8 LMS GT4 Evo",
+      "aliases": [
+        "Audi R8 LMS GT4 Evo"
+      ],
+      "file": "car-audi-r8-lms-gt4-evo.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Audi-R8-LMS-GT4-Evo-1080x608.jpg",
+      "brand": "Audi",
+      "category": "racing",
+      "group": "gt4"
+    },
+    {
+      "name": "BMW M4 GT3 EVO",
+      "aliases": [
+        "BMW M4 GT3 EVO"
+      ],
+      "file": "car-bmw-m4-gt3-evo.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M4-GT3-EVO-1080x608.jpg",
+      "brand": "BMW",
+      "category": "racing",
+      "group": "gt3"
+    },
+    {
+      "name": "BMW M2 CS Racing (2020)",
+      "aliases": [
+        "BMW M2 CS Racing"
+      ],
+      "file": "car-bmw-m2-cs-racing.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/BMW-M2-CS-Racing-1080x608.jpg",
+      "brand": "BMW",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Caterham Seven Academy Racer",
+      "aliases": [
+        "Caterham Seven Academy Racer"
+      ],
+      "file": "car-caterham-seven-academy-racer.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Caterham-Academy-1080x608.jpg",
+      "brand": "Caterham",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Ferrari 296 GT3",
+      "aliases": [
+        "Ferrari 296 GT3"
+      ],
+      "file": "car-ferrari-296-gt3.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-296-GT3-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "racing",
+      "group": "gt3"
+    },
+    {
+      "name": "Ferrari 488 Challenge Evo (2021)",
+      "aliases": [
+        "Ferrari 488 Challenge Evo"
+      ],
+      "file": "car-ferrari-488-challenge-evo.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-488-Challenge-Evo-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Ferrari F40 LM (1993)",
+      "aliases": [
+        "Ferrari F40 LM"
+      ],
+      "file": "car-ferrari-f40-lm.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-F40-LM-ACE_EA_04-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "racing",
+      "group": "racing"
+    },
+    {
+      "name": "Ferrari F2004",
+      "aliases": [
+        "Ferrari F2004"
+      ],
+      "file": "car-ferrari-f2004.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-F2004-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "racing",
+      "group": "formula"
+    },
+    {
+      "name": "Ferrari SF-25 (2025)",
+      "aliases": [
+        "Ferrari SF-25"
+      ],
+      "file": "car-ferrari-sf-25.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ferrari-SF-25-ACE_EA_04-1080x608.jpg",
+      "brand": "Ferrari",
+      "category": "racing",
+      "group": "formula"
+    },
+    {
+      "name": "Ford Mustang GT3",
+      "aliases": [
+        "Ford Mustang GT3"
+      ],
+      "file": "car-ford-mustang-gt3.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Ford-Mustang-GT3-1080x608.jpg",
+      "brand": "Ford",
+      "category": "racing",
+      "group": "gt3"
+    },
+    {
+      "name": "KTM X-BOW GT2",
+      "aliases": [
+        "KTM X-BOW GT2"
+      ],
+      "file": "car-ktm-x-bow-gt2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/KTM-X-BOW-GT2-1-1080x608.jpg",
+      "brand": "KTM",
+      "category": "racing",
+      "group": "gt2"
+    },
+    {
+      "name": "KTM X-BOW GT4",
+      "aliases": [
+        "KTM X-BOW GT4"
+      ],
+      "file": "car-ktm-x-bow-gt4.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/KTM-X-BOW-GT4-1080x608.jpg",
+      "brand": "KTM",
+      "category": "racing",
+      "group": "gt4"
+    },
+    {
+      "name": "Lamborghini Huracán Super Trofeo EVO2",
+      "aliases": [
+        "Lamborghini Huracán Super Trofeo EVO2",
+        "Lamborghini Huracan Super Trofeo EVO2"
+      ],
+      "file": "car-lamborghini-huracan-super-trofeo-evo2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Lamborghini-Huracan-ST-EVO-II-1080x608.jpg",
+      "brand": "Lamborghini",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Maserati GT2 (2023)",
+      "aliases": [
+        "Maserati GT2"
+      ],
+      "file": "car-maserati-gt2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Maserati-MC-20-GT2-1080x608.jpg",
+      "brand": "Maserati",
+      "category": "racing",
+      "group": "gt2"
+    },
+    {
+      "name": "Mazda MX5 ND Cup (2017)",
+      "aliases": [
+        "Mazda MX5 ND Cup"
+      ],
+      "file": "car-mazda-mx5-nd-cup.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mazda-MX5-ND-Cup-1080x608.jpg",
+      "brand": "Mazda",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Mercedes-AMG GT2 (2023)",
+      "aliases": [
+        "Mercedes-AMG GT2"
+      ],
+      "file": "car-mercedes-amg-gt2.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Mercedes-Benz-AMG-GT2-1080x608.jpg",
+      "brand": "Mercedes-Benz / AMG",
+      "category": "racing",
+      "group": "gt2"
+    },
+    {
+      "name": "Porsche 718 Cayman GT4 Clubsport",
+      "aliases": [
+        "Porsche 718 Cayman GT4 Clubsport"
+      ],
+      "file": "car-porsche-718-cayman-gt4-clubsport.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-718-Cayman-GT4-Clubsport-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "racing",
+      "group": "gt4"
+    },
+    {
+      "name": "Porsche 935",
+      "aliases": [
+        "Porsche 935"
+      ],
+      "file": "car-porsche-935.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-935-1-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "racing",
+      "group": "racing"
+    },
+    {
+      "name": "Porsche 911 GT3 Cup [992] (2021)",
+      "aliases": [
+        "Porsche 911 GT3 Cup [992]"
+      ],
+      "file": "car-porsche-911-gt3-cup-992.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-992-GT3-Cup-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "racing",
+      "group": "cup"
+    },
+    {
+      "name": "Porsche 991II GT2 RS Clubsport Evo",
+      "aliases": [
+        "Porsche 991II GT2 RS Clubsport Evo"
+      ],
+      "file": "car-porsche-991ii-gt2-rs-clubsport-evo.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-991II-GT2-RS-Clubsport-Evo-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "racing",
+      "group": "gt2"
+    },
+    {
+      "name": "Porsche 992 GT3 R Rennsport",
+      "aliases": [
+        "Porsche 992 GT3 R Rennsport"
+      ],
+      "file": "car-porsche-992-gt3-r-rennsport.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Porsche-992-GT3-R-Rennsport-1080x608.jpg",
+      "brand": "Porsche",
+      "category": "racing",
+      "group": "gt3"
+    }
+  ],
+  "tracks": [
+    {
+      "name": "Bathurst",
+      "aliases": [
+        "Bathurst",
+        "Mount Panorama"
+      ],
+      "file": "track-bathurst.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/2-19-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Bathurst",
+          "url": "https://assettocorsa.gg/wp-content/uploads/bathurst.svg",
+          "file": "layout-bathurst-bathurst.png",
+          "raw_file": "layout-bathurst-bathurst.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Brands Hatch",
+      "aliases": [
+        "Brands Hatch"
+      ],
+      "file": "track-brands-hatch.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/3-21-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/brands-hatch-n.svg",
+          "file": "layout-brands-hatch-brands-hatch.png",
+          "raw_file": "layout-brands-hatch-brands-hatch.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Indy",
+          "source": "https://www.brandshatch.co.uk/about/circuit-layouts",
+          "url": "https://msvstatic.blob.core.windows.net/high-res/8715b2ad-fc61-48f0-b758-cbd0aeff0c90.jpg",
+          "file": "layout-brands-hatch-indy.jpg",
+          "diagram": true,
+          "diagram_tint": false,
+          "layout_source": "https://acevo.gg/events/20067/results?race_id=154809&round_id=58706"
+        }
+      ]
+    },
+    {
+      "name": "Circuit of the Americas",
+      "aliases": [
+        "Circuit of the Americas"
+      ],
+      "file": "track-circuit-of-the-americas.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/V2-COTA-8-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/cota.svg",
+          "file": "layout-circuit-of-the-americas-circuit-of-the-americas.png",
+          "raw_file": "layout-circuit-of-the-americas-circuit-of-the-americas.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "National",
+          "map_status": "unavailable",
+          "source": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1799088287801014",
+          "layout_source": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1799088287801014"
+        }
+      ]
+    },
+    {
+      "name": "Donington Park",
+      "aliases": [
+        "Donington Park"
+      ],
+      "file": "track-donington-park.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/DONINGTON-2-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/donington.svg",
+          "file": "layout-donington-park-donington-park.png",
+          "raw_file": "layout-donington-park-donington-park.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "National",
+          "source": "https://www.donington-park.co.uk/about/circuit-layouts",
+          "url": "https://msvstatic.blob.core.windows.net/high-res/f9660de4-0a3f-4155-9938-7f3ccd8d827a.jpg",
+          "file": "layout-donington-park-national.jpg",
+          "diagram": true,
+          "diagram_tint": false,
+          "layout_source": "https://steamstore-a.akamaihd.net/news/externalpost/steam_community_announcements/1799088287801014"
+        }
+      ]
+    },
+    {
+      "name": "Fuji Speedway",
+      "aliases": [
+        "Fuji Speedway"
+      ],
+      "file": "track-fuji-speedway.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/FUJI-GP-6-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/fuji.svg",
+          "file": "layout-fuji-speedway-fuji-speedway.png",
+          "raw_file": "layout-fuji-speedway-fuji-speedway.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "GP Short",
+          "map_status": "unavailable",
+          "source": "https://acevo.gg/events/20200/results?race_id=135928&round_id=54085",
+          "layout_source": "https://acevo.gg/events/20200/results?race_id=135928&round_id=54085"
+        }
+      ]
+    },
+    {
+      "name": "Imola",
+      "aliases": [
+        "Imola"
+      ],
+      "file": "track-imola.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/5-24-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Imola",
+          "url": "https://assettocorsa.gg/wp-content/uploads/imola.svg",
+          "file": "layout-imola-imola.png",
+          "raw_file": "layout-imola-imola.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Kyalami Grand Prix",
+      "aliases": [
+        "Kyalami Grand Prix"
+      ],
+      "file": "track-kyalami-grand-prix.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Kyalami-11-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Kyalami Grand Prix",
+          "url": "https://assettocorsa.gg/wp-content/uploads/kyalami-gp-ok.svg",
+          "file": "layout-kyalami-grand-prix-kyalami-grand-prix.png",
+          "raw_file": "layout-kyalami-grand-prix-kyalami-grand-prix.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Laguna Seca",
+      "aliases": [
+        "Laguna Seca"
+      ],
+      "file": "track-laguna-seca.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/7-1-8-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Laguna Seca",
+          "url": "https://assettocorsa.gg/wp-content/uploads/laguna.svg",
+          "file": "layout-laguna-seca-laguna-seca.png",
+          "raw_file": "layout-laguna-seca-laguna-seca.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Monza",
+      "aliases": [
+        "Monza"
+      ],
+      "file": "track-monza.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Monza-1-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Monza",
+          "url": "https://assettocorsa.gg/wp-content/uploads/monza-gp.svg",
+          "file": "layout-monza-monza.png",
+          "raw_file": "layout-monza-monza.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Nurburgring",
+      "aliases": [
+        "Nurburgring",
+        "Nürburgring",
+        "Nurburgring GP"
+      ],
+      "file": "track-nurburgring.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nurburgring-Nurb-GP-Strecke-2-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Nurburgring GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/nurburgring-gp-white.svg",
+          "file": "layout-nurburgring-nurburgring-gp.png",
+          "raw_file": "layout-nurburgring-nurburgring-gp.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Nurburgring Sprint",
+          "url": "https://assettocorsa.gg/wp-content/uploads/nurburgring-spint-white.svg",
+          "file": "layout-nurburgring-nurburgring-sprint.png",
+          "raw_file": "layout-nurburgring-nurburgring-sprint.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Nurburgring 24h",
+      "aliases": [
+        "Nurburgring 24h"
+      ],
+      "file": "track-nurburgring-24h.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nurburgring-Nurb24H-1-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Nurburgring 24h",
+          "url": "https://assettocorsa.gg/wp-content/uploads/NBR24h-ok.svg",
+          "file": "layout-nurburgring-24h-nurburgring-24h.png",
+          "raw_file": "layout-nurburgring-24h-nurburgring-24h.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Nordschleife",
+      "aliases": [
+        "Nordschleife"
+      ],
+      "file": "track-nordschleife.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nurburgring-Nordschleife-14-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Nordschleife",
+          "url": "https://assettocorsa.gg/wp-content/uploads/Nordschleife-white.svg",
+          "file": "layout-nordschleife-nordschleife.png",
+          "raw_file": "layout-nordschleife-nordschleife.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Nordschleife Touristenfahrten",
+          "url": "https://assettocorsa.gg/wp-content/uploads/Nordschleife-Touristenfahrten-white.svg",
+          "file": "layout-nordschleife-nordschleife-touristenfahrten.png",
+          "raw_file": "layout-nordschleife-nordschleife-touristenfahrten.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Oulton Park",
+      "aliases": [
+        "Oulton Park"
+      ],
+      "file": "track-oulton-park.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Oulton-Park-1-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Oulton Park GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/oulton_park-GP-white.svg",
+          "file": "layout-oulton-park-oulton-park-gp.png",
+          "raw_file": "layout-oulton-park-oulton-park-gp.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Oulton Park Fosters",
+          "url": "https://assettocorsa.gg/wp-content/uploads/oulton_park-fosters-white.svg",
+          "file": "layout-oulton-park-oulton-park-fosters.png",
+          "raw_file": "layout-oulton-park-oulton-park-fosters.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Paul Ricard",
+      "aliases": [
+        "Paul Ricard"
+      ],
+      "file": "track-paul-ricard.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/ACE-EA05-Paul-Ricard-19-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "1C-V2",
+          "url": "https://assettocorsa.gg/wp-content/uploads/paul_ricard-1C_V2.svg",
+          "file": "layout-paul-ricard-1c-v2.png",
+          "raw_file": "layout-paul-ricard-1c-v2.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "1A-V2",
+          "url": "https://assettocorsa.gg/wp-content/uploads/paul_ricard-1A_V2.svg",
+          "file": "layout-paul-ricard-1a-v2.png",
+          "raw_file": "layout-paul-ricard-1a-v2.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "3A",
+          "url": "https://assettocorsa.gg/wp-content/uploads/paul_ricard-3A.svg",
+          "file": "layout-paul-ricard-3a.png",
+          "raw_file": "layout-paul-ricard-3a.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "3C",
+          "url": "https://assettocorsa.gg/wp-content/uploads/paul_ricard-3C.svg",
+          "file": "layout-paul-ricard-3c.png",
+          "raw_file": "layout-paul-ricard-3c.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Red Bull Ring",
+      "aliases": [
+        "Red Bull Ring"
+      ],
+      "file": "track-red-bull-ring.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/REDBULL-RING-17-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/austria-n.svg",
+          "file": "layout-red-bull-ring-red-bull-ring.png",
+          "raw_file": "layout-red-bull-ring-red-bull-ring.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "National",
+          "map_status": "unavailable",
+          "source": "https://acevo.gg/events/20067/results?race_id=160618&round_id=59417",
+          "layout_source": "https://acevo.gg/events/20067/results?race_id=160618&round_id=59417"
+        }
+      ]
+    },
+    {
+      "name": "Road Atlanta",
+      "aliases": [
+        "Road Atlanta"
+      ],
+      "file": "track-road-atlanta.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Road-Atlanta-2-ACE_EA_04-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Road Atlanta",
+          "url": "https://assettocorsa.gg/wp-content/uploads/road_atalanta-GP.svg",
+          "file": "layout-road-atlanta-road-atlanta.png",
+          "raw_file": "layout-road-atlanta-road-atlanta.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Sebring",
+      "aliases": [
+        "Sebring"
+      ],
+      "file": "track-sebring.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/SEBRING-7-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "Sebring",
+          "url": "https://assettocorsa.gg/wp-content/uploads/sebring_international_raceway-gp-black.svg",
+          "file": "layout-sebring-sebring.png",
+          "raw_file": "layout-sebring-sebring.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "SPA Francorchamps",
+      "aliases": [
+        "Spa Francorchamps",
+        "Spa",
+        "Spa-Francorchamps"
+      ],
+      "file": "track-spa-francorchamps.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/SPA-49-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "SPA Francorchamps",
+          "url": "https://assettocorsa.gg/wp-content/uploads/spa-n.svg",
+          "file": "layout-spa-francorchamps-spa-francorchamps.png",
+          "raw_file": "layout-spa-francorchamps-spa-francorchamps.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Suzuka",
+      "aliases": [
+        "Suzuka"
+      ],
+      "file": "track-suzuka.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/1-1-3-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/suzuka.svg",
+          "file": "layout-suzuka-suzuka.png",
+          "raw_file": "layout-suzuka-suzuka.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "East",
+          "map_status": "unavailable",
+          "source": "https://acevo.gg/events/20067/results?race_id=137796&round_id=54412",
+          "layout_source": "https://acevo.gg/events/20067/results?race_id=137796&round_id=54412"
+        },
+        {
+          "name": "West",
+          "map_status": "unavailable",
+          "source": "https://acevo.gg/events/20067/results?race_id=137818&round_id=54412",
+          "layout_source": "https://acevo.gg/events/20067/results?race_id=137818&round_id=54412"
+        }
+      ]
+    },
+    {
+      "name": "Watkins Glen",
+      "aliases": [
+        "Watkins Glen"
+      ],
+      "file": "track-watkins-glen.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/ACE-EA05-Watkins-Glen-1-1080x608.jpg",
+      "configurations": [
+        {
+          "name": "GP",
+          "url": "https://assettocorsa.gg/wp-content/uploads/watkins_glen-gp.svg",
+          "file": "layout-watkins-glen-gp.png",
+          "raw_file": "layout-watkins-glen-gp.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "GP + Inner Loop",
+          "url": "https://assettocorsa.gg/wp-content/uploads/watkins_glen-gp_inner_loop.svg",
+          "file": "layout-watkins-glen-gp-inner-loop.png",
+          "raw_file": "layout-watkins-glen-gp-inner-loop.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Short",
+          "url": "https://assettocorsa.gg/wp-content/uploads/watkins_glen-short.svg",
+          "file": "layout-watkins-glen-short.png",
+          "raw_file": "layout-watkins-glen-short.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        },
+        {
+          "name": "Short + Inner Loop",
+          "url": "https://assettocorsa.gg/wp-content/uploads/watkins_glen-short_inner_loop.svg",
+          "file": "layout-watkins-glen-short-inner-loop.png",
+          "raw_file": "layout-watkins-glen-short-inner-loop.svg",
+          "type": "svg",
+          "diagram": true,
+          "source": "https://assettocorsa.gg/assetto-corsa-evo/"
+        }
+      ]
+    },
+    {
+      "name": "Nurburgring",
+      "aliases": [
+        "Nürburgring",
+        "Nordschleife"
+      ],
+      "layouts": [
+        "Touristenfahrten"
+      ],
+      "file": "track-touristenfahrten.jpg",
+      "url": "https://assettocorsa.gg/wp-content/uploads/Nurburgring-Touristenfahrten-2-ACE_EA_04-1080x608.jpg"
+    }
+  ],
+  "branding": [
+    {
+      "name": "Assetto Corsa EVO",
+      "url": "https://assettocorsa.gg/wp-content/uploads/ACEVO-logo-slim.svg",
+      "file": "brand-evo-light.png",
+      "raw_file": "brand-evo.svg",
+      "type": "svg",
+      "light_logo": true
+    }
+  ]
+}

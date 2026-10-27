@@ -4,6 +4,7 @@ from hud_layouts import KINDS,SIZES,defaults,normalize
 
 
 def visible(app,kind,fallback=True):
+    if getattr(app,'simulator','lmu')=='ac_evo' and kind!='main':return False
     return bool(getattr(app,'layout_visibility',{}).get(kind,fallback)) and not getattr(app,'silent_recording',False) and not getattr(app,'presentation_hidden',False)
 
 

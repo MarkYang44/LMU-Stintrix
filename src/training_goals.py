@@ -10,8 +10,9 @@ from race_model import read_json
 from lap_identity import text,same_layout,vehicle_class
 from record_history import dated
 from training_report import selected_profiles,profile_index,measure
-from condition_match import match,settings
+from condition_match import matcher,settings
 from analysis_scope import check as scope_check
+from training_cache import catalogued
 
 def create(root,report,zone):
     root=Path(root).resolve();reference=report['reference'];entry=report['entry']
@@ -31,6 +32,7 @@ def goals(root):
         if v.get('version')==1 and v.get('status')=='active':values.append(v)
     return sorted(values,key=lambda v:v['created_utc'],reverse=True)
 
+@catalogued
 def evaluate(root,goal):
     from race_mode import overlay,annotate
     from session_groups import superseded
@@ -40,6 +42,7 @@ def evaluate(root,goal):
         if path.parent!=base:raise ValueError('Invalid goal')
         goal=read_json(path,{})
     entry=goal['entry'];p=settings(goal['policy']);modes=overlay(root);hidden=superseded(root);after=dated(goal['created_utc']);reference=goal['reference'];target=measure(reference,goal['zone']);groups=[];errors=[];seen={};conflicts=set()
+    accept=matcher(reference['conditions'],p)
     for category in ('Logs','ImportedLogs','RecoveredLogs'):
         for path in (root/category).glob('*/session.json'):
             folder=path.parent.resolve()
@@ -54,7 +57,7 @@ def evaluate(root,goal):
                 allowed={};unknown=set(scope['unknown'])
                 for lap in profile_index(root,folder)['laps']:
                     if not same_layout(dict(session=entry['session'],lap=dict(track_length_m=entry['length_m'])),dict(session=meta,lap=dict(track_length_m=lap['length_m']))):continue
-                    c=match(reference['conditions'],lap['conditions'],p)
+                    c=accept(lap['conditions'])
                     if c['allowed']:allowed[lap['number']]=lap;unknown.update(c['unknown'])
                 values=[]
                 for lap in selected_profiles(root,folder,set(allowed)):

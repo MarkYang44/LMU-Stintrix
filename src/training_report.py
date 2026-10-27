@@ -5,7 +5,7 @@ from laps import extract_best,comparison_data,write_json
 from lap_identity import text,same_layout,vehicle_class
 from sessionlab import lap_conditions,condition_check
 from i18n import tr
-from training_cache import serialized
+from training_cache import serialized,catalogued
 
 
 def interpolate(rows,d):
@@ -31,6 +31,7 @@ def lap_profile(best,data=None,conditions=None):
 
 
 @serialized
+@catalogued
 def profiles(root,folder):
     path=cache_path(root,folder)
     if path.is_file():
@@ -56,6 +57,7 @@ def profiles(root,folder):
 
 
 @serialized
+@catalogued
 def profile_index(root,folder):
     path=cache_path(root,folder).with_name('index.json')
     if not path.is_file():
@@ -107,13 +109,23 @@ def measure(lap,zone):
     brake=next((r[0] for r in part if r[0]<=zone['apex'] and r[3]>=.05),None)
     after=[r for r in part if r[0]>=zone['apex']]
     full=None
-    for i,row in enumerate(after):
-        tail=[r for r in after[i:] if r[0]<=row[0]+12]
-        if row[2]>=.9 and after[-1][0]>=row[0]+12 and all(r[2]>=.9 for r in tail):full=row[0];break
+    if all(x[0]<=y[0] for x,y in zip(after,after[1:])):
+        right=bad=0
+        for i,row in enumerate(after):
+            while right<len(after) and after[right][0]<=row[0]+12:
+                bad+=not (after[right][2]>=.9);right+=1
+            if row[2]>=.9 and after[-1][0]>=row[0]+12 and not bad:full=row[0];break
+            bad-=not (row[2]>=.9)
+    else:
+        # Preserve the historical behavior for externally supplied unsorted rows.
+        for i,row in enumerate(after):
+            tail=[r for r in after[i:] if r[0]<=row[0]+12]
+            if row[2]>=.9 and after[-1][0]>=row[0]+12 and all(r[2]>=.9 for r in tail):full=row[0];break
     from training_zones import feature_time
-    coast=feature_time(lap,zone,'coast')
+    duration=part[-1][1]-part[0][1]
+    coast=feature_time(lap,zone,'coast',expected=duration)
     if coast is None and not lap.get('features'):coast=sum(y[1]-x[1] for x,y in zip(part,part[1:]) if x[2]<.03 and x[3]<.03)
-    return dict(time_s=part[-1][1]-part[0][1],brake_m=brake,minimum_kmh=min(r[6] for r in part),full_m=full,coast_s=coast,abs_s=feature_time(lap,zone,'abs'),tc_s=feature_time(lap,zone,'tc'))
+    return dict(time_s=duration,brake_m=brake,minimum_kmh=min(r[6] for r in part),full_m=full,coast_s=coast,abs_s=feature_time(lap,zone,'abs',expected=duration),tc_s=feature_time(lap,zone,'tc',expected=duration))
 
 
 def aggregate(laps,reference,definitions=None):
@@ -136,11 +148,13 @@ def aggregate(laps,reference,definitions=None):
     return sorted(result,key=lambda v:v['score'],reverse=True)
 
 
+@catalogued
 def report(root,entry,policy=None):
-    from condition_match import settings,match
+    from condition_match import settings,matcher
     from analysis_scope import check as scope_check
     from race_mode import overlay,annotate
     policy=settings(policy);modes=overlay(root)
+    accept=matcher(entry.get('conditions',{}),policy)
     root=Path(root).resolve();anchor=dict(session=entry['session'],lap=entry['lap']);accepted=[];excluded=0;different=0;unknown=set();errors=[];seen={};conflicts=set()
     from session_groups import superseded
     hidden=superseded(root)
@@ -162,7 +176,7 @@ def report(root,entry,policy=None):
                 for lap in value['laps']:
                     candidate=dict(session=meta,lap=dict(track_length_m=lap['length_m']))
                     if not same_layout(anchor,candidate):continue
-                    check=match(entry.get('conditions',{}),lap['conditions'],policy)
+                    check=accept(lap['conditions'])
                     if not check['allowed']:different+=1;continue
                     identity=(meta.get('started_utc') or str(folder),text(meta.get('driver')),text(meta.get('vehicle')),scope['mode'],scope['phase'],lap['number'])
                     signature=(lap['time_s'],lap['length_m'],json.dumps(lap['conditions'],sort_keys=True))
@@ -178,9 +192,9 @@ def report(root,entry,policy=None):
     reference=min(accepted,key=lambda lap:lap['time_s'])
     # Also compare each candidate with the actual fastest reference. Tolerance
     # chains must not allow 4 L fuel / 10 C weather differences through anchor.
-    matched=[]
+    matched=[];accept_reference=matcher(reference['conditions'],policy)
     for lap in accepted:
-        check=match(reference['conditions'],lap['conditions'],policy)
+        check=accept_reference(lap['conditions'])
         if check['allowed']:matched.append(lap);unknown.update(check['unknown'])
         else:different+=1
     if len(matched)<4:raise ValueError(tr('与实际参考圈条件接近的有效圈不足 4 圈；当前可用 ')+str(len(matched))+tr(' 圈'))

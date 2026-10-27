@@ -43,7 +43,11 @@ class HistoryPage(RecordPage):
         self.exporter=getattr(app,'history_curve_export',None) or CurveExport(app);app.history_curve_export=self.exporter
         actions=self.row(chart_body);actions.pack_configure(before=self.chart);self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:self.selected is not None and not self.exporter.busy,True)
         self.button(actions,'folder','打开赛事目录',lambda:self.open(self.selected['folder']),lambda:self.selected is not None)
-        self.button(actions,'card','生成个人战绩卡',self.card,lambda:self.selected is not None);self.button(actions,'comparable','同条件进步分析',self.comparable,lambda:self.selected is not None)
+        self.button(actions,'card','生成个人战绩卡',self.card,lambda:self.selected is not None)
+        from simulator_profiles import capabilities
+        supported=capabilities(getattr(app,'simulator','lmu'))
+        if supported.selected_laps:self.button(actions,'lap-pair','圈 A / 圈 B',self.lap_pair,lambda:self.selected is not None)
+        if supported.training:self.button(actions,'comparable','同条件进步分析',self.comparable,lambda:self.selected is not None)
         self.button(actions,'reopen','打开上次曲线',lambda:self.exporter.open(self),lambda:bool(self.exporter.path) and not self.exporter.busy);self.button(actions,'export-folder','打开导出目录',lambda:self.open(Path(self.exporter.path).parent),lambda:bool(self.exporter.path) and not self.exporter.busy)
         self.saved=self.variable('saved');self.saved_frame=tk.Frame(chart_body,bg=T.CARD);self.report_caption=app.label(self.saved_frame,'',9,T.MUTED);self.report_caption.pack(fill='x',pady=4);self.report_caption.bind('<Configure>',lambda e:self.report_caption.configure(wraplength=max(100,e.width)))
         entry=tk.Entry(self.saved_frame,textvariable=self.saved,state='readonly',readonlybackground=T.FIELD,bg=T.FIELD,fg=T.FG,selectbackground=T.SELECT,selectforeground=T.FG,font=(T.FONT,9),relief='flat');entry.pack(fill='x',pady=4);entry.bind('<Control-a>',lambda _:(entry.selection_range(0,'end'),'break')[1])
@@ -60,6 +64,7 @@ class HistoryPage(RecordPage):
         rows=[]
         for i,e in self.modes.pairs(self.entries,self.query.get()):
             gain=e['improvement_s'];rows.append((str(i),e,(e['observed_utc'][:19].replace('T',' '),display(e['track']),layout(e['track'],e['layout'],e['length_m']),e['vehicle_class'],tr(LABELS[mode(e)]),e['session'].get('vehicle',''),e['lap']['number'],lap_time(e['time_s']),tr('首次记录') if gain is None else f'-{gain:.3f} s')))
+        self.table.viewport.configure(height=round(min(5,max(2,len(rows)))*self.table.rowheight))
         self.count.set(len(rows));self.populate(rows)
     def render_selection(self):
         e=self.selected;self.modes.describe(e)
@@ -78,6 +83,10 @@ class HistoryPage(RecordPage):
     def card(self):
         from control_achievement import show
         show(self.app,self.selected)
+    def lap_pair(self):
+        if self.selected is None:return
+        from control_lap_pair import show
+        show(self.app,self.app.data_path,[Path(self.selected['folder'])])
     def comparable(self):
         from control_comparable import show
         show(self.app,self.selected)

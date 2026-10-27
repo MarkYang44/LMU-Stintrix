@@ -1,10 +1,14 @@
 """Shared application paths, CSV schema and presentation constants."""
 from paths import ASSETS, data_directory
+from simulators import root_identity,initialize
 
 ROOT = data_directory()
+SIMULATOR = root_identity(ROOT)
+if SIMULATOR=='ac_evo':initialize(ROOT.parent.parent,SIMULATOR)
 ROOT.mkdir(parents=True,exist_ok=True)
 COLORS = ('#34e59a', '#ff596b', '#52b5ff')
 INPUT_CHANNELS = {'raw': (1, '原始'), 'filtered': (10, '游戏过滤后')}
+if SIMULATOR=='ac_evo':INPUT_CHANNELS={'raw':(1,'EVO 物理输入'),'filtered':(10,'EVO 仪表输入')}
 POLL_HZ = DRAW_HZ = 120
 COLUMNS = ('time_s', 'utc', 'session_time_s', 'lap', 'lap_distance_m', 'throttle', 'brake',
            'steering', 'filtered_throttle', 'filtered_brake', 'filtered_steering', 'speed_kmh',

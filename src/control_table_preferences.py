@@ -33,7 +33,7 @@ def install(app,table,key,filters=None,frozen=None):
     defaults=dict(visible=list(table.columns),frozen=[k for k in (frozen if frozen is not None else ('date','track')) if k in table.columns],widths={k:round(v/table.s,2) for k,v in table.widths.items()})
     def apply(value):table.configure_columns(value['visible'],value['frozen'],{k:v*table.s for k,v in value['widths'].items()})
     from control_table_layouts import compact,install as install_layouts
-    initial=compact(table,defaults) if key=='review' else defaults
+    initial=compact(table,defaults) if key in ('review','history') else defaults
     try:apply(checked(load(app.data_path)['tables'].get(key,initial),table))
     except (OSError,ValueError) as error:app.status.set(tr(str(error)))
     def persist(value,previous=None):

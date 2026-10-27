@@ -93,7 +93,8 @@ class Shell:
         self.navigation=Navigation(side,names,command);self.navigation.pack(fill='x',padx=round(16*s))
         foot=tk.Frame(side,bg=T.RAIL);foot.pack(side='bottom',fill='x',padx=round(25*s),pady=round(26*s))
         Label(foot,text='●  LOCAL & PRIVATE',bg=T.RAIL,fg=T.ACCENT,font=('Segoe UI',9,'bold'),anchor='w').pack(fill='x')
-        Label(foot,text='排位 / 正赛自动记录\n练习完整记录可在设置中开启',bg=T.RAIL,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left',pady=12,wraplength=self.rail_width-round(50*s)).pack(fill='x')
+        from app_config import SIMULATOR
+        Label(foot,text='计时赛 / 正赛自动记录\n练习与巡航可在设置中开启' if SIMULATOR=='ac_evo' else '排位 / 正赛自动记录\n练习完整记录可在设置中开启',bg=T.RAIL,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left',pady=12,wraplength=self.rail_width-round(50*s)).pack(fill='x')
         self.footer=foot;side.bind('<Configure>',self.layout_sidebar)
         self.main=main=tk.Frame(root,bg=T.BG);main.pack(side='left',fill='both',expand=True,padx=round(28*s),pady=(round(26*s),round(14*s)))
         self.motion=Motion(main)
@@ -146,7 +147,9 @@ class Shell:
             self.logo=ImageTk.PhotoImage(ImageOps.contain(self.logo_source,(max(1,width),round(101*s))),master=self.root);self.logo_width=width
         if self.logo:c.create_image(0,0,image=self.logo,anchor='nw')
         if not self.logo:c.create_text(0,82*s,text='Stintrix',font=self.brand_font,fill=T.FG,anchor='w')
-        c.create_text(1*s,114*s,text='LE MANS ULTIMATE',font=('Segoe UI',9,'bold'),fill=T.MUTED,anchor='w')
+        from app_config import SIMULATOR
+        from simulators import GAMES
+        c.create_text(1*s,114*s,text=GAMES[SIMULATOR].upper(),font=('Segoe UI',9,'bold'),fill=T.MUTED,anchor='w')
         right=c.winfo_width()
         line=(132 if self.compact else 153)*s
         c.create_line(0,line,right,line,fill=T.EDGE);c.create_line(0,line,44*s,line,fill=T.ACCENT,width=2*s)

@@ -14,13 +14,17 @@ def hint(app,parent,text):
 
 
 def build(app):
-    sections=TaskSections(app,[('video','视频分析'),('packages','赛事包'),('storage','报告与存储'),('renderer','外部生成器')],'data_section');app.data_tasks=sections;outer=app.content
+    from simulator_profiles import profile
+    game=profile(getattr(app,'simulator','lmu'));supported=game.capabilities
+    items=([('video','视频分析')] if supported.video_analysis else [])+[('packages','赛事包'),('storage','报告与存储'),('renderer','外部生成器')]
+    sections=TaskSections(app,items,'data_section');app.data_tasks=sections;outer=app.content
     try:
-        app.content=sections.frames['video']
-        body=app.card('视频提取油刹曲线','三种输入：普通 POV、距离与计时 HUD、视频与同圈遥测；估算结果单独保存')
-        from control_video import show as video_analysis
-        from control_video_results import show as recent_videos
-        actions=app.row(body);install(actions);app.button(actions,'视频分析与标定',lambda:video_analysis(app,app.data_path),True,190);app.button(actions,'最近提取结果',lambda:recent_videos(app,app.data_path),False,170)
+        if supported.video_analysis:
+            app.content=sections.frames['video']
+            body=app.card('视频提取油刹曲线','三种输入：普通 POV、距离与计时 HUD、视频与同圈遥测；估算结果单独保存')
+            from control_video import show as video_analysis
+            from control_video_results import show as recent_videos
+            actions=app.row(body);install(actions);app.button(actions,'视频分析与标定',lambda:video_analysis(app,app.data_path),True,190);app.button(actions,'最近提取结果',lambda:recent_videos(app,app.data_path),False,170)
         app.content=sections.frames['packages'];body=app.card('',compact=True)
         import archive_preferences
         preferences=archive_preferences.load(app.data_path);app.archive_format=tk.StringVar(app.root,value='ZIP' if preferences['format']=='zip' else '7z');app.archive_verify=tk.BooleanVar(app.root,value=preferences['verify'])
@@ -57,7 +61,7 @@ def build(app):
         body=app.card('报告与缓存维护','分步重试失败报告，查看缓存与用户导出文件占用',compact=True)
         from control_maintenance import reports,caches
         actions=app.row(body);install(actions);app.button(actions,'报告任务与分步重试',lambda:reports(app),False,190);app.button(actions,'缓存与导出文件',lambda:caches(app),False,175)
-        app.content=sections.frames['renderer'];body=app.card('RaceCom 原版图像','直接调用你自己的 Image Generate.exe；原版版式、字体、颜色与车辆校准保留')
+        app.content=sections.frames['renderer'];body=app.card('RaceCom 原版图像','复用 LMU 已配置的原版引擎；EVO 标识和图片目录独立。' if game.catalogue=='official' else '直接调用你自己的 Image Generate.exe；原版版式、字体、颜色与车辆校准保留')
         from control_renderer import RendererEditor
         app.renderer_editor=RendererEditor(app,body)
     finally:app.content=outer

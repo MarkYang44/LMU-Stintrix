@@ -2,7 +2,7 @@
 import time
 
 def report_snapshot(report):
-    labels={'queued':'记录已保存 · 等待生成报告','building':'记录已保存 · 正在生成报告','deferred':'记录已保存 · 报告等待可用内存','ready':'记录与报告已保存','error':'记录已保存 · 报告生成失败','partial':'记录已保存 · 部分分析或图片未生成'}
+    labels={'queued':'记录已保存 · 等待生成报告','building':'记录已保存 · 正在生成报告','deferred':'记录已保存 · 报告等待后台处理','ready':'记录与报告已保存','error':'记录已保存 · 报告生成失败','partial':'记录已保存 · 部分分析或图片未生成'}
     labels['incomplete']='记录已保存 · 报告尚未完成'
     if report not in labels:return None
     return dict(state='error' if report in ('error','partial','incomplete') else 'building' if report in ('queued','building','deferred') else 'saved',text=labels[report],gaps=None)

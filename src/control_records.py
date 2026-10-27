@@ -21,8 +21,16 @@ from control_motion import Motion,blend
 def show(app):
     """Sibling views share the existing personal-records navigation entry."""
     outer=app.content;row=app.row(outer);indicator=TabIndicator(outer);indicator.pack(fill='x');view=tk.Frame(outer,bg=T.BG);view.pack(fill='x')
+    from simulator_profiles import capabilities
+    supported=capabilities(getattr(app,'simulator','lmu'))
+    choices=[('best','赛道最快圈')]
+    if supported.official_results:choices.append(('podium','领奖台记录'))
+    if supported.record_history:choices.append(('history','纪录履历'))
+    if supported.official_results:choices.append(('official','官方战绩'))
     buttons=[];selected=getattr(app,'personal_record_view','best')
+    if selected not in dict(choices):selected='best'
     def mount(kind):
+        if kind not in dict(choices):return
         if getattr(view,'mounted',None)==kind:return
         token=app.shell.cover_page() if app.pages.building is None and not app.shell.covering else None
         browser=getattr(view,'record_browser',None)
@@ -51,8 +59,9 @@ def show(app):
         app.scroll.yview_moveto(0)
         if app.pages.building is None:app.install_toolbar()
         if token is not None:app.shell.reveal_page(token)
-    for kind,label in (('best','赛道最快圈'),('podium','领奖台记录'),('history','纪录履历'),('official','官方战绩')):
+    for kind,label in choices:
         buttons.append((kind,app.button(row,label,lambda k=kind:mount(k),kind==selected,155)))
+    app.personal_record_tabs=dict(buttons)
     mount(selected)
 
 

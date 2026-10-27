@@ -32,6 +32,12 @@ The STX app and menu artwork in src/branding/stx-app.png, stx-menu.png and stx-m
 
 The charcoal, warm off-white and yellow-green palettes reference [MarkYang44/Endfield-Charge](https://github.com/MarkYang44/Endfield-Charge), particularly its `HUDView.swift` and `SettingsWindowController.swift` colours. The Stintrix widgets and short transitions are independently implemented. Endfield branding artwork and code are not copied. Stintrix is not affiliated with Arknights: Endfield or its rights holders; underlying trademarks remain with their respective owners.
 
+## EVO official artwork and SVG rendering
+
+EVO catalogue photos, circuit layout vectors and the full game mark are obtained from the [official Assetto Corsa EVO website](https://assettocorsa.gg/assetto-corsa-evo/) only when the user requests a download. The additional Brands Hatch Indy and Donington National maps come from their respective [Brands Hatch](https://www.brandshatch.co.uk/about/circuit-layouts) and [Donington Park](https://www.donington-park.co.uk/about/circuit-layouts) operator pages (MotorSport Vision). They remain in private local data and are not included in the source or portable package. The catalogue retains each source URL. Raster previews preserve the official geometry; neutral vector lines are tinted for the selected theme, circuit operator maps retain their original colours, and the report mark uses a dark wordmark for light paper. Rights remain with KUNOS Simulazioni, 505 Games, MotorSport Vision and their respective owners; no endorsement is implied.
+
+The optional download conversion uses [resvg_py](https://github.com/baseplate-admin/resvg_py), MIT licensed, and the underlying [resvg](https://github.com/linebender/resvg), dual MIT / Apache-2.0 licensed. They are loaded for explicit SVG downloads rather than during telemetry capture. Their license texts are included in the portable package.
+
 ## GTD circuit guide and car catalog
 
 The Run & HUD card displays the LMU mark from the [official Le Mans Ultimate website](https://lemansultimate.com/wp-content/themes/motorsport-games/build/img/lm-logo.svg). The original vector paths are drawn by `src/lmu_mark.py`; the mark remains the property of its rights holders and does not imply endorsement.

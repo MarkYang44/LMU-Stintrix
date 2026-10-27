@@ -22,8 +22,9 @@ def show(app,entry):
     from control_analysis_policy import PolicyForm
     form=PolicyForm(p,app,policy)
     flags={key:p.variable(policy[key],True) for key in ('include_unknown','cross_mode','cross_phase')}
+    form.flags=flags
     from control_analysis_scope import options
-    advanced=options(app,body,flags,p.changed);p.editors.extend(advanced.switches)
+    advanced=options(app,body,flags,p.changed);p.editors.extend(advanced.editors);p.scope=advanced
     for var in flags.values():var.trace_add('write',p.changed)
     p.draft=lambda:{**{k:v.get() for k,v in form.inputs.items()},**{k:v.get() for k,v in flags.items()}};p.policy=lambda:form.read({k:v.get() for k,v in flags.items()});p.loading='正在按条件筛选有效圈…'
     from comparable_progress import analyse

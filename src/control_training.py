@@ -17,7 +17,7 @@ def show(app,entry):
     if not isinstance(saved,dict):saved={}
     policies={key:p.variable(bool(saved.get(key,False)),True) for key in ('include_unknown','cross_mode','cross_phase')}
     from control_analysis_scope import options
-    advanced=options(app,body,policies,p.schedule);p.editors.extend(advanced.switches)
+    advanced=options(app,body,policies,p.schedule);p.editors.extend(advanced.editors);p.scope=advanced
     for var in policies.values():var.trace_add('write',p.changed)
     from condition_match import settings
     p.draft=lambda:{k:v.get() for k,v in policies.items()};p.policy=lambda:settings(p.draft());p.preference=root/'PersonalRecords/training_settings.json'

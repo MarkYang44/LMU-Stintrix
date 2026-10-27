@@ -72,16 +72,21 @@ class BestPage(RecordPage):
         self.exporter=getattr(app,'best_curve_export',None) or CurveExport(app);app.best_curve_export=self.exporter
         ready=lambda:self.selected is not None
         self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:ready() and not self.exporter.busy,True)
-        self.button(actions,'training','训练优先级报告',self.training,ready)
+        evo=getattr(app,'simulator','lmu')=='ac_evo'
+        from simulator_profiles import capabilities
+        supported=capabilities(getattr(app,'simulator','lmu'))
+        if supported.training:self.button(actions,'training','训练优先级报告',self.training,ready)
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
         from control_action_menu import ActionMenu,MenuAction
         more=self.button(actions,'more','更多操作 ▾',lambda:self.menu.toggle())
         self.menu=ActionMenu(more,[
-            MenuAction('comparable','同条件进步分析',self.comparable,'分析与训练',ready),
-            MenuAction('goals','训练目标跟进',self.goals,'分析与训练'),
+            MenuAction('lap-pair','圈 A / 圈 B',self.lap_pair,'分析与训练',ready,visible=lambda:supported.selected_laps),
+            MenuAction('comparable','同条件进步分析',self.comparable,'分析与训练',ready,visible=lambda:supported.training),
+            MenuAction('goals','训练目标跟进',self.goals,'分析与训练',visible=lambda:supported.training),
             MenuAction('note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),'整理纪录',lambda:ready() and not self.loader.running),
             MenuAction('mode','更正参赛方式',self.correct_mode,'整理纪录',lambda:ready() and not self.loader.running),
             MenuAction('folder','打开赛事目录',lambda:self.open(self.selected['folder']),'整理纪录',ready),
+            MenuAction('delete-source','删除来源赛事',self.delete_source,'整理纪录',lambda:ready() and not self.loader.running and not self.exporter.busy,danger=True,visible=lambda:evo),
             MenuAction('reopen','打开上次曲线',lambda:self.exporter.open(self),'最近导出',lambda:bool(self.exporter.path) and not self.exporter.busy),
             MenuAction('export-folder','打开导出目录',lambda:self.open(Path(self.exporter.path).parent),'最近导出',lambda:bool(self.exporter.path))
         ],'纪录操作',lambda:self.track_title.cget('text')+' · '+self.time_label.cget('text'))
@@ -157,7 +162,7 @@ class BestPage(RecordPage):
 
     def render_selection(self):
         e=self.selected;self.state.update(data=None,error=None,loading=False);self.modes.describe(e)
-        vehicle=e['session'].get('vehicle','') if e else ''
+        vehicle=(e['session'].get('vehicle',''),e['track'],e['layout']) if e and getattr(self.app,'simulator','lmu')=='ac_evo' else e['session'].get('vehicle','') if e else ''
         if vehicle!=self.state['vehicle']:self.header.show_vehicle(vehicle);self.state['vehicle']=vehicle
         self.track_metrics.set();self.car_metrics.set()
         if e:
@@ -201,6 +206,11 @@ class BestPage(RecordPage):
     def refresh_key(self,_=None):
         if self.alive():self.refresh_records();return 'break'
 
+    def lap_pair(self):
+        if self.selected is None:return
+        from control_lap_pair import show
+        show(self.app,self.app.data_path,[Path(self.selected['folder'])])
+
     def report_update(self):
         self.saved.set(self.exporter.path);self.report_caption.configure(text=tr('最近生成的曲线')+' · '+self.exporter.caption)
         if self.exporter.path:self.saved_frame.pack(fill='x',pady=6,before=self.detail_heading)
@@ -226,9 +236,19 @@ class BestPage(RecordPage):
         from control_race_mode import show
         return show(self.app,self.selected,lambda:self.loader.read(True))
 
+    def delete_source(self):
+        if self.selected is None or self.loader.running or self.exporter.busy:return
+        from control_delete import remove_source
+        snapshot=self.selected.copy();snapshot['session']=dict(self.selected['session'])
+        try:remove_source(self.app,snapshot,lambda:self.loader.read(True))
+        except (OSError,ValueError) as error:self.say('读取或同步未完成，可重试：{error}',error=str(error))
+
     def install_actions(self,host):
         host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,6));row=self.app.row(host);install(row);self.fixed={}
+        from simulator_profiles import capabilities
+        supported=capabilities(getattr(self.app,'simulator','lmu'))
         for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('mode','更正参赛方式',self.correct_mode),('details','纪录详情',self.view_layout.details)]:
+            if key=='training' and not supported.training:continue
             b=self.app.button(row,title,command,key=='curve',100 if key=='details' else 140);b.configure(height=px(b,38));self.fixed[key]=b
         self.sync()
 

@@ -7,19 +7,25 @@ from race_model import read_json
 from track_names import display,search_text
 from i18n import tr
 
-STATES=dict(ready='已完成',partial='部分失败',error='失败',deferred='等待内存',queued='等待处理',building='正在生成',incomplete='未完成',pending='等待处理',blocked='受前序步骤影响')
+STATES=dict(ready='已完成',partial='部分失败',error='失败',deferred='等待处理条件',queued='等待处理',building='正在生成',incomplete='未完成',pending='等待处理',blocked='受前序步骤影响')
 
 
-def readable(receipt):
+def readable(receipt,simulator='lmu'):
+    from simulator_profiles import profile
+    if not isinstance(receipt,dict):return False
+    try:expected=profile(simulator).reports.steps
+    except ValueError:return False
     steps=receipt.get('steps')
-    return isinstance(steps,dict) and all(isinstance(steps.get(name),dict) for name in STEPS)
+    return isinstance(steps,dict) and all(isinstance(steps.get(name),dict) for name in expected)
 
 
 def details(item):
     receipt=item['receipt'];lines=[Path(item['folder']).name]
     if receipt.get('reason'):lines.append(tr(str(receipt['reason'])))
-    if not readable(receipt):return '\n'.join(lines)
-    order=sorted(STEPS,key=lambda name:receipt.get('steps',{}).get(name,{}).get('state')=='ready')
+    simulator=item.get('meta',{}).get('simulator_id','lmu')
+    if not readable(receipt,simulator):return '\n'.join(lines)
+    from simulator_profiles import profile
+    order=sorted(profile(simulator).reports.steps,key=lambda name:receipt.get('steps',{}).get(name,{}).get('state')=='ready')
     for name in order:
         step=receipt.get('steps',{}).get(name,{})
         lines.append(tr(LABELS[name])+' · '+tr(STATES.get(step.get('state'),'未完成')))
@@ -36,7 +42,9 @@ def entries(root):
             if not path.resolve().is_relative_to(root) or not folder.is_relative_to(root) or folder in hidden:continue
             meta=read_json(path,{})
             if not isinstance(meta,dict) or meta.get('status') in ('recording','write_error'):continue
-            receipt=current(folder);invalid=not readable(receipt)
+            from simulators import accepts
+            if not accepts(root,meta):continue
+            receipt=current(folder);invalid=not readable(receipt,meta.get('simulator_id','lmu'))
             if invalid:receipt=dict(state='error',steps={},reason='报告状态格式无法读取，请打开记录目录检查；原文件已保留。')
             out.append(dict(folder=str(folder),meta=meta,receipt=receipt,read_error=invalid,review_exists=(folder/'review.html').is_file()))
     return sorted(out,key=lambda item:str(item['meta'].get('started_utc','')),reverse=True)
@@ -63,14 +71,16 @@ def show(app):
             folder=Path(item['folder']).resolve()
             if not folder.is_relative_to(Path(app.data_path).resolve()):raise ValueError('记录目录不可用或已移动')
             meta=read_json(folder/'session.json',{})
+            from simulators import accepts
+            if not isinstance(meta,dict) or not accepts(app.data_path,meta):raise ValueError('只能重试当前游戏的赛事报告')
             if meta.get('status') in ('recording','write_error'):raise ValueError('记录尚未完成，不能重试报告')
             receipt=current(folder)
-            if not readable(receipt):raise ValueError('报告状态格式无法读取，请打开记录目录检查；原文件已保留。')
+            if not readable(receipt,meta.get('simulator_id','lmu')):raise ValueError('报告状态格式无法读取，请打开记录目录检查；原文件已保留。')
             if receipt.get('state')=='ready':return dict(folder=str(folder),path=str(folder),skipped=True)
             try:run(folder,app.data_path)
             except ReportDeferred as error:defer(folder,error)
             receipt=current(folder)
-            return dict(folder=str(folder),path=str(folder),errors=[] if receipt.get('state')=='ready' else [details(dict(folder=str(folder),receipt=receipt))])
+            return dict(folder=str(folder),path=str(folder),errors=[] if receipt.get('state')=='ready' else [details(dict(folder=str(folder),meta=meta,receipt=receipt))])
         def done(value):
             if view.alive():refresh('重试已结束；未完成项保留在任务清单中，可查看详情或继续重试。')
         from control_batch import start

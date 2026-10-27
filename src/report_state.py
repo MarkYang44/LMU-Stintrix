@@ -8,7 +8,8 @@ from collections import OrderedDict
 from threading import RLock
 import shutil,os
 _cache=OrderedDict();_lock=RLock()
-DEPENDENCIES=dict(endurance=('analysis',),review=('analysis','endurance','fastest'),compression=('analysis','endurance','fastest','review','images'))
+from simulator_profiles import profile
+DEPENDENCIES=dict(profile('lmu').reports.dependencies)
 OUTPUTS=dict(analysis=('session_analysis.json','analysis_index.json'),endurance=('endurance_analysis.json',),fastest=('fastest_lap_summary.json','fastest_lap.json','fastest_lap.html'),review=('review.html',),images=('race_images.json','race_log.json','race_log.txt','圈速单.png','比赛日志.png'))
 
 def remember(folder,value):
@@ -22,12 +23,20 @@ def latest(folder):
     key=os.path.normcase(os.path.abspath(folder))
     with _lock:return _cache.get(key)
 
-STEPS=('analysis','endurance','fastest','review','images','compression')
+STEPS=profile('lmu').reports.steps
 ERRORS=dict(analysis='analysis_error.txt',endurance='endurance_error.txt',fastest='fastest_lap_error.txt',images='race_images_error.txt',review='report_error.txt',compression='storage_compression_error.txt')
 LABELS=dict(analysis='圈分析',endurance='耐力分析',fastest='最快圈',review='赛事复盘',images='比赛图片',compression='记录压缩')
 
 def plan(folder):
     folder=Path(folder);old=read_json(folder/'report_status.json',{})
+    policy=profile(read_json(folder/'session.json',{}).get('simulator_id','lmu')).reports
+    if not policy.legacy_outputs:
+        previous=old.get('steps',{}) if isinstance(old,dict) else {}
+        keys=policy.steps
+        steps={k:dict(previous[k]) if isinstance(previous.get(k),dict) else dict(state='pending') for k in keys}
+        if 'fastest' not in previous:
+            steps['review']=dict(state='pending');steps['compression']=dict(state='pending')
+        return steps
     if isinstance(old,dict) and old.get('version')==2 and isinstance(old.get('steps'),dict):
         return {k:dict(old['steps'][k]) if isinstance(old['steps'].get(k),dict) else dict(state='pending') for k in STEPS}
     # Adopt existing outputs without regenerating successful historical reports.
@@ -51,10 +60,11 @@ def current(folder):
     state='deferred' if (Path(folder)/'report_pending.json').exists() else 'partial' if 'error' in states and 'ready' in states else 'error' if 'error' in states else 'ready' if all(v=='ready' for v in states) else 'incomplete' if 'ready' in states else 'queued'
     return remember(folder,dict(version=2,state=state,steps=steps))
 
-def invalidate(steps):
+def invalidate(steps,dependencies=None):
     # Propagate failed or interrupted upstream work before deciding what to skip.
-    for name in STEPS:
-        if any(steps[d].get('state')!='ready' for d in DEPENDENCIES.get(name,())) and steps[name].get('state')=='ready':
+    dependencies=DEPENDENCIES if dependencies is None else dependencies
+    for name in steps:
+        if any(steps[d].get('state')!='ready' for d in dependencies.get(name,())) and steps[name].get('state')=='ready':
             steps[name].update(state='pending',affected=True)
 
 def begin_step(folder,name,steps):

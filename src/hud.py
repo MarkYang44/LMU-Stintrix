@@ -14,7 +14,7 @@ import control_theme
 
 import endurance
 import vehiclelab
-from app_config import COLORS, INPUT_CHANNELS, ROOT
+from app_config import COLORS, INPUT_CHANNELS, ROOT, SIMULATOR
 from background import BackgroundTasks
 from buffers import trace_lane, packed_window, NumericRing, window_rate, window_rows
 from engine import Engine
@@ -33,6 +33,9 @@ class App:
         import gc
         gc.collect()
         self.root = root if root is not None else tk.Tk()
+        self.simulator=SIMULATOR
+        from simulator_profiles import profile
+        self.profile=profile(self.simulator);self.capabilities=self.profile.capabilities
         import recording_visibility
         self.silent_recording=recording_visibility.load(ROOT/'recording_visibility.json')
         from hud_layouts import LayoutStore
@@ -43,7 +46,7 @@ class App:
         if self.silent_recording:self.root.withdraw()
         control_theme.load(ROOT/'interface_settings.json')
         self.on_menu=on_menu
-        self.root.title('LMU Stintrix' + (' · DEMO' if demo else ''))
+        self.root.title(self.profile.title+(' · DEMO' if demo else ''))
         from branding import apply
         apply(self.root)
         self.root.geometry('640x228+70+70')
@@ -79,6 +82,7 @@ class App:
         self.reference_message = ''
         self.reference_kind = tk.StringVar(self.root,value=self.reference_settings.get('kind','fastest'))
         self.reference_locked = tk.BooleanVar(self.root,value=bool(self.reference_settings.get('locked',False)))
+        if not self.capabilities.reference_laps:self.reference_on.set(False)
         self.input_channel = tk.StringVar(self.root,value=self.settings['input_channel'])
         self.settings_dialog = None
         self.hud_mode = tk.StringVar(self.root,value='normal')
@@ -132,8 +136,8 @@ class App:
         endurance_menu.add_command(label='进站 / Stint / 天气设置',command=lambda:self.endurance_panels.settings_dialog())
         menu.add_cascade(label='进站 / Stint / 天气',menu=endurance_menu)
         menu.add_separator()
-        for label,channel in (('输入：原始（F7 切换）','raw'),
-                              ('输入：游戏过滤后（F7 切换）','filtered')):
+        for label,channel in ((('EVO 物理输入（F7 切换）' if self.simulator=='ac_evo' else '输入：原始（F7 切换）'),'raw'),
+                              (('EVO 仪表输入（F7 切换）' if self.simulator=='ac_evo' else '输入：游戏过滤后（F7 切换）'),'filtered')):
             menu.add_radiobutton(label=label,variable=self.input_channel,value=channel,
                                  command=self.apply_input_channel)
         menu.add_separator()
@@ -153,6 +157,11 @@ class App:
             menu.add_command(label=f'不透明度 {int(opacity * 100)}%',
                              command=lambda value=opacity: self.root.attributes('-alpha', value))
         menu.add_command(label='鼠标穿透 / 解锁（F8）', command=self.toggle_clickthrough)
+        available={2:self.capabilities.full_review,3:self.capabilities.lap_comparison,4:self.capabilities.training,
+            6:self.capabilities.native_import,15:self.capabilities.vehicle_telemetry,16:self.capabilities.endurance}
+        available.update({index:self.capabilities.reference_laps for index in (7,8,9,10,11,12)})
+        for index,enabled in available.items():
+            if not enabled:menu.entryconfigure(index,state='disabled')
         self.canvas = tk.Canvas(self.root, bg=T.BG, highlightthickness=0)
         self.canvas.bind('<Button-1>', begin_drag)
         self.canvas.bind('<B1-Motion>', move_drag)
@@ -194,6 +203,7 @@ class App:
         self.draw_job = None
         self.drawing = False
         self.gui_yield_at = time.perf_counter()
+        self.root.bind('<Map>',lambda event:self.wake_draw() if event.widget is self.root else None,add='+')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
         if self.layout_snapshot:
             from hud_presentation import apply
@@ -229,6 +239,7 @@ class App:
                 self.task_job = self.root.after(25, self.poll_tasks)
 
     def apply_reference(self):
+        if not self.capabilities.reference_laps:self.reference_on.set(False);return
         self.reference_generation += 1
         if self.reference_locked.get() and self.engine.reference:self.reference_settings['path']=self.engine.reference.path
         self.reference_settings.update(enabled=self.reference_on.get(),automatic=self.reference_auto.get(),
@@ -248,6 +259,7 @@ class App:
         self.apply_reference()
 
     def select_reference(self):
+        if not self.capabilities.reference_laps:return
         path = filedialog.askopenfilename(title='选择完整参考圈',initialdir=ROOT/'Logs',filetypes=[('InputScope fastest lap','*.lap.json')])
         if not path:return
         try:
@@ -262,6 +274,7 @@ class App:
         self.apply_reference()
 
     def refresh_reference(self):
+        if not self.capabilities.reference_laps:return
         if self.closing:return
         if not self.engine.lock.acquire(blocking=False):self.root.after(1000,self.refresh_reference);return
         try:
@@ -298,6 +311,7 @@ class App:
         self.root.after(1000,self.refresh_reference)
 
     def import_native_dialog(self):
+        if not self.capabilities.native_import:return
         path = filedialog.askopenfilename(title='只读导入已结束的 LMU DuckDB 记录',
             initialdir=telemetry_directory(),
             filetypes=[('LMU native telemetry','*.duckdb')])
@@ -414,6 +428,7 @@ class App:
         os.startfile(str(path))
 
     def show_library(self,initial=()):
+        if not self.capabilities.training:self.open_control_center();return
         center=getattr(self,'control_center',None) or getattr(getattr(self,'on_menu',None),'__self__',None)
         if center is not None and hasattr(center,'library') and not getattr(center,'closing',False) and center.root.winfo_exists():return center.library(initial)
         from management import show_library
@@ -424,6 +439,7 @@ class App:
         show_diagnostics(self,ROOT)
 
     def open_fastest_compare(self):
+        if not self.capabilities.lap_comparison:return
         demo = self.engine.demo
         path = ROOT/('DemoFastestLapCompare.html' if demo else 'FastestLapCompare.html')
         def prepare():
@@ -449,7 +465,7 @@ class App:
         self.engine.reference_enabled = self.reference_on.get()
         self.reference_match_key = None
         self.render_wake.set()
-        self.root.title('LMU Stintrix' + (' · DEMO' if demo else ''))
+        self.root.title(self.profile.title+(' · DEMO' if demo else ''))
 
     def show_sampling_settings(self):
         if self.settings_dialog and self.settings_dialog.winfo_exists():
@@ -664,8 +680,17 @@ class App:
                 self.draw_job = self.root.after_idle(self.queue_draw)
         self.root.after(25,self.poll_keys)
 
+    def wake_draw(self):
+        if self.closing or self.drawing:return
+        if self.draw_job is not None:self.root.after_cancel(self.draw_job)
+        self.draw_job=self.root.after_idle(self.draw)
+
     def draw(self, event=None):
         if self.closing or self.drawing:
+            return
+        if not self.root.winfo_ismapped():
+            self.trace_key=None;self.render_clock.deadline=time.perf_counter()
+            self.draw_job=self.root.after(250,self.draw)
             return
         self.drawing = True
         self.paint_started=time.perf_counter()
@@ -719,7 +744,7 @@ class App:
         values = latest['controls'][input_offset:input_offset+3] if latest else [0, 0, 0]
         if not clean:
             self.live_item('input_channel',c.create_text,111*s,18*s,
-                           text=f'/  LMU · {channel_label} · F7',fill=T.MUTED,anchor='w',
+                           text=f'/  {"AC EVO" if self.simulator=="ac_evo" else "LMU"} · {channel_label} · F7',fill=T.MUTED,anchor='w',
                            font=('Segoe UI',-max(9,round(10*s))))
         if not clean or controls:
             self.paint_controls(layout,values,clean=clean)

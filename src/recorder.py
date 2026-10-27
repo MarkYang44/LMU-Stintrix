@@ -44,6 +44,8 @@ class Recorder:
                                      + session_label(sample.get('session')) + '_' + safe)
         self.folder.mkdir(parents=True)
         self.meta = {k: sample[k] for k in ('track', 'driver', 'vehicle', 'session', 'player_id')}
+        self.simulator=sample.get('simulator_id','lmu')
+        self.meta['simulator_id']=self.simulator
         self.meta.update({k:sample.get(k,'') for k in ('track_layout','vehicle_class','track_length')})
         self.meta.update(started_utc=datetime.now(timezone.utc).isoformat(), status='recording',
                          telemetry_gap_count=0,telemetry_gaps=[],
@@ -53,6 +55,12 @@ class Recorder:
                          source=('Synthetic demo' if sample.get('demo') else
                                  'LMU_Data / pyLMUSharedMemory'))
         if sample.get('interface'):self.meta['interface']=dict(sample['interface'])
+        if self.simulator=='ac_evo':
+            self.meta.update(source='Synthetic demo / AC EVO' if sample.get('demo') else 'AC EVO / read-only SharedFileOut v1',recording_scope='inputs-and-lap-timing',
+                clock_source='host monotonic acquisition; session_time_s unavailable',
+                input_channels=dict(raw='physics gas/brake/steerAngle',filtered='graphics gas_percent/brake_percent/steering_percent'),
+                position_units='unavailable',simulator_session=sample.get('simulator_session'),session_name=sample.get('session_name',''),
+                lap_timing_version=1,unsupported=['official results','vehicle strategy','LMU native import'])
         self.meta.update(race_mode=sample.get('race_mode','unknown'),race_mode_source='SDK client' if sample.get('race_mode')=='online' else '',game_mode_raw=sample.get('game_mode_raw'))
         self.origin = sample['et']
         self.meta['endurance_settings']=dict(self.endurance_settings)
@@ -64,16 +72,23 @@ class Recorder:
             freshness='fresh frames only; capped rate; lap and pit transitions retained')
         self.meta['vehicle_profile']=self.vehicle_settings['profiles'].get(sample['vehicle'],self.vehicle_settings['profiles'].get('*',vehiclelab.DEFAULT_PROFILE))
         self.meta['vehicle_strategy']={k:self.vehicle_settings[k] for k in ('history_laps','rate_mode','target_mode','target_value','reserve_l','extra_finish_laps')}
+        if self.simulator=='ac_evo':
+            for key in ('endurance_settings','endurance_units','vehicle_telemetry','vehicle_profile','vehicle_strategy'):self.meta.pop(key,None)
+            self.meta['race_mode_source']='AC EVO static is_online'
         self.last_et = None
         self.samples = 0
         self.set_sampling(settings or DEFAULTS, target_hz or POLL_HZ, 0)
         self.save_meta()
         try:
-            self.batch = BatchWriter(self.folder,COLUMNS,on_checkpoint=self.save_meta)
+            columns=COLUMNS
+            if self.simulator=='ac_evo':
+                from acevo import EXTRA as EVO_COLUMNS
+                columns=(*COLUMNS,*EVO_COLUMNS)
+            self.batch = BatchWriter(self.folder,columns,on_checkpoint=self.save_meta)
             if sample.get('vehicle_data'):
                 self.vehicle_batch=BatchWriter(self.folder,vehiclelab.COLUMNS,on_checkpoint=self.save_meta,
                     filename='vehicle.csv',checkpoint_name='vehicle_checkpoint.json')
-            self.race_journal=RaceJournal(self.folder,sample)
+            self.race_journal=RaceJournal(self.folder,sample) if self.simulator=='lmu' else None
             self.meta['race_journal']=dict(version=1,file='race_events.csv',scoring_available=bool(sample.get('race_state')))
         except StorageError as e:
             if self.batch:self.batch.finish()
@@ -109,6 +124,9 @@ class Recorder:
             return False
         self.last_et = sample['et']
         elapsed = sample['et'] - self.origin
+        if self.simulator=='ac_evo':
+            self._add_evo(sample,elapsed)
+            return True
         self.batch.add([f'{elapsed:.6f}', datetime.now(timezone.utc).isoformat(),
                               f'{sample["et"]:.6f}', sample['lap'], f'{sample["distance"]:.3f}',
                               *[f'{v:.6f}' for v in sample['controls']], f'{sample["speed"]:.3f}',
@@ -130,6 +148,20 @@ class Recorder:
             self.meta['duration_s'] = elapsed
             self.meta['effective_sample_hz'] = (self.samples - 1) / elapsed if elapsed > 0 else 0
         return True
+
+    def _add_evo(self,sample,elapsed):
+        from acevo import EXTRA
+        values=dict(time_s=elapsed,utc=datetime.now(timezone.utc).isoformat(),session_time_s='',
+            lap=sample['lap'],lap_distance_m=sample.get('distance',''),speed_kmh=sample['speed'],
+            lap_invalidated=int(sample.get('lap_invalidated',True)),in_pits=int(sample.get('in_pits',False)),
+            track_length_m=sample.get('track_length',''))
+        values.update(zip(('throttle','brake','steering','filtered_throttle','filtered_brake','filtered_steering'),sample['controls']))
+        values.update(sample.get('native',{}))
+        # str(float) preserves the complete promoted float32 value, without extra rounding.
+        self.batch.add([values.get(k,'') for k in (*COLUMNS,*EXTRA)])
+        with self.meta_lock:
+            self.samples+=1;self.meta['duration_s']=elapsed
+            self.meta['effective_sample_hz']=(self.samples-1)/elapsed if elapsed>0 else 0
 
     def observe_race(self,sample):
         if self.race_journal:
@@ -178,6 +210,8 @@ class Recorder:
     def retry_reports(self,now):
         if now-self.retry_at<5:return
         self.retry_at=now
+        from runtime_activity import busy
+        if busy():return
         if self.retry_thread and self.retry_thread.is_alive():return
         from report_worker import pending,resume_pending
         root=self.output.parent

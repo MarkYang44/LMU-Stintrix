@@ -143,6 +143,8 @@ def input_scale(s,steer=False):
 
 def import_recording(path,root,overrides=None):
     root=Path(root);path=Path(path);overrides=overrides or {}
+    from simulators import root_identity
+    if root_identity(root)!='lmu':raise ValueError('LMU 遥测请在 LMU 模式下导入')
     meta,series,sha=read_native(path,root)
     required={*CONTROLS.values(),'Ground Speed','Lap Dist'}
     missing=required-series.keys()

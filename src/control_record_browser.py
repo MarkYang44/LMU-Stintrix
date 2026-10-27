@@ -144,12 +144,8 @@ def curve_identity(entry):
 
 
 def save_curve(root,entry):
-    from laps import write_compare
-    from json_store import load
-    from paths import ASSETS
-    from uuid import uuid4
-    folder=Path(root)/'PersonalRecords/History';folder.mkdir(parents=True,exist_ok=True);path=folder/(uuid4().hex+'.html')
-    write_compare(path,ASSETS/'compare.html',[load(entry['file'])]);return str(path)
+    from curve_exports import save
+    return save(root,entry)
 
 
 class CurveExport:

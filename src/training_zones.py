@@ -35,6 +35,8 @@ def save(root,entry,zones):
     return values
 
 def features(rows,start,end,length):
+    from analysis_spool import numeric_rows
+    rows=numeric_rows(rows,('session_time_s','lap_distance_m','throttle','brake','abs_active','tc_active','world_x_m','world_z_m'))
     intervals={k:[] for k in ('coast','abs','tc')};known={k:0. for k in intervals};coverage={k:[] for k in intervals};geometry=[];last=None;last_d=-1.;step=length/600
     def numeric(v):
         return isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v)
@@ -63,7 +65,7 @@ def features(rows,start,end,length):
         last=r
     return dict(intervals=intervals,known_s=known,coverage=coverage,geometry=geometry)
 
-def feature_time(lap,zone,key):
+def feature_time(lap,zone,key,expected=None):
     f=lap.get('features')
     if not f or not f['known_s'].get(key):return None
     def duration(values):
@@ -74,6 +76,6 @@ def feature_time(lap,zone,key):
             elif zone['start']<=a<zone['end']:total+=dt
         return total
     from training_report import interpolate
-    expected=interpolate(lap['data'],zone['end'])[1]-interpolate(lap['data'],zone['start'])[1]
+    if expected is None:expected=interpolate(lap['data'],zone['end'])[1]-interpolate(lap['data'],zone['start'])[1]
     if duration(f.get('coverage',{}).get(key,[]))<expected*.95:return None
     return duration(f['intervals'][key])

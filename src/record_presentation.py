@@ -40,7 +40,7 @@ def present(entry,detail):
         value=detail.get('vehicle_summary',{}).get(wheel+'_wear_fraction',{}).get('start')
         if isinstance(value,(int,float)) and math.isfinite(value) and 0<=value<=1:remaining.append(value)
     return dict(track=display(entry['track']),time=f'{int(duration//60)}:{duration%60:06.3f}',
-        car=entry['vehicle_class']+' · '+str(session.get('vehicle','')),
+        car=' · '.join(v for v in (entry['vehicle_class'],str(session.get('vehicle',''))) if v),
         context=tr('第 ')+str(lap['number'])+tr(' 圈')+'   ·   '+date,session_type=session_type(session.get('session')),
         track_metrics={'layout':layout(entry['track'],entry['layout'],entry['length_m']),
             'track_temp':number(c.get('track_temp_c'),' °C'),'air_temp':number(c.get('ambient_temp_c'),' °C'),

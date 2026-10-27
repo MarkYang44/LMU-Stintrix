@@ -38,9 +38,11 @@ class VehicleJSON:
             yield from json_chunks(shared.values['vehicle']);return
         from vehiclelab import COLUMNS,DEFAULT_PROFILE,number
         columns=[k for k in COLUMNS if k not in ('time_s','session_time_s')]
-        with (self.folder/'vehicle.csv').open(encoding='utf-8-sig',newline='') as f:
-            rows=csv.DictReader(f);first=next(rows,None)
-            origin=(number(first.get('session_time_s')) or 0)-(number(first.get('time_s')) or 0) if first else 0
+        from lap_scan_index import raw_rows
+        from contextlib import closing
+        with closing(raw_rows(self.folder/'vehicle.csv',columns=('session_time_s','time_s',*columns))) as rows:
+            first=next(rows,None)
+            origin=(number(first[0]) or 0)-(number(first[1]) or 0) if first else 0
             header=dict(version=1,columns=columns,record_hz=self.meta.get('vehicle_telemetry',{}).get('target_hz'),
                 source=self.meta.get('source'),time_origin_s=origin,profile=self.meta.get('vehicle_profile',DEFAULT_PROFILE),
                 strategy=self.meta.get('vehicle_strategy',{}),strategy_history=self.meta.get('vehicle_settings_history',[]))
@@ -48,11 +50,11 @@ class VehicleJSON:
             yield b',"data":['
             last=-math.inf;comma=False
             for row in __import__('itertools').chain((first,) if first else (),rows):
-                t=number(row.get('session_time_s'))
+                t=number(row[0])
                 if t is None or t<=last:raise ValueError('附加遥测时间戳无效')
                 last=t
                 if comma:yield b','
-                yield from json_chunks([t,*[number(row.get(k)) for k in columns]])
+                yield _encoder.encode([t,*[number(value) for value in row[2:]]]).encode('utf-8')
                 comma=True
             yield b']}'
 
@@ -98,18 +100,28 @@ def json_chunks(value,open_object=False):
 
 def review_records(path):
     pack=struct.Struct('<13d');pending=bytearray()
-    from column_store import rows
-    for row in rows(path,REVIEW_COLUMNS):
-        values=[float(row.get(k) or (0 if i<10 else 'nan')) for i,k in enumerate(REVIEW_COLUMNS)]
-        pending.extend(pack.pack(*values))
+    from column_store import values
+    for row in values(path,REVIEW_COLUMNS):
+        numbers=[float(value or (0 if i<10 else 'nan')) for i,value in enumerate(row)]
+        pending.extend(pack.pack(*numbers))
         if len(pending)>=65536:yield pending;pending=bytearray()
     if pending:yield pending
+
+
+def coalesced(chunks,limit=65536):
+    """Batch tiny encoder tokens, preserving the exact byte stream and order."""
+    pending=bytearray()
+    for chunk in chunks:
+        if not pending and len(chunk)>=limit:yield chunk;continue
+        pending.extend(chunk)
+        if len(pending)>=limit:yield bytes(pending);pending.clear()
+    if pending:yield bytes(pending)
 
 
 def _block(out,identifier,chunks):
     compressor=zlib.compressobj(6,zlib.DEFLATED,31);size=0
     with tempfile.SpooledTemporaryFile(max_size=1048576,dir=Path(out.name).parent if isinstance(getattr(out,'name',None),str) else None) as f:
-        for chunk in chunks:
+        for chunk in coalesced(chunks):
             size+=len(chunk);f.write(compressor.compress(chunk))
         f.write(compressor.flush());f.seek(0)
         out.write(f'<script type="application/octet-stream" id="{identifier}" data-bytes="{size}">')

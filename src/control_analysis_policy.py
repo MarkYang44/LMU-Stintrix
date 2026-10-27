@@ -11,8 +11,10 @@ SPECS=(('fuel_l','油量容差 / L',0,20),('track_temp_c','赛道温度容差 / 
 
 class PolicyForm:
     def __init__(self,panel,app,policy):
-        self.panel=panel;self.inputs={};self.fields={};self.tiles=[];self.feedback=Feedback();body=panel.body
-        row=app.row(body);self.toggle=app.button(row,'编辑分析条件',self.expand,False,150);self.summary=panel.variable();label=app.label(row,self.summary,9,T.MUTED);label.pack(side='left',fill='x',expand=True);label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
+        self.panel=panel;self.inputs={};self.fields={};self.tiles=[];self.feedback=Feedback();self.flags={};body=panel.body
+        row=app.row(body);self.toggle=app.button(row,'编辑分析条件',self.expand,False,150)
+        self.defaults=app.button(row,'恢复默认条件',self.reset,False,150);panel.editors.append(self.defaults)
+        self.summary=panel.variable();label=app.label(row,self.summary,9,T.MUTED);label.pack(side='left',fill='x',expand=True);label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
         self.row=row;self.form=tk.Frame(body,bg=T.CARD);self.expanded=False
         for key,title,low,high in SPECS:
             tile=tk.Frame(self.form,bg=T.CARD);self.tiles.append(tile);heading=app.label(tile,title,9);heading.pack(fill='x');heading.bind('<Configure>',lambda e,w=heading:w.configure(wraplength=max(80,e.width)))
@@ -28,8 +30,16 @@ class PolicyForm:
         else:self.form.pack(fill='x',after=self.row,pady=5)
         self.expanded=not self.expanded;self.toggle.configure(selected=self.expanded)
     def changed(self):self.describe();self.panel.changed()
+    def reset(self):
+        if self.panel.exporting or self.panel.writing:return
+        self.feedback.clear()
+        for key,variable in self.inputs.items():variable.set(str(DEFAULTS[key]))
+        for key,variable in self.flags.items():variable.set(DEFAULTS[key])
+        self.describe();self.panel.changed()
     def describe(self):
-        self.summary.set(tr('油量 {fuel} L · 赛温 {track} °C · 最低 {laps} 圈').format(fuel=self.inputs['fuel_l'].get(),track=self.inputs['track_temp_c'].get(),laps=self.inputs['min_laps'].get()))
+        self.summary.set(tr('油量 {fuel} L · 赛温 {track} °C · 气温 {ambient} °C · 湿度 {wet} · 雨强 {rain} · 最低 {laps} 圈').format(fuel=self.inputs['fuel_l'].get(),track=self.inputs['track_temp_c'].get(),ambient=self.inputs['ambient_temp_c'].get(),wet=self.inputs['wetness'].get(),rain=self.inputs['rain'].get(),laps=self.inputs['min_laps'].get()))
+        from control_widgets import px
+        for button in (self.toggle,self.defaults):button.configure(width=max(px(button,150),button.font.measure(tr(button.label))+px(button,36)))
     def read(self,flags):
         self.feedback.clear()
         for key,title,low,high in SPECS:

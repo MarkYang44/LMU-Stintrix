@@ -1,0 +1,58 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Assetto Corsa EVO · STINTRIX · 圈 A / 圈 B</title><script>/*INTERFACE_THEME_JS*/</script>
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,"Microsoft YaHei",sans-serif}main{max-width:1480px;margin:auto;padding:28px}h1{font-size:30px;margin:8px 0}h2{font-size:18px}p,footer{line-height:1.8}.eyebrow{letter-spacing:2px;font-size:12px;color:var(--sl-accent)}header,.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.toolbar{margin:20px 0}button,select{font:inherit;padding:10px 16px;border:1px solid;cursor:pointer}button{clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}section{border:1px solid;padding:18px;margin:18px 0;border-top:2px solid var(--sl-accent)}.cards{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cards section{margin:0}.time{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums}#plot{position:relative;height:560px}canvas{position:absolute;width:100%;height:100%;inset:0;touch-action:none}#readout{display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:100px;font-variant-numeric:tabular-nums}#readout p{margin:6px 0}#range{font-variant-numeric:tabular-nums}button:focus-visible,canvas:focus-visible{outline:2px solid var(--sl-accent);outline-offset:3px}footer{font-size:13px}.muted{color:var(--sl-muted)}@media(max-width:700px){main{padding:16px}.cards,#readout{grid-template-columns:1fr}#plot{height:500px}h1{font-size:24px}}
+</style>
+<style>.single #cards section{display:grid;grid-template-columns:minmax(170px,.4fr) 1fr;column-gap:28px;align-items:center}.single #cards h2{grid-column:1;grid-row:1;margin:0}.single #cards .time{grid-column:1;grid-row:2}.single #cards .car-note{grid-column:2;grid-row:1;margin:0}.single #cards .sample-note{grid-column:2;grid-row:2;margin:0}.single #readout{grid-template-columns:1fr;min-height:64px}@media(max-width:700px){.single #cards section{display:block}.single #cards .time{margin:10px 0}.single #cards p{margin:6px 0}}</style>
+<main><div class="eyebrow">STINTRIX / ASSETTO CORSA EVO / LOCAL &amp; PRIVATE</div><header><h1 id="page-title">圈 A / 圈 B · 输入对比</h1></header>
+<p id="context" class="muted"></p><div class="cards" id="cards"></div>
+<div class="toolbar"><label>输入通道 <select id="channel"><option value="physics">物理输入 / Physics</option><option value="hud">仪表输入 / HUD</option></select></label><button id="in">＋ 放大</button><button id="out">－ 缩小</button><button id="reset">完整圈</button><span id="range" class="muted"></span></div>
+<section><h2>油门 / 刹车 / 车速</h2><div id="plot"><canvas id="lines"></canvas><canvas id="cursor" tabindex="0" aria-label="输入曲线；方向键移动区间，加减号缩放，Home 查看完整圈"></canvas></div><div id="readout" aria-live="polite"></div></section>
+<footer>滚轮缩放，拖动平移，悬停查看最近的原始采样点。全部样本保留；只有查看区间之外的采样不参与当前绘图。<br>圈速来自游戏完圈毫秒计时，横轴来自游戏记录距离。物理输入与仪表输入更新频率不同。未插值补造圈边界；读数显示各圈自身的最近采样点，不能将两点视作同一时刻。未采集的天气、轮胎和官方分段不用于驾驶归因。<p><a id="source-file" hidden>原精度圈数据 JSON</a></p><p id="error" role="alert"></p></footer></main>
+/*STINTRIX_BLOCKS*/
+<script type="module">
+/*DATA_VIEW_JS*/
+const initial=/*LAP_DATA*/null;
+const $=id=>document.getElementById(id),lines=$('lines'),cursor=$('cursor'),ctx=lines.getContext('2d'),overlay=cursor.getContext('2d');
+let laps=[],left=0,right=1,length=1,focus=null,drag=null,pending=false,width=1,height=1;
+const colors=['#4fbce4','#e4b74f'],color=i=>StintrixTheme.mode==='light'?['#176982','#8b5700'][i]:colors[i],minute=t=>Math.floor(t/60)+':'+(t%60).toFixed(3).padStart(6,'0');
+function validate(v){
+ if(v?.simulator_id!=='ac_evo'||v.session?.simulator_id!=='ac_evo'||v.lap?.validity!=='verified'||v.lap.boundary_interpolation!==false||v.lap.lap_invalidated||v.lap.in_pits||!Array.isArray(v.data)||v.data.length<2||v.data.length!==v.lap.sample_count||!Number.isFinite(v.lap.time_s)||v.lap.time_s<=0||!Number.isFinite(v.lap.track_length_m)||v.lap.track_length_m<=100)throw Error('缺少有效的 EVO 完整圈证据');
+ let mono=true,d=-Infinity;
+ for(const r of v.data){if(!Array.isArray(r)||r.length!==7||!r.every(Number.isFinite)||r[1]<0||r[1]>v.lap.time_s+.1||r[0]<0||r[0]>v.lap.track_length_m+1||r.slice(2,6).some(x=>x<-.01||x>1.01)||r[6]<0)throw Error('EVO 原始采样值或计时顺序无效');if(r[0]<d)mono=false;d=r[0]}v.monotonic=mono;return v;
+}
+function bounds(data,d){let lo=0,hi=data.length;while(lo<hi){const m=(lo+hi)>>1;if(data[m][0]<d)lo=m+1;else hi=m}return lo}
+function nearest(v,d){if(!v.monotonic)return v.data.reduce((a,b)=>Math.abs(a[0]-d)<=Math.abs(b[0]-d)?a:b);const i=bounds(v.data,d);if(!i)return v.data[0];if(i===v.data.length)return v.data.at(-1);return d-v.data[i-1][0]<=v.data[i][0]-d?v.data[i-1]:v.data[i]}
+function text(node,value){node.textContent=value;return node}
+function make(tag,value){return text(document.createElement(tag),value)}
+const tag=i=>laps.length===1?'本圈':'圈 '+(i?'B':'A');
+function card(v,i){
+ const el=document.createElement('section');el.style.borderTopColor=color(i);el.append(make('h2',(laps.length===1?'有效完整圈':tag(i))+' · 第 '+v.lap.number+' 圈'));
+ const time=make('div',minute(v.lap.time_s));time.className='time';time.style.color=color(i);
+ const car=make('p',v.session.vehicle+' · '+String(v.session.started_utc||''));car.className='car-note';
+ const samples=make('p',v.data.length.toLocaleString()+' 原始样本'+(i?' · 相对 A '+(v.lap.time_s-laps[0].lap.time_s>=0?'+':'')+(v.lap.time_s-laps[0].lap.time_s).toFixed(3)+' s':''));samples.className='sample-note';
+ el.append(time,car,samples);$('cards').append(el);const read=make('p','');read.style.color=color(i);$('readout').append(read);v.readout=read;v.card=el;v.time=time
+}
+function clamp(a,b){const span=Math.max(20,Math.min(length,b-a));left=Math.max(0,Math.min(length-span,a));right=left+span;schedule()}
+function zoom(f,at=(left+right)/2){const fraction=(at-left)/(right-left),span=(right-left)*f;clamp(at-span*fraction,at+span*(1-fraction))}
+const padding=54,x=d=>padding+(d-left)/(right-left)*(width-padding-12),distance=p=>left+(p-padding)/(width-padding-12)*(right-left);
+function size(){const box=cursor.getBoundingClientRect(),scale=devicePixelRatio||1;width=box.width;height=box.height;for(const c of [lines,cursor]){c.width=Math.round(width*scale);c.height=Math.round(height*scale);c.getContext('2d').setTransform(scale,0,0,scale,0,0)}schedule()}
+function schedule(){if(!pending){pending=true;requestAnimationFrame(()=>{pending=false;draw();hover()})}}
+function draw(){
+ for(const [i,v] of laps.entries()){v.card.style.borderTopColor=color(i);v.time.style.color=color(i);v.readout.style.color=color(i)}ctx.clearRect(0,0,width,height);const muted=StintrixTheme.color('MUTED'),edge=StintrixTheme.color('EDGE');ctx.font='12px system-ui';ctx.lineWidth=1;
+ const speed=Math.max(1,...laps.map(v=>v.data.reduce((m,r)=>Math.max(m,r[6]),0))),panels=[['油门',$( 'channel').value==='hud'?4:2,1],['刹车',$('channel').value==='hud'?5:3,1],['车速 km/h',6,speed]];
+ panels.forEach(([label,column,max],j)=>{const top=24+j*(height-40)/3,bottom=top+(height-40)/3-30,y=v=>bottom-v/max*(bottom-top);ctx.fillStyle=muted;ctx.fillText(label,4,top-5);ctx.strokeStyle=edge;ctx.beginPath();ctx.moveTo(padding,top);ctx.lineTo(padding,bottom);ctx.lineTo(width-12,bottom);ctx.stroke();
+  laps.forEach((v,i)=>{ctx.strokeStyle=color(i);ctx.lineWidth=1.25;ctx.beginPath();let previous=null;const start=v.monotonic?Math.max(0,bounds(v.data,left)-1):0,end=v.monotonic?Math.min(v.data.length,bounds(v.data,right)+1):v.data.length;ctx.save();ctx.beginPath();ctx.rect(padding,top,width-padding-12,bottom-top);ctx.clip();ctx.beginPath();
+   for(let k=start;k<end;k++){const r=v.data[k];if(r[0]<left||r[0]>right){previous=null;continue}if(!previous||r[0]<previous[0]||r[1]-previous[1]>2.5)ctx.moveTo(x(r[0]),y(r[column]));else ctx.lineTo(x(r[0]),y(r[column]));previous=r}ctx.stroke();ctx.restore();
+  });
+ });ctx.fillStyle=muted;ctx.fillText(left.toFixed(0)+' m',padding,height-3);ctx.fillText(right.toFixed(0)+' m',width-70,height-3);$('range').textContent=left.toFixed(0)+'–'+right.toFixed(0)+' m / '+length.toFixed(0)+' m';
+}
+function hover(){overlay.clearRect(0,0,width,height);if(focus==null){for(const [i,v] of laps.entries())v.readout.textContent=tag(i)+' · 悬停查看最近的原始采样点';return;}overlay.strokeStyle=StintrixTheme.color('MUTED');overlay.beginPath();overlay.moveTo(x(focus),10);overlay.lineTo(x(focus),height-20);overlay.stroke();const offset=$('channel').value==='hud'?4:2;for(const [i,v] of laps.entries()){const r=nearest(v,focus);v.readout.textContent=tag(i)+' · 最近采样 '+r[0].toFixed(2)+' m / '+r[1].toFixed(3)+' s\n油门 '+(r[offset]*100).toFixed(2)+'% · 刹车 '+(r[offset+1]*100).toFixed(2)+'% · '+r[6].toFixed(2)+' km/h'}}
+$('channel').onchange=schedule;$('in').onclick=()=>zoom(.5);$('out').onclick=()=>zoom(2);$('reset').onclick=()=>clamp(0,length);
+let hoverPending=false;cursor.onpointermove=e=>{const at=e.clientX-cursor.getBoundingClientRect().left;if(drag){const shift=(drag.x-e.clientX)/(width-padding-12)*(drag.right-drag.left);clamp(drag.left+shift,drag.right+shift)}focus=Math.max(left,Math.min(right,distance(at)));if(!hoverPending){hoverPending=true;requestAnimationFrame(()=>{hoverPending=false;hover()})}};
+cursor.onpointerdown=e=>{if(e.button)return;drag={x:e.clientX,left,right};cursor.setPointerCapture(e.pointerId);cursor.focus()};cursor.onpointerup=()=>drag=null;cursor.onpointercancel=()=>drag=null;cursor.onlostpointercapture=()=>drag=null;cursor.onpointerleave=()=>{if(!drag){focus=null;hover()}};
+cursor.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?.75:1.3333333333333333,distance(e.clientX-cursor.getBoundingClientRect().left))},{passive:false});
+cursor.onkeydown=e=>{if(e.key==='Home')clamp(0,length);else if(e.key==='+'||e.key==='=')zoom(.5);else if(e.key==='-')zoom(2);else if(e.key==='ArrowLeft')clamp(left-(right-left)/4,right-(right-left)/4);else if(e.key==='ArrowRight')clamp(left+(right-left)/4,right+(right-left)/4);else return;e.preventDefault()};
+window.addEventListener('resize',schedule);
+try{laps=(initial?.laps||[]).map(validate);if(laps.length<1||laps.length>2)throw Error('需要一个或两个 EVO 有效完整圈');if(laps.length===2&&(laps[0].session.track!==laps[1].session.track||laps[0].session.track_layout!==laps[1].session.track_layout||Math.abs(laps[0].lap.track_length_m-laps[1].lap.track_length_m)>1))throw Error('两圈布局不同');if(laps.length===1){document.body.classList.add('single');$('page-title').textContent='完整圈曲线 · 第 '+laps[0].lap.number+' 圈';document.title='Assetto Corsa EVO · STINTRIX · 完整圈曲线';$('cards').style.gridTemplateColumns='1fr'}if(typeof initial?.source_file==='string'&&new URL(initial.source_file,location.href).protocol==='file:'){$('source-file').href=initial.source_file;$('source-file').hidden=false}length=laps[0].lap.track_length_m;left=0;right=length;$('context').textContent=laps[0].session.track+' · '+(laps[0].session.track_layout||'')+' · 游戏完圈计时 / 原始距离';laps.forEach(card);new ResizeObserver(size).observe($('plot'));size()}catch(error){$('error').textContent='无法读取圈数据：'+error.message}
+</script></html>

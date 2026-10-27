@@ -3,10 +3,14 @@ from i18n import tr
 
 
 def compact(table,defaults):
+    if {'date','track','layout','car','time','gain'}<=set(table.columns):
+        keys=['date','track','layout','car','time','gain']
+        return dict(visible=keys,frozen=['date','track'],widths={**defaults['widths'],'date':140,'track':150,'layout':155,'car':180,'time':105,'gain':100})
     required={'date','track','lap','car'}
     if not required<=set(table.columns):return defaults
-    keys=['date','track','lap','car','type','result']
-    widths={**defaults['widths'],'date':140,'track':180,'lap':92,'car':165,'type':76,'result':90}
+    evo=getattr(table,'simulator','lmu')=='ac_evo'
+    keys=['date','track','layout','lap','car','type'] if evo else ['date','track','lap','car','type','result']
+    widths={**defaults['widths'],'date':140,'track':160 if evo else 180,'layout':185,'lap':92,'car':165,'type':76,'result':90}
     return dict(visible=[k for k in keys if k in table.columns],frozen=['date','track'],widths=widths)
 
 

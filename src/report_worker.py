@@ -12,6 +12,8 @@ class ReportDeferred(RuntimeError):pass
 
 @serialized
 def run(folder,data_root):
+    from runtime_activity import busy
+    if busy():raise ReportDeferred('HUD 记录运行中，报告与压缩等待停止记录；原始采样已保存')
     if not can_report():raise ReportDeferred('系统内存紧张，报告等待可用内存；完整记录已保存')
     folder=Path(folder).resolve();environment=dict(os.environ,LMU_STINTRIX_DATA_DIR=str(Path(data_root).resolve()))
     environment['LMU_STINTRIX_REPORT_WORKER']='1'
@@ -48,6 +50,8 @@ def pending(root):
     return (path for name in ('Logs','DemoLogs','ImportedLogs','RecoveredLogs') for path in (Path(root)/name).glob('*/report_pending.json'))
 
 def resume_pending(root):
+    from runtime_activity import busy
+    if busy():return 0
     if not can_report() or not _resume_lock.acquire(blocking=False):return 0
     completed=0
     try:
@@ -66,8 +70,8 @@ def resume_pending(root):
             if not can_report():break
             try:
                 make_report(folder,isolated=True)
-            except ReportDeferred:
-                defer(folder,'等待可用内存');break
+            except ReportDeferred as error:
+                defer(folder,error);break
             except Exception as error:
                 (folder/'report_error.txt').write_text(str(error),encoding='utf-8')
                 from report_state import plan,save
@@ -82,5 +86,6 @@ def resume_pending(root):
 
 def defer(folder,error):
     from report_state import deferred
+    from runtime_activity import busy
     deferred(folder,error)
-    atomic_json(Path(folder)/'report_pending.json',dict(version=1,status='waiting_for_memory',reason=str(error)))
+    atomic_json(Path(folder)/'report_pending.json',dict(version=1,status='waiting_for_capture' if busy() else 'waiting_for_memory',reason=str(error)))

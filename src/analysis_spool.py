@@ -1,7 +1,7 @@
 """Lossless, bounded-memory scratch tables for offline analysis. Files auto-close."""
 from collections import OrderedDict
 from collections.abc import Sequence
-import math,struct,tempfile
+import math,struct,tempfile,sys
 from buffers import CompactRow
 
 class Slice(Sequence):
@@ -15,6 +15,9 @@ class Slice(Sequence):
     def __getitem__(self,index):
         if isinstance(index,slice):return Slice(self.source,self.indices[index])
         return self.source[self.indices[index]]
+    def project(self,columns):
+        method=getattr(self.source,'project',None)
+        return Slice(method(columns),self.indices) if method is not None else self
 
 class Column(Sequence):
     """Zero-copy column view for bisect and chronological lookup."""
@@ -39,9 +42,20 @@ class DiskTable(Sequence):
     def append(self,row):
         if len(row)!=self.width:raise ValueError('Scratch row width changed')
         if self._sealed:raise ValueError('Scratch table is sealed')
-        self._file.write(self.record.pack(*(math.nan if v is None else v for v in row)));self._size+=1
+        # Numeric scratch rows go straight through struct's C implementation.
+        # Sparse rows keep the original None -> NaN wire representation.
+        try:block=self.record.pack(*row)
+        except (TypeError,struct.error):
+            if not any(v is None for v in row):raise
+            block=self.record.pack(*(math.nan if v is None else v for v in row))
+        self._file.write(block);self._size+=1
         self._cache.clear()
     def seal(self):self._file.flush();self._sealed=True;return self
+    def append_packed(self,block):
+        """Internal exact float64 row, already encoded in this table's wire order."""
+        if len(block)!=self.record.size:raise ValueError('Scratch row width changed')
+        if self._sealed:raise ValueError('Scratch table is sealed')
+        self._file.write(block);self._size+=1;self._cache.clear()
     def __len__(self):return self._size
     def __iter__(self):
         yield from self.iter_range()
@@ -77,6 +91,85 @@ class DiskTable(Sequence):
         if cache is not None:cache.clear()
     def __del__(self):self.close()
 
+class _Columns(Sequence):
+    """Decode selected float64 cells in C while retaining the original row stride."""
+    def __init__(self,source,indices):
+        self.source=source;self.indices=indices
+        selected=sorted(set(indices));positions={v:i for i,v in enumerate(selected)}
+        self.order=[positions[i] for i in indices];self.reorder=indices!=selected
+        pieces=['<'];cursor=0
+        for index in selected:
+            if index*8>cursor:pieces.append(str(index*8-cursor)+'x')
+            pieces.append('d');cursor=index*8+8
+        if cursor<source.record.size:pieces.append(str(source.record.size-cursor)+'x')
+        self.record=struct.Struct(''.join(pieces))
+    def __len__(self):return len(self.source)
+    def __getitem__(self,index):
+        if isinstance(index,slice):return Slice(self,range(len(self))[index])
+        row=self.source[index];return [row[i] for i in self.indices]
+    def iter_range(self,start=0,stop=None):
+        source=self.source
+        if not source._sealed:source._file.flush()
+        position=start
+        while position<(len(source) if stop is None else min(stop,len(source))):
+            count=min(source.page_rows,(len(source) if stop is None else min(stop,len(source)))-position)
+            source._file.seek(position*source.record.size);block=source._file.read(count*source.record.size)
+            if len(block)!=count*source.record.size:raise ValueError('Incomplete scratch table')
+            for row in self.record.iter_unpack(block):
+                yield [row[i] for i in self.order] if self.reorder else row
+            position+=count
+
+
+class _LapProjection(Sequence):
+    def __init__(self,source,columns):
+        self.source=source;self.directory=source.directory
+        wanted=set(columns);keys=[k for k in source.layout if k in wanted]
+        self.layout={k:i for i,k in enumerate(keys)}
+        self.table=_Columns(source.table,[*[source.layout[k] for k in keys],source.table.width-2,source.table.width-1])
+    def __len__(self):return len(self.source)
+    def __iter__(self):yield from self.iter_range()
+    def iter_range(self,start=0,stop=None):yield from self.source._iter_rows(self.table,self.layout,start,stop)
+    def __getitem__(self,index):
+        if isinstance(index,slice):return Slice(self,range(len(self))[index])
+        row=self.source[index]
+        return CompactRow(self.layout,[row.values[row.layout[k]] for k in self.layout],row.utc)
+    def project(self,columns):return _LapProjection(self.source,[k for k in self.layout if k in columns])
+
+
+def project_rows(rows,columns):
+    """Other mappings keep their original path; no data or precision is discarded."""
+    method=getattr(rows,'project',None)
+    return method(columns) if method is not None else rows
+
+
+class _NumericProjection(Sequence):
+    """Read-only numeric view; explicitly omits unused UTC text and array copies."""
+    def __init__(self,source,columns):
+        self.source=source;self.directory=source.directory
+        wanted=set(columns);keys=[k for k in source.layout if k in wanted]
+        self.layout={k:i for i,k in enumerate(keys)}
+        self.table=_Columns(source.table,[source.layout[k] for k in keys])
+    def __len__(self):return len(self.source)
+    def row(self,values):
+        row=object.__new__(CompactRow);row.layout=self.layout;row.values=values;row.utc=''
+        return row
+    def __iter__(self):yield from self.iter_range()
+    def iter_range(self,start=0,stop=None):
+        for values in self.table.iter_range(start,stop):yield self.row(values)
+    def __getitem__(self,index):
+        if isinstance(index,slice):return Slice(self,range(len(self))[index])
+        return self.row(self.table[index])
+    def project(self,columns):return _NumericProjection(self.source,[k for k in self.layout if k in columns])
+
+
+def numeric_rows(rows,columns):
+    """Only for numeric consumers. Ordinary projection still preserves UTC."""
+    if isinstance(rows,Slice):return Slice(numeric_rows(rows.source,columns),rows.indices)
+    if isinstance(rows,(_LapProjection,_NumericProjection)):return _NumericProjection(rows.source,[k for k in rows.layout if k in columns])
+    if isinstance(rows,LapRows) and rows.table is not None:return _NumericProjection(rows,columns)
+    return project_rows(rows,columns)
+
+
 class LapRows(Sequence):
     """Spill exact compact rows plus variable UTF-8 UTC text, including missing fields."""
     def __init__(self,directory):
@@ -86,18 +179,22 @@ class LapRows(Sequence):
         yield from self.iter_range()
     def iter_range(self,start=0,stop=None):
         if self.table is None:return
+        yield from self._iter_rows(self.table,self.layout,start,stop)
+    def _iter_rows(self,table,layout,start=0,stop=None):
         block=b'';first=0
-        for row in self.table.iter_range(start,stop):
+        for row in table.iter_range(start,stop):
             offset=int(row[-2]);length=int(row[-1]);end=offset+length
             if not first<=offset<=end<=first+len(block):
                 self.utc.seek(offset);block=self.utc.read(max(65536,length));first=offset
-            yield CompactRow(self.layout,row[:-2],block[offset-first:end-first].decode('utf-8'))
+            yield CompactRow(layout,row[:-2],block[offset-first:end-first].decode('utf-8'))
+    def project(self,columns):return _LapProjection(self,columns) if self.table is not None else self
     def append(self,row):
         if self.table is None:
             self.layout=row.layout;self.table=DiskTable((),len(self.layout)+2,self.directory);self.table._sealed=False
         if row.layout!=self.layout:raise ValueError('Telemetry layout changed within lap')
         text=row.utc.encode('utf-8');offset=self.utc.tell();self.utc.write(text)
-        self.table.append([*row.values,offset,len(text)])
+        if sys.byteorder=='little':self.table.append_packed(row.values.tobytes()+struct.pack('<2d',offset,len(text)))
+        else:self.table.append([*row.values,offset,len(text)])
     def seal(self):
         if self.table is not None:self.table.seal()
         self.utc.flush();return self

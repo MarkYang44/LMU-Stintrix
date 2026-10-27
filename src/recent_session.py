@@ -13,6 +13,8 @@ def checked(root,folder):
     parts=folder.relative_to(root).parts
     if not parts or parts[0] not in ('Logs','ImportedLogs','RecoveredLogs'):return None
     meta=read_json(folder/'session.json',{})
+    from simulators import accepts
+    if not accepts(root,meta):return None
     if not isinstance(meta,dict) or meta.get('status')!='complete' or 'demo' in str(meta.get('source','')).lower():return None
     return folder,meta
 

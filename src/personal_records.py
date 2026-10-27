@@ -14,6 +14,17 @@ class CacheRecord(dict):
 
 
 def summary_for(root,folder):
+    meta=load(folder/'session.json')
+    if meta.get('simulator_id')=='ac_evo':
+        from evo_laps import export,stamp
+        path=folder/'fastest_lap_summary.json'
+        try:
+            value=json.loads(path.read_text(encoding='utf-8'))
+            if value.get('signature')==stamp(folder):return value,folder
+        except (OSError,ValueError,AttributeError):pass
+        # Historical raw data stays untouched. Only derived EVO lap artifacts
+        # are created; the streaming index is reused by images and reviews.
+        return export(folder),folder
     path=folder/'fastest_lap_summary.json'
     try:
         value=json.loads(path.read_text(encoding='utf-8'))
@@ -58,8 +69,10 @@ def entries(root):
                 meta=json.loads(path.read_text(encoding='utf-8'))
                 if isinstance(meta,dict):meta=annotate(meta,path.parent,modes)
                 if not isinstance(meta,dict):continue
+                from simulators import accepts
+                if not accepts(root,meta):continue
                 if meta.get('status') in ('recording','write_error'):continue
-                if text(meta.get('source'))=='synthetic demo' or meta.get('demo') is True:continue
+                if text(meta.get('source')).startswith('synthetic demo') or meta.get('demo') is True:continue
                 summary,base=summary_for(root,path.parent)
                 if summary.get('status')!='saved':continue
                 lap=summary['lap'];duration=float(lap['time_s']);length=float(lap['track_length_m'])
@@ -72,7 +85,9 @@ def entries(root):
                 layout=str(session.get('track_layout') or '').strip()
                 group=vehicle_class(session)
                 # Include the recorded length even when names are identical.
+                # EVO road cars do not share a performance class; keep model PBs separate.
                 key=(text(track),text(layout or track),round(length),text(group))
+                if session.get('simulator_id')=='ac_evo':key+=('ac_evo',text(session.get('vehicle')))
                 entry=dict(race_mode=mode(session),session=session,lap=lap,conditions=summary.get('conditions',{}),
                     track=track,layout=layout,vehicle_class=group,file=str(file),folder=str(path.parent),
                     time_s=duration,length_m=length)

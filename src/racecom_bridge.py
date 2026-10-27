@@ -20,6 +20,8 @@ def local_start(meta):
 
 def adapt(model):
     meta=model['session'];summary=model['summary'];start=local_start(meta)
+    track=meta.get('track','')
+    if meta.get('track_layout') and meta['track_layout']!=track:track+=' · '+meta['track_layout']
     finish_flag=summary.get('finish_flag',0);finish_text={2:'DNF',3:'DQ'}.get(finish_flag,'')
     laps=[]
     for lap in model['laps']:
@@ -37,7 +39,7 @@ def adapt(model):
         laps.append(item)
     start_text,end_text=inline_positions(model)
     return dict(date=start.strftime('%Y-%m-%d %H:%M:%S') if start else meta.get('started_utc','未知'),
-        track=meta.get('track',''),session={'Qualify':'排位赛','Race':'正赛','Practice':'练习赛'}.get(model['session_type'],model['session_type']),
+        track=track,session={'Qualify':'排位赛','Race':'正赛','Practice':'练习赛'}.get(model['session_type'],model['session_type']),
         session_code=meta.get('session'),driver=meta.get('driver',''),vehicle=meta.get('vehicle',''),team=summary.get('team',''),
         start_place=summary.get('grid_place'),finish_place=None if finish_text else summary.get('finish_place'),
         observed_finish_place=summary.get('finish_place'),finish_flag=finish_flag,stintrix_finish_text=finish_text,
@@ -51,7 +53,7 @@ def adapt(model):
             dict(time=(start+timedelta(seconds=e['time']-model['origin'])).strftime('%H:%M:%S') if start else '',
             text=describe(e)) for e in model['events'] if e['event']!='class_position' or start_text]+[
                 dict(time='',text=text) for text in ('缺失字段显示未知；未采集的信息不补造。','出界为边界估算，非官方警告；碰撞合并连续接触。',
-                    '统计无效 = 排除部分记录 / PIT / 未验证圈，不代表游戏处罚。')])
+                    '统计无效 = 排除部分记录 / PIT / 未验证圈，不代表游戏处罚。',model.get('note',''))])
 
 
 def lap_rows(value):

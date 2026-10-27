@@ -15,7 +15,8 @@ fmt=lambda x,n=1:'—' if x is None else f'{x:.{n}f}'
 class Panels:
     def __init__(self,app,root):
         self.app=app;self.root=Path(root);self.windows={};self.labels={};self.passthrough={};self.topmost={};self.dialog=None
-        self.refresh_visibility();app.root.after(100,self.tick)
+        self.refresh_visibility()
+        if getattr(app,'simulator','lmu')=='lmu':app.root.after(100,self.tick)
 
     def save(self):atomic_json(self.root/'vehicle_settings.json',self.app.vehicle_settings)
 

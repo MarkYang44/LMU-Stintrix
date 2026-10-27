@@ -1,10 +1,10 @@
 """Explicit allowlist: generated caches can be removed; race evidence cannot."""
-import shutil
+import shutil,stat
 from pathlib import Path
 from threading import RLock
 LOCK=RLock()
 CACHES={'training':('训练曲线缓存','PersonalRecords/TrainingCache'),'records':('派生最快圈缓存','PersonalRecords/Cache'),'catalog':('赛事摘要索引','EventCatalog/index.json')}
-READONLY={'video':('视频提取结果（保留）','VideoCurves'),'cards':('用户导出战绩卡','PersonalRecords/AchievementCards'),'reports':('用户导出训练报告','PersonalRecords/TrainingReports'),'comparable':('用户导出进步报告','PersonalRecords/ComparableReports'),'goals':('训练目标与基准','PersonalRecords/TrainingGoals'),'races':('原始赛事（保留）','Logs'),'imported':('导入赛事（保留）','ImportedLogs'),'recovered':('恢复赛事（保留）','RecoveredLogs')}
+READONLY={'video':('视频提取结果（保留）','VideoCurves'),'cards':('用户导出战绩卡','PersonalRecords/AchievementCards'),'curves':('用户导出圈曲线','PersonalRecords/History'),'comparisons':('圈 A / 圈 B 对比','LapComparisons'),'reports':('用户导出训练报告','PersonalRecords/TrainingReports'),'comparable':('用户导出进步报告','PersonalRecords/ComparableReports'),'goals':('训练目标与基准','PersonalRecords/TrainingGoals'),'races':('原始赛事（保留）','Logs'),'imported':('导入赛事（保留）','ImportedLogs'),'recovered':('恢复赛事（保留）','RecoveredLogs')}
 
 def target(root,key):
     root=Path(root).resolve()
@@ -15,12 +15,14 @@ def target(root,key):
 
 def size(path):
     if path.is_symlink():return 0,0
-    paths=path.rglob('*') if path.is_dir() else [path]
+    directory=path.is_dir();base=path.resolve() if directory else path.parent.resolve()
+    paths=path.rglob('*') if directory else [path]
     total=count=0
     for p in paths:
-        if p.is_symlink() or not p.resolve().is_relative_to(path.resolve() if path.is_dir() else path.parent.resolve()):continue
+        if p.is_symlink() or not p.resolve().is_relative_to(base):continue
         try:
-            if p.is_file():total+=p.stat().st_size;count+=1
+            info=p.stat()
+            if stat.S_ISREG(info.st_mode):total+=info.st_size;count+=1
         except OSError:continue
     return total,count
 

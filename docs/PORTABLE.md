@@ -1,16 +1,20 @@
 # LMU Stintrix · Windows x64 便携版
 
-完整解压到可写文件夹，双击 **LMU-Stintrix.exe** 打开控制中心，再点击 **启动 HUD**。无需安装 Python，无需往游戏目录复制文件。请保留 EXE 旁的 **_internal** 文件夹。
+完整解压到可写文件夹，双击 **LMU-Stintrix.exe** 打开控制中心，在左上角选择 **LMU** 或 **AC EVO**，再点击 **启动记录**。无需安装 Python，无需往游戏目录复制文件。请保留 EXE 旁的 **_internal** 文件夹。
 
 右上角可切换深色 / 浅色工业风主题；选择只保存在本机。赛事列表支持平滑滚动、Ctrl / Shift 多选和键盘浏览，切换主题不中断正在运行的 HUD。
 
-- 不开游戏时，在控制中心点击 **演示模式**；`Demo.cmd` 保留为快捷入口。
+- 不开游戏时，在 LMU 控制中心点击 **演示模式**；`Demo.cmd` 保留为快捷入口。
 - 在控制中心的 **显示模式** 选择纯曲线；`Start Clean.cmd` 保留为快捷入口。
 - 另一种纯净模式同时显示曲线、油刹柱形图和方向盘；启动脚本继续兼容。
-- **赛事复盘** 共用一个列表打开圈速单、比赛日志、Review 与圈速对比，可分别选择同赛道同布局两场赛事的任意有效圈，支持不同车型；**个人赛道纪录** 按布局和组别展示最快圈及分区条件、曲线。中文模式提供中文赛道名；轮胎摘要保留胎种与最低余量，详细遥测仍在完整圈分析中。
+- **赛事复盘** 共用一个列表打开圈速单、比赛日志、记录概览与圈速对比；先选赛道，再选对应赛事和有效完整圈。两款游戏均支持个人最快圈和纪录履历：LMU 按布局／组别区分，EVO 按布局／具体车型区分。分区条件、轮胎摘要及完整车辆分析属于 LMU 功能。
 - HUD 标题栏菜单按钮打开控制中心；右键快捷菜单继续保留。`LMU-Stintrix.exe --hud` 可直接进入旧 HUD。
 
-Qualify / Race 自动记录；可在 **采样与遥测 → 记录练习赛** 开启 Practice 完整记录，默认关闭，Warmup 仅实时显示。正常退出 HUD 会等待写入与报告完成；停止 HUD 后控制中心仍可用。记录保存在 `data/`。
+LMU Qualify / Race、EVO 计时赛／正赛自动记录；可在 **采样与遥测 → 记录练习赛** 开启 Practice 完整记录，默认关闭，EVO 同时支持按需记录巡航，LMU Warmup 仅实时显示。点击 **停止并保存** 会立即隐藏 HUD，并在后台完整收尾；正常退出或切换游戏会等待写入与后台任务完成。LMU 记录保存在 `data/`，EVO 记录保存在 `data/Simulators/ac_evo/`；两者分别显示，旧 LMU 数据不搬迁。
+
+EVO 提供完整物理／仪表输入曲线、有效圈 A/B 对比、个人纪录、圈速单和赛事日志；缺少完整圈证据的旧记录仍可读取，不补造圈速或完赛成绩。条件训练、实时参考圈、官方成绩导入与附加车辆面板仍属于 LMU 功能。EVO 车型图库支持品牌／类别筛选，赛道卡可切换已核实布局；官方照片和线路图需明确点击下载，只保存在本机。详细边界见 [LMU 与 AC EVO](docs/SIMULATORS.md)。
+
+**图像与数据 → 报告与存储** 可查看分步报告状态、批量重试失败项及查看缓存／导出占用；赛事包和存储共用列表，保留筛选与选择。EVO 采集期间延期处理派生报告与压缩，HUD 默认手动 60 Hz，输入采样率独立保留。实机驾驶兼容性仍需验收，不承诺游戏帧率提升比例。
 
 要使用 RaceCom 原版圈速单和比赛日志，在 **图像与数据** 中选择自己 RaceCom 安装目录里的 **Image Generate.exe**，保留该目录下的 `Source` 文件夹。生成器不会随本软件分发；未配置时记录仍保存，可配置后补图。可明确选择 `native` 兼容版式；演示模式使用兼容版式。
 
@@ -20,7 +24,7 @@ Qualify / Race 自动记录；可在 **采样与遥测 → 记录练习赛** 开
 
 源码、更新与问题反馈：[MarkYang44/LMU-Stintrix](https://github.com/MarkYang44/LMU-Stintrix)。公开版不附带授权不明的赛道底图，仍可根据记录中的世界坐标 / GPS 展示实测轨迹。
 
-**English:** Fully extract, then run **LMU-Stintrix.exe**. Keep **_internal** next to the executable. Python is bundled. No game files are modified; all telemetry and settings stay local. Developer tests and standalone environment-check tools are excluded from this portable package.
+**English:** Fully extract, then run **LMU-Stintrix.exe** and choose **LMU** or **AC EVO**. Keep **_internal** next to the executable. Python is bundled. Each simulator has its own local sessions, settings and records. EVO includes verified-lap input comparison, personal records, lap sheets and journals; condition-based training, official results and extra vehicle panels remain LMU features. No game files are modified; all telemetry and settings stay local. Developer tests and standalone environment-check tools are excluded from this portable package. See [Simulator support](docs/SIMULATORS.md) for limits and live-driving validation status.
 
 ## Windows 快捷启动与表单操作
 
@@ -38,4 +42,4 @@ Qualify / Race 自动记录；可在 **采样与遥测 → 记录练习赛** 开
 **Archive options:** Export ZIP or 7z session packages. Current v2 manifests do not store or verify content hashes; duplicate handling uses local receipts and metadata, without claiming integrity certification. Path, size, format, and decompression checks remain. Legacy v1 packages are readable; direct v2 import requires v0.2.40 or newer.
 
 
-0.2.29：个人赛道纪录新增“官方战绩”，支持只读同步游戏结果 XML 与明确的同组领奖台；训练报告增加可编辑距离区间、实测轨迹 / 距离分段和 ABS/TC 统计；同条件进步分析提供实测圈速与波动曲线。采样与遥测新增接口诊断。详细数据边界见随包使用说明。
+LMU v0.2.29：个人赛道纪录新增“官方战绩”，支持只读同步游戏结果 XML 与明确的同组领奖台；训练报告增加可编辑距离区间、实测轨迹 / 距离分段和 ABS/TC 统计；同条件进步分析提供实测圈速与波动曲线。采样与遥测新增接口诊断。详细数据边界见随包使用说明。

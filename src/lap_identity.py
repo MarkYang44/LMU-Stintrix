@@ -8,6 +8,7 @@ def text(value):
 
 def same_layout(a, b):
     sa, sb = a['session'], b['session']
+    if sa.get('simulator_id','lmu')!=sb.get('simulator_id','lmu'):return False
     if not text(sa.get('track')) or text(sa.get('track')) != text(sb.get('track')):
         return False
     la, lb = text(sa.get('track_layout')), text(sb.get('track_layout'))

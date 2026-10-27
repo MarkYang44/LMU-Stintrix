@@ -64,9 +64,15 @@ class NumericRing(Sequence):
         if self._size == self._capacity and self._capacity < self.maxlen:
             capacity = min(self.maxlen, max(64, self._capacity*2))
             data = array('d', [0.0]) * (capacity*self.width)
-            for i in range(self._size):
-                p = ((self._start+i) % self._capacity)*self.width
-                data[i*self.width:(i+1)*self.width] = self._data[p:p+self.width]
+            if self._size:
+                start=self._start*self.width
+                tail=min(self._size,self._capacity-self._start)*self.width
+                # At most two contiguous native copies, including a wrapped ring.
+                # No per-row allocation or float conversion during capture growth.
+                with memoryview(self._data) as old,memoryview(data) as new:
+                    new[:tail]=old[start:start+tail]
+                    remaining=self._size*self.width-tail
+                    if remaining:new[tail:tail+remaining]=old[:remaining]
             self._data, self._capacity, self._start = data, capacity, 0
         if self._size == self.maxlen:
             self._start = (self._start+1) % self._capacity
@@ -129,6 +135,16 @@ class CompactRow(Mapping):
         value = self.values[self.layout[key]]
         if math.isnan(value): raise KeyError(key)
         return value
+    def get(self,key,default=None):
+        if key=='utc':return self.utc
+        index=self.layout.get(key)
+        if index is None:return default
+        value=self.values[index]
+        return default if math.isnan(value) else value
+    def __bool__(self):
+        # UTC is always present, even for an otherwise empty row. Mapping's
+        # default truth check needlessly counted every optional numeric field.
+        return True
     def __iter__(self):
         yield 'utc'
         for key, i in self.layout.items():

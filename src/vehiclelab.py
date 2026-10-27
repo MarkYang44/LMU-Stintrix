@@ -303,20 +303,19 @@ def load_recording(folder):
     if shared is not None and 'vehicle' in shared.values:return shared.values['vehicle']
     path=Path(folder)/'vehicle.csv'
     if not path.exists():return None
-    with path.open(encoding='utf-8-sig',newline='') as f:
-        reader=csv.DictReader(f);columns=[k for k in COLUMNS if k not in ('time_s','session_time_s')]
-        origin=None
-        def records():
-            nonlocal origin
-            last=-math.inf
-            for r in reader:
-                t=number(r.get('session_time_s'))
-                if t is None or t<=last:raise ValueError('附加遥测时间戳无效')
-                last=t
-                if origin is None:origin=t-(number(r.get('time_s')) or 0)
-                yield [t,*[number(r.get(k)) for k in columns]]
-        from analysis_spool import DiskTable
-        data=DiskTable(records(),len(columns)+1,path.parent,nullable=True)
+    columns=[k for k in COLUMNS if k not in ('time_s','session_time_s')];origin=None
+    def records():
+        nonlocal origin
+        from column_store import values
+        last=-math.inf
+        for r in values(path,('session_time_s','time_s',*columns)):
+            t=number(r[0])
+            if t is None or t<=last:raise ValueError('附加遥测时间戳无效')
+            last=t
+            if origin is None:origin=t-(number(r[1]) or 0)
+            yield [t,*[number(value) for value in r[2:]]]
+    from analysis_spool import DiskTable
+    data=DiskTable(records(),len(columns)+1,path.parent,nullable=True)
     meta=json.loads((Path(folder)/'session.json').read_text(encoding='utf-8'))
     result=dict(version=1,columns=columns,data=data,record_hz=meta.get('vehicle_telemetry',{}).get('target_hz'),
         source=meta.get('source'),time_origin_s=origin or 0,profile=meta.get('vehicle_profile',DEFAULT_PROFILE),
@@ -330,7 +329,8 @@ def lap_telemetry(best,bundle=None):
         rows=bundle['data']
         a=max(0,bisect.bisect_left(rows,best['start_s'],key=lambda r:r[0])-1)
         b=min(len(rows),bisect.bisect_right(rows,best['end_s'],key=lambda r:r[0])+1)
-        payload={**bundle,'data':[[round(rows[i][0]-best['start_s'],6),*rows[i][1:]] for i in range(a,b)]}
+        from analysis_spool import Slice
+        payload={**bundle,'data':[[round(row[0]-best['start_s'],6),*row[1:]] for row in Slice(rows,range(a,b))]}
     else:
         columns=['fuel_l'];data=[];last=-math.inf
         for r in best['rows']:
@@ -343,22 +343,40 @@ def lap_telemetry(best,bundle=None):
 
 def summarize(bundle,start,end):
     columns=bundle['columns'];rows=bundle['data'];result={}
-    for j,k in enumerate(columns,1):
-        first=previous=None;low=math.inf;high=-math.inf;integral=weight=0.
-        for r in rows:
-            t,v=r[0],r[j]
-            if not start<=t<=end or v is None:continue
-            if first is None:first=v
-            if previous is not None:
-                dt=t-previous[0]
-                if 0<dt<=1.5:integral+=(previous[1]+v)*.5*dt;weight+=dt
-            low=min(low,v);high=max(high,v);previous=(t,v)
-        if previous is None:continue
-        result[k]=dict(min=low,max=high,mean=integral/weight if weight else first,start=first,end=previous[1])
-    for key in ('fuel_l','virtual_energy_pct'):
-        j=columns.index(key)+1 if key in columns else None
-        if j is None:continue
-        points=[(r[0],r[j]) for r in rows if r[j] is not None]
+    # One sequential decode for every channel, even when rows live on disk.
+    # Each channel retains the exact prior summation order and gap semantics.
+    states=[[None,None,None,math.inf,-math.inf,0.,0.] for _ in columns]
+    fuels={key:dict(index=columns.index(key)+1,points=[],reset=False) for key in ('fuel_l','virtual_energy_pct') if key in columns}
+    from itertools import islice
+    previous=None;gaps=False;iterator=iter(rows)
+    while block:=list(islice(iterator,512)):
+        if any(len(row)<=len(columns) for row in block):raise IndexError('Incomplete vehicle summary row')
+        inside=[row for row in block if start<=row[0]<=end]
+        if inside:
+            times=[row[0] for row in inside]
+            for state,values in zip(states,islice(zip(*inside),1,None)):
+                first,pt,pv,low,high,integral,weight=state
+                for t,v in zip(times,values):
+                    if v is None:continue
+                    if first is None:first=v
+                    if pt is not None:
+                        dt=t-pt
+                        if 0<dt<=1.5:integral+=(pv+v)*.5*dt;weight+=dt
+                    low=min(low,v);high=max(high,v);pt=t;pv=v
+                state[:]=first,pt,pv,low,high,integral,weight
+        for row in block:
+            t=row[0]
+            if previous is not None and previous[0]<end and t>start and t-previous[0]>1.5:gaps=True
+            for key,fuel in fuels.items():
+                j=fuel['index'];v=row[j]
+                if v is not None:fuel['points'].append((t,v))
+                if start<=t<=end and previous is not None and v is not None and previous[j] is not None and v>previous[j]+(.2 if key=='fuel_l' else .5):fuel['reset']=True
+            previous=row
+    for key,state in zip(columns,states):
+        first,pt,pv,low,high,integral,weight=state
+        if pt is not None:result[key]=dict(min=low,max=high,mean=integral/weight if weight else first,start=first,end=pv)
+    for key,fuel in fuels.items():
+        points=fuel['points']
         def at(t):
             if not points:return None
             exact=next((v for x,v in points if abs(x-t)<1e-6),None)
@@ -368,8 +386,7 @@ def summarize(bundle,start,end):
             if b[0]-a[0]>1.5 or min(abs(a[0]-t),abs(b[0]-t))>.3:return None
             return a[1]+(b[1]-a[1])*(t-a[0])/(b[0]-a[0])
         a=at(start);b=at(end)
-        reset=any(y[j] is not None and x[j] is not None and y[j]>x[j]+(.2 if key=='fuel_l' else .5) for x,y in zip(rows,rows[1:]) if start<=y[0]<=end)
-        gaps=any(y[0]-x[0]>1.5 for x,y in zip(rows,rows[1:]) if x[0]<end and y[0]>start)
+        reset=fuel['reset']
         result[key+'_used']=dict(value=a-b if a is not None and b is not None and not reset and not gaps else None,
             reset=reset,gap=gaps,boundary_estimate=True)
     return result

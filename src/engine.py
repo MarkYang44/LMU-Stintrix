@@ -6,7 +6,7 @@ import time
 import endurance
 import vehiclelab
 from recording_policy import should_record,load as recording_preferences
-from app_config import ROOT
+from app_config import ROOT, SIMULATOR
 from buffers import ControlHistory, NumericRing, window_rate
 from diagnostics import Diagnostics
 from recorder import Recorder
@@ -17,10 +17,13 @@ from telemetry import SharedReader
 
 
 class Engine:
-    def __init__(self, demo=False, output=None, reader_factory=SharedReader, settings=None, rate_wake=None,vehicle_settings=None,endurance_settings=None):
+    def __init__(self, demo=False, output=None, reader_factory=None, settings=None, rate_wake=None,vehicle_settings=None,endurance_settings=None):
         self.demo = demo
+        from simulators import reader_factory as factory
+        from simulator_profiles import profile
+        self.simulator=SIMULATOR;self.profile=profile(self.simulator);self.capabilities=self.profile.capabilities;self.game_label=self.profile.short
         self.practice_enabled = recording_preferences(ROOT)
-        self.reader_factory = reader_factory
+        self.reader_factory = reader_factory or (factory(self.simulator) if self.simulator!='lmu' else SharedReader)
         self.recorder = Recorder(output or ROOT / ('DemoLogs' if demo else 'Logs'),vehicle_settings,endurance_settings)
         self.endurance_monitor=endurance.Monitor(endurance_settings)
         self.fuel_planner=vehiclelab.FuelPlanner(vehicle_settings)
@@ -49,11 +52,14 @@ class Engine:
         self.stop = threading.Event()
         self.wake = threading.Event()
         self.rate_wake = rate_wake if rate_wake is not None else threading.Event()
-        self.status = 'DEMO · synthetic input' if demo else 'Waiting for LMU · 自动记录'
+        self.status = 'DEMO · synthetic input' if demo else 'Waiting for '+self.game_label+' · 自动记录'
         self.latest = None
+        self._interface_status_at=-math.inf
         self.last_folder = None
         self.last_fresh_at=None
         self.thread = threading.Thread(target=self.run, daemon=True)
+        from runtime_activity import register
+        if self.profile.defer_reports_during_capture:register(self)
         self.thread.start()
 
     def update_settings(self, settings):
@@ -140,6 +146,7 @@ class Engine:
         reader = None
         last_fresh = time.monotonic()
         last_seen_et = None
+        last_frame_id = None;last_lap=None
         last_received_perf = None
         ended_key = None
         key = None
@@ -173,12 +180,16 @@ class Engine:
                     sample['in_pits']=sample['vehicle_data']['pit_state'] in (2,3,4)
                     sample['speed']=sample['vehicle_data']['speed_kmh']
                     sample['conditions']={'fuel_l':sample['vehicle_data']['fuel_l'],'gear':4,'tyre_compound':0,'track_temp_c':sample['vehicle_data']['track_temp_c'],'wetness':sample['vehicle_data']['wetness']}
+                    sample['simulator_id']=self.simulator
+                    if not self.capabilities.vehicle_telemetry:sample.pop('vehicle_data',None)
                 else:
                     if reader is None:
                         reader = self.reader_factory()
                     read_started=time.perf_counter()
                     sample = reader.read()
-                    self.interface_status=reader.interface_status() if hasattr(reader,'interface_status') else {}
+                    if now-self._interface_status_at>=.25:
+                        self.interface_status=reader.interface_status() if hasattr(reader,'interface_status') else {}
+                        self._interface_status_at=now
                     self.diagnostics.note('read',time.perf_counter()-read_started)
                 with self.lock:
                     self.poll_times.append((now,))
@@ -186,10 +197,11 @@ class Engine:
                 self.target_hz = sampler.rate(now, sample is not None and now-last_fresh <= 3)
                 self.reason = sampler.reason
                 if sample is not None:
-                    next_key = tuple(sample[k] for k in ('track', 'session', 'driver', 'vehicle'))
+                    next_key = tuple(sample[k] for k in ('track', 'session', 'driver', 'vehicle'))+(sample.get('session_uid'),)
                     clock=sample.get('session_clock')
                     clock=clock if isinstance(clock,(int,float)) and math.isfinite(clock) and clock>0 else sample['et']
                     reset = last_session_clock is not None and clock < last_session_clock - 0.5
+                    if self.profile.reset_on_counter_rewind and last_lap is not None and sample['lap']<last_lap:reset=True
                     if next_key != key or reset:
                         self.finish_recording('session changed')
                         self.recording_failure=None
@@ -199,6 +211,7 @@ class Engine:
                         # A new session may begin with the same elapsed time as
                         # its predecessor. Its first frame is still new data.
                         last_seen_et = None
+                        last_frame_id=None
                         with self.lock:
                             self.points.clear()
                             self.reference_points.clear()
@@ -210,7 +223,8 @@ class Engine:
                             self.plot_revision += 1
                             self.sample_times.clear()
                     last_session_clock=clock if last_session_clock is None or reset or next_key!=key else max(clock,last_session_clock)
-                    fresh = last_seen_et is None or sample['et'] > last_seen_et
+                    fresh = (last_frame_id is None or sample['frame_id']!=last_frame_id) if 'frame_id' in sample else (last_seen_et is None or sample['et'] > last_seen_et)
+                    if fresh:last_frame_id=sample.get('frame_id');last_lap=sample['lap']
                     if fresh:last_seen_et = sample['et']
                     if fresh:
                         if gap_started is not None and self.recorder.file is not None:
@@ -229,7 +243,7 @@ class Engine:
                         self.finish_recording('practice recording disabled')
                     if recording and self.recorder.file is None and ended_key != key and sample['finish'] == 0 and fresh:
                         self.recorder.start(sample, config, self.target_hz)
-                        self.recorder.meta['vehicle_strategy']['started_at_s']=(self.fuel_planner.baseline_et if self.fuel_planner.baseline_et is not None else sample['et'])-sample['et']
+                        if self.capabilities.vehicle_telemetry:self.recorder.meta['vehicle_strategy']['started_at_s']=(self.fuel_planner.baseline_et if self.fuel_planner.baseline_et is not None else sample['et'])-sample['et']
                         self.session_missed_base = self.missed_cycles
                     if self.recorder.file is not None and fresh:
                         self.recorder.set_sampling(config, self.target_hz, sample['et']-self.recorder.origin)
@@ -239,12 +253,13 @@ class Engine:
                         self.recorder.observe_race(sample)
                     with self.lock:
                         if fresh:
-                            vehicle_sample = dict(sample, vehicle_name=sample['vehicle'],
-                                                  vehicle=sample.get('vehicle_data',{}))
-                            self.endurance_monitor.update(vehicle_sample)
-                            self.fuel_planner.update(vehicle_sample)
-                            self.vehicle_latest=sample.get('vehicle_data')
-                            self.vehicle_estimate=self.fuel_planner.estimate_cached(vehicle_sample)
+                            if self.capabilities.vehicle_telemetry or self.capabilities.endurance:
+                                vehicle_sample = dict(sample, vehicle_name=sample['vehicle'],vehicle=sample.get('vehicle_data',{}))
+                                if self.capabilities.endurance:self.endurance_monitor.update(vehicle_sample)
+                            if self.capabilities.vehicle_telemetry:
+                                self.fuel_planner.update(vehicle_sample)
+                                self.vehicle_latest=sample.get('vehicle_data')
+                                self.vehicle_estimate=self.fuel_planner.estimate_cached(vehicle_sample)
                             self.add_plot_point(now, sample['controls'])
                             aligned=self.aligner.update(sample,self.reference) if self.reference_enabled else None
                             self.reference_state=self.aligner.state if self.reference_enabled else {'mode':'关闭','confidence':0}
@@ -283,7 +298,7 @@ class Engine:
                     # finish or shutdown. Realtime exit alone can be a garage/pit pause.
                     if self.recorder.file is not None and gap_started is None:
                         gap_started=last_fresh;last_seen_before_gap=last_seen_et
-                    self.status = 'Waiting for fresh telemetry · 保留同场记录' if self.recorder.file is not None else 'Waiting for LMU'
+                    self.status = 'Waiting for fresh telemetry · 保留同场记录' if self.recorder.file is not None else 'Waiting for '+self.game_label
                     with self.lock:
                         self.latest = None
                         self.vehicle_latest=None
@@ -300,7 +315,7 @@ class Engine:
                 ended_key=key
                 self.status='ERROR · '+str(error)[:110]
             except OSError:
-                self.status = 'Waiting for LMU · 启动游戏并进入赛道'
+                self.status = 'Waiting for '+self.game_label+' · 启动游戏并进入赛道'
                 self.target_hz = sampler.rate(now, fresh=False)
                 self.reason = sampler.reason
                 self.stop.wait(0.5)
@@ -333,3 +348,7 @@ class Engine:
         if reader:
             reader.close()
         waiter.close()
+        # Resume receipts deferred while the HUD was running; raw writes above
+        # have already completed. Shutdown still joins these tracked workers.
+        self.recorder.retry_at=-math.inf
+        self.recorder.retry_reports(time.monotonic())

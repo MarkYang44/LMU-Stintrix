@@ -1,8 +1,8 @@
 # README screenshot provenance / 首页截图来源
 
-The English and Simplified Chinese READMEs use the same four views, in the same order. Captured from the current **v0.2.43 source UI** on Windows; no UI mockups, generated interface artwork, or relabeled screenshots are used. The latest packaged release can lag the source tree.
+The English and Simplified Chinese READMEs use the same four views, in the same order. Captured from the **v0.2.43 LMU source UI** on Windows; no UI mockups, generated interface artwork, or relabeled screenshots are used. These are historical captures; the current interface also includes a simulator selector and later workflow improvements.
 
-中英文首页使用相同的四组视图与展示顺序，来自 Windows 上运行的 **v0.2.43 源码界面**。没有生成界面、拼接控件或替换截图文字；便携发行版可能落后于当前源码。
+中英文首页使用相同的四组视图与展示顺序，来自 Windows 上运行的 **v0.2.43 LMU 源码界面**。没有生成界面、拼接控件或替换截图文字；这些是历史截图，当前界面已增加游戏选择与后续操作优化。
 
 | File in `en/` and `zh-CN/` | Capture | Data source |
 | --- | --- | --- |

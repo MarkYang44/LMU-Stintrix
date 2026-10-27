@@ -4,9 +4,8 @@ from pathlib import Path
 
 
 def signature(folder):
-    from comparison_cache import source
-    from paths import app_version
-    return dict(version=2,app=app_version(),source=source(folder))
+    from lap_cache_versions import signature as data_signature
+    return data_signature(folder,'export')
 
 
 def template_stamp(template):
@@ -19,7 +18,11 @@ def cached(folder,numbers,template,individual=False):
     path=Path(folder)/'SelectedLaps/_exports.json'
     try:
         value=json.loads(path.read_text(encoding='utf8'));entry=value[('lap:' if individual else '')+'_'.join(map(str,numbers))]
-        if entry['signature']!=signature(folder) or entry['template']!=template_stamp(template):return None
+        from lap_cache_versions import compatible
+        if not compatible(entry['signature'],signature(folder)):return None
+        # Individual JSON/CSV contains no presentation assets. Page exports
+        # still depend on the current template, scripts and application version.
+        if not (individual and template is None) and entry['template']!=template_stamp(template):return None
         for name,stamp in entry['outputs'].items():
             s=(path.parent/name).stat()
             if [s.st_size,s.st_mtime_ns]!=stamp:return None
@@ -43,7 +46,8 @@ def link_fastest(folder,number,target):
     folder=Path(folder);source=folder/'fastest_lap.csv';target=Path(target)
     try:
         receipt=json.loads((folder/'_fastest_source.json').read_text(encoding='utf8'))
-        if receipt['signature']!=signature(folder) or receipt['number']!=number or not source.is_file():return False
+        from lap_cache_versions import compatible
+        if not compatible(receipt['signature'],signature(folder)) or receipt['number']!=number or not source.is_file():return False
         from uuid import uuid4
         pending=target.with_name(target.name+'.'+uuid4().hex+'.pending')
         try:os.link(source,pending);pending.replace(target)

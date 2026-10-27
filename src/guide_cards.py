@@ -8,6 +8,20 @@ from i18n import tr
 from control_feedback import ImageSurface
 
 
+def diagram_image(original,foreground):
+    """Keep official geometry, grey layout differences, colours and alpha."""
+    from PIL import Image,ImageChops,ImageOps,ImageColor
+    image=original.convert('RGBA');rgb=image.convert('RGB');alpha=image.getchannel('A')
+    colors=image.getcolors(image.width*image.height) or []
+    ink=max(((count,color) for count,color in colors if color[3]>200),default=(0,(255,255,255,255)))[1]
+    source_light=sum(ink[:3])>384;target_light=sum(ImageColor.getrgb(foreground))>384
+    if source_light!=target_light:
+        r,g,b=rgb.split();difference=ImageChops.lighter(ImageChops.difference(r,g),ImageChops.difference(g,b))
+        greys=difference.point([255 if i<12 else 0 for i in range(256)])
+        rgb=Image.composite(ImageOps.invert(rgb),rgb,greys)
+    result=rgb.convert('RGBA');result.putalpha(alpha);return result
+
+
 class Picture(ImageSurface):
     """Decode only visible images, release on scroll-away; no global image cache."""
     def __init__(self,parent,center,item):
@@ -20,10 +34,12 @@ class Picture(ImageSurface):
         self.view_trace=center.scroll.tk.call('trace','add','execution',center.scroll._w,'leave',self.command)
 
     def view_changed(self,*args):self.changed()
+    def picture_height(self,width):
+        return round(min(width*.7,px(self,240))) if self.item.get('diagram') else round(min(1200,width)*9/16)
     def changed(self,_=None):
         width=self.winfo_width()
         if width>1:
-            height=round(min(1200,width)*9/16)
+            height=self.picture_height(width)
             if int(self.cget('height'))!=height:self.configure(height=height)
         self.coords(self.hint,max(1,width)/2,max(1,self.winfo_height())/2)
         if self.job is None and self.winfo_exists():self.job=self.after(90,self.render)
@@ -47,7 +63,7 @@ class Picture(ImageSurface):
             except tk.TclError:pass
         self.job=None
         if not self.winfo_exists() or self.center.closing:return
-        width=max(1,min(1200,self.winfo_width()));height=max(1,round(width*9/16))
+        width=max(1,min(1200,self.winfo_width()));height=max(1,self.picture_height(width))
         # A smaller image on wide windows keeps the complete photograph visible.
         if self.winfo_width()<=1:return
         if int(self.cget('height'))!=height:self.configure(height=height)
@@ -58,14 +74,21 @@ class Picture(ImageSurface):
             return
         if self.size==(width,height):return
         if self.loading==(width,height):return
-        path=(ASSETS/'guide'/self.item['image']).resolve()
-        if not path.is_relative_to((ASSETS/'guide/media').resolve()):self.error='Invalid guide image path';return
+        if self.item.get('local_image'):
+            path=Path(self.item['local_image']).resolve()
+            if not path.is_relative_to((Path(self.center.data_path)/'assets/evo').resolve()):self.error='Invalid private image path';return
+        else:
+            path=(ASSETS/'guide'/self.item['image']).resolve()
+            if not path.is_relative_to((ASSETS/'guide/media').resolve()):self.error='Invalid guide image path';return
         self.revision+=1;revision=self.revision;self.loading=(width,height)
+        tint=T.FG
         self.itemconfigure(self.hint,text=tr('正在加载图片…'),state='normal')
         def decode():
             from PIL import Image,WebPImagePlugin
-            with Image.open(path,formats=['WEBP']) as original:
+            with Image.open(path,formats=['WEBP','JPEG','PNG']) as original:
                 original.thumbnail((width,height),Image.Resampling.LANCZOS)
+                if self.item.get('diagram') and self.item.get('diagram_tint',True):
+                    return diagram_image(original,tint)
                 return original.copy()
         def ready(image,error):
             if not self.winfo_exists() or revision!=self.revision:return

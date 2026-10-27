@@ -4,10 +4,13 @@ from pathlib import Path
 from lap_identity import text,same_layout,vehicle_class
 from record_history import dated
 from training_report import profile_index as profiles
-from condition_match import match,settings
+from condition_match import matcher,settings
+from training_cache import catalogued
 
+@catalogued
 def analyse(root,entry,policy=None):
     root=Path(root).resolve();p=settings(policy);anchor=dict(session=entry['session'],lap=entry['lap']);sessions=[];pool={};conflicts=set();counts=dict(invalid=0,different=0,unknown=0,duplicates=0,conflicts=0);errors=[]
+    accept=matcher(entry.get('conditions',{}),p)
     from analysis_scope import check as scope_check
     from race_mode import overlay,annotate
     modes=overlay(root)
@@ -37,7 +40,7 @@ def analyse(root,entry,policy=None):
     counts['conflicts']=len(conflicts);groups={}
     for key,row in pool.items():
         if key in conflicts:continue
-        lap=row['lap'];c=match(entry.get('conditions',{}),lap['conditions'],p)
+        lap=row['lap'];c=accept(lap['conditions'])
         if not c['allowed']:counts['different' if c['different'] else 'unknown']+=1;continue
         group=groups.setdefault(key[:-1],dict(row,accepted=[],unknown=set()));group['accepted'].append(lap);group['unknown'].update(c['unknown'])
     for group in groups.values():

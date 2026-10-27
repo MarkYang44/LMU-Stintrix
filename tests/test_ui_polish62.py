@@ -31,13 +31,15 @@ class Rules(unittest.TestCase):
         from control_record_browser import curve_identity
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as tmp:
             e=histories(tmp,1)['entries'][0];a=curve_identity(e);self.assertEqual(a,curve_identity(deepcopy(e)));Path(e['file']).write_text('source changed');self.assertNotEqual(a,curve_identity(e))
-    def test_real_curve_exports_use_unique_paths_and_preserve_source_and_previous_output(self):
+    def test_real_curve_exports_reuse_unchanged_source_and_preserve_previous_output(self):
         from tests.test_personal_records import FeatureTests,TEMPLATE
         from laps import export_fastest
         from personal_records import records
         from control_record_browser import save_curve
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as tmp:
             folder=FeatureTests().session(tmp,'fixture');export_fastest(folder,TEMPLATE);e=records(tmp)[0];before={p:p.read_bytes() for p in folder.rglob('*') if p.is_file()};one=Path(save_curve(tmp,e));saved=one.read_bytes();two=Path(save_curve(tmp,e))
+            self.assertEqual(one,two)
+            source=Path(e['file']);stamp=source.stat();os.utime(source,ns=(stamp.st_atime_ns,stamp.st_mtime_ns+1000000));two=Path(save_curve(tmp,e))
             self.assertNotEqual(one,two);self.assertEqual(one.read_bytes(),saved);self.assertIn('<canvas',two.read_text('utf-8'));self.assertIn('stintrix-laps',two.read_text('utf-8'));self.assertEqual({p:p.read_bytes() for p in before},before)
 
 

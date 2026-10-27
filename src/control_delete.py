@@ -18,17 +18,33 @@ def confirm(center,items):
     return ask(center.root,'删除赛事记录',tr('永久删除选中的赛事记录？')+f' ({len(items)})',details,warning='将从本机删除所选赛事的全部记录、圈文件与报告，无法恢复。')
 
 
-def remove(center):
+def remove(center,items=None,after=None):
     if busy(center):return
     def chosen(items):
         if not confirm(center,items):return
         if busy(center):return
         data=center.data_path;keys=tuple(item['key'] for item in items)
         def done(result):
-            if center.tree:center.refresh()
+            if after:after()
+            elif center.tree:center.refresh()
             center.status.set(tr('记录已永久删除')+f": {len(result['deleted'])} / {len(keys)}")
             errors=result['failed']+result['warnings']
             if errors:
                 messagebox.showwarning(tr('部分赛事未能删除'), '\n'.join(key+' · '+tr(error) for key,error in errors),parent=center.root)
         center.work(lambda:session_delete.remove_many(data,keys),done)
-    center.with_selection(chosen,count=None)
+    if items is None:center.with_selection(chosen,count=None)
+    else:chosen([dict(item) for item in items])
+
+
+def remove_source(center,entry,after=None):
+    """A personal best owns a source event, not a transient derived JSON file."""
+    from pathlib import Path
+    from library import session_label
+    from simulators import accepts
+    root=Path(center.data_path).resolve();folder=Path(entry['folder']).resolve();meta=dict(entry['session'])
+    if folder==root or not folder.is_relative_to(root) or not accepts(root,meta):raise ValueError('记录不在当前游戏目录')
+    key=folder.relative_to(root)
+    if len(key.parts)!=2:raise ValueError('记录路径无效')
+    item=dict(key=str(key),folder=str(folder),date=str(meta.get('started_utc','')),track=str(meta.get('track','')),
+        vehicle=str(meta.get('vehicle','')),session_type=session_label(meta.get('session')))
+    return remove(center,[item],after)

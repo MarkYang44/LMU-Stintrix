@@ -10,7 +10,7 @@ import statistics
 import threading
 from buffers import CompactRow
 from array import array
-from analysis_spool import LapRows,DiskTable,median
+from analysis_spool import LapRows,DiskTable,median,project_rows
 
 FORMAT = 'inputscope.fastest-lap'
 DATA_COLUMNS = ['distance_m','lap_time_s','throttle','brake','filtered_throttle','filtered_brake','speed_kmh']
@@ -21,12 +21,12 @@ def safe_name(value):
 
 
 def write_json(path, value):
-    from reporting import json_chunks
+    from reporting import json_chunks,coalesced
     path = Path(path)
     pending = path.with_name(path.name+'.'+str(threading.get_ident())+'.pending')
     try:
         with pending.open('wb') as f:
-            for chunk in json_chunks(value):f.write(chunk)
+            for chunk in coalesced(json_chunks(value)):f.write(chunk)
         pending.replace(path)
     finally:
         if pending.exists():pending.unlink()
@@ -42,24 +42,30 @@ def read_rows(path,start=0,end=None,cookies=(),capture=None):
                    'wetness','tc_level','abs_level','tc_active','abs_active','gear',
                    'tyre_rear_compound','ambient_temp_c','rain','track_grip'}
         layout={k:i for i,k in enumerate(dict.fromkeys(k for k in reader.fieldnames or () if k in numbers))}
+        required={'session_time_s','lap','lap_distance_m','throttle','brake','filtered_throttle','filtered_brake','speed_kmh'}
+        complete_header=required.issubset(layout) and 'utc' in (reader.fieldnames or ())
         last_utc=None
         from lap_scan_index import raw_rows
-        for row in raw_rows(path,start,end,cookies,capture):
+        for row in raw_rows(path,start,end,cookies,capture,columns=(*layout,'utc')):
             try:
-                numeric=[]
-                for key in layout:
-                    value=row.get(key)
-                    if value in ('',None):numeric.append(math.nan)
-                    else:
-                        number=float(value)
-                        if not math.isfinite(number):raise ValueError('Non-finite telemetry')
-                        numeric.append(number)
-                utc=row['utc']
+                if not complete_header:raise ValueError('Required telemetry columns missing')
+                cells=row[:-1]
+                if all(cells):
+                    numeric=list(map(float,cells))
+                    if not all(map(math.isfinite,numeric)):raise ValueError('Non-finite telemetry')
+                else:
+                    numeric=[]
+                    for key,value in zip(layout,cells):
+                        if value in ('',None):
+                            if key in required:raise ValueError('Required telemetry value missing')
+                            numeric.append(math.nan)
+                        else:
+                            number=float(value)
+                            if not math.isfinite(number):raise ValueError('Non-finite telemetry')
+                            numeric.append(number)
+                utc=row[-1]
                 if utc!=last_utc:last_utc=utc
                 values=CompactRow(layout,numeric,last_utc)
-                if not {'session_time_s','lap','lap_distance_m','throttle','brake',
-                        'filtered_throttle','filtered_brake','speed_kmh'}.issubset(values):
-                    raise ValueError('Required telemetry columns missing')
                 yield values
             except (ValueError,TypeError,KeyError) as error:
                 raise ValueError('CSV contains an incomplete or invalid telemetry row') from error
@@ -132,7 +138,7 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
         beginning=None;maximum=-math.inf;backwards=False;previous_time=None;previous_distance=None
         # These facts used to reread the disk-backed lap in several full passes.
         # Collect the same facts once; keep all source samples and float64 times.
-        for index,row in enumerate(group):
+        for index,row in enumerate(project_rows(group,('session_time_s','lap_distance_m','lap_invalidated','in_pits'))):
             when=row['session_time_s'];distance=row['lap_distance_m']
             if previous_time is not None:
                 dt=when-previous_time
@@ -214,10 +220,12 @@ def extract_best(csv_path,on_candidate=None,include_flagged=False,retain_best=Tr
 
 
 def comparison_data(best):
-    rows = best['rows']
+    from analysis_spool import numeric_rows
+    directory=getattr(best['rows'],'directory',None)
+    rows = numeric_rows(best['rows'],('session_time_s','lap_distance_m','throttle','brake','filtered_throttle','filtered_brake','speed_kmh'))
     start,end,length = best['start_s'],best['end_s'],best['length_m']
     times=array('d',[start]);distances=array('d',[0])
-    for r in rows[best['first_distance_index']:]:
+    for r in project_rows(rows[best['first_distance_index']:],('session_time_s','lap_distance_m')):
         t,d=r['session_time_s'],max(0,min(length,r['lap_distance_m']))
         if start<t<end and d>distances[-1]+.01:times.append(t);distances.append(d)
     times.append(end);distances.append(length)
@@ -235,7 +243,7 @@ def comparison_data(best):
             d=distances[index]+(distances[index+1]-distances[index])*(t-times[index])/(times[index+1]-times[index])
             yield [round(d,3),round(t-start,6),*[round(row[n],6) for n in names]]
         yield boundary(end,rows[-1],best['next_row'],length)
-    return DiskTable(records(),7,rows.directory if isinstance(rows,LapRows) else None)
+    return DiskTable(records(),7,directory)
 
 
 
@@ -283,7 +291,7 @@ def trajectory_data(best, data):
         f = max(0,min(1,(t-a[1])/max(1e-9,b[1]-a[1])))
         d = a[0]+f*(b[0]-a[0])
         points.append([round(t,6),round(d,3),round(x,3),round(z,3)])
-    rows = best['rows']
+    rows = project_rows(best['rows'],('session_time_s','world_x_m','world_z_m'))
     for row in rows:
         if all(k in row for k in ('world_x_m','world_z_m')) and start<=row['session_time_s']<end:
             add(row['session_time_s']-start,row['world_x_m'],row['world_z_m'])

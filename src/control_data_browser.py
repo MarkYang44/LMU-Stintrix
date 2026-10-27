@@ -67,6 +67,8 @@ class DataBrowser:
     def install_actions(self,host):
         from control_batch import show,running
         app=self.app;section=app.data_tasks.current
+        from simulator_profiles import capabilities
+        supported=capabilities(getattr(app,'simulator','lmu'))
         if section not in ('packages','storage'):return
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,6));row=app.row(host);install(row);self.toolbar={};self.conditions={}
         def button(key,title,command,condition,primary=False):
@@ -74,20 +76,23 @@ class DataBrowser:
         if section=='packages':
             button('export','导出赛事包',app.export_package,lambda:self.ready(),True)
             button('import','导入赛事包',app.import_package,lambda:running(app) is None)
-            button('native','导入官方遥测',app.import_native,lambda:running(app) is None)
+            if supported.native_import:button('native','导入官方遥测',app.import_native,lambda:running(app) is None)
         else:
             button('csv','导出原始 CSV',lambda:app.storage_operation('csv'),lambda:self.ready(True),True)
-            button('html','导出独立复盘页',lambda:app.storage_operation('html'),lambda:self.ready(True))
+            if supported.full_review:button('html','导出独立复盘页',lambda:app.storage_operation('html'),lambda:self.ready(True))
             button('picker','收起赛事列表' if self.picker_open else '选择赛事',self.toggle_picker,lambda:True)
             self.picker_button=self.toolbar['picker'];b=self.picker_button;b.configure(width=max(b.font.measure(tr(text))+px(b,36) for text in ('选择赛事','收起赛事列表')))
         trigger=app.button(row,'更多操作 ▾',lambda:menu.toggle(),False,110);trigger.configure(height=px(trigger,38))
         from control_event_filters import edit_note
         from control_split_checks import show as split
+        from control_maintenance import reports,caches
         actions=[MenuAction('tasks','批量任务与失败重试',lambda:show(app),'任务'),
+            MenuAction('reports','报告任务与分步重试',lambda:reports(app),'任务'),
+            MenuAction('caches','缓存与导出文件',lambda:caches(app),'存储'),
             MenuAction('all','全选当前列表',lambda:self.table.selection_set(self.table.get_children()),'选择',lambda:bool(self.table.rows)),
             MenuAction('clear','清除选择',lambda:self.table.selection_set(()),'选择',lambda:bool(self.table.selection())),
             MenuAction('note','收藏与标签',lambda:app.with_selection(lambda items:edit_note(app,items[0],app.refresh)),'整理',lambda:len(self.selected())==1 and running(app) is None),
-            MenuAction('split','检查疑似拆分',lambda:split(app),'整理')]
+            MenuAction('split','检查疑似拆分',lambda:split(app),'整理',visible=lambda:supported.full_review)]
         if section=='storage':
             actions.extend([MenuAction('compress','压缩选中赛事',app.compress_selected,'存储',lambda:self.ready()),
                 MenuAction('columnar','转换选中赛事为列式',lambda:app.storage_operation('columnar'),'存储',lambda:self.ready(True)),

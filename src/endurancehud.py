@@ -13,7 +13,8 @@ NAMES={'rain_severity':'雨量强度','wetness':'湿度','track_temp_c':'赛道�
 class Panels:
     def __init__(self,app,root):
         self.app=app;self.root=Path(root);self.windows={};self.labels={};self.topmost={};self.passthrough={};self.dialog=None
-        self.refresh_visibility();app.root.after(100,self.tick)
+        self.refresh_visibility()
+        if getattr(app,'simulator','lmu')=='lmu':app.root.after(100,self.tick)
 
     def save(self):atomic_json(self.root/'endurance_settings.json',self.app.endurance_settings)
 

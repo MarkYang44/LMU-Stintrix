@@ -23,9 +23,9 @@ def source(folder):
     return stamps(Path(folder)/name for name in ('session.json','inputs.csv','inputs.csv.stc','vehicle.csv','vehicle.csv.stc','native_channels.json'))
 
 
-def scan(folder,reader):
+def scan(folder,reader,*,namespace='lmu',files=(),limit=16,max_file_bytes=None):
     """Coalesce A/B reads; retain only up to 16 small lap inventories, no samples."""
-    signature=source(folder);key=repr(signature)
+    files=tuple(files);signature=source(folder);key=repr((namespace,signature,stamps(files)))
     with _lock:
         if key in _scans:
             value=_scans.pop(key);_scans[key]=value;return deepcopy(value)
@@ -36,8 +36,11 @@ def scan(folder,reader):
         value=reader()
         if source(folder)!=signature:raise OSError('赛事数据已变化，请重新选择并重试')
         with _lock:
-            _scans[key]=deepcopy(value)
-            while len(_scans)>16:_scans.popitem(last=False)
+            # A reader may publish its derived index. Track its final identity.
+            final_files=stamps(files)
+            if max_file_bytes is None or sum(s[0] for _,s in final_files if s is not None)<=max_file_bytes:
+                _scans[repr((namespace,signature,final_files))]=deepcopy(value)
+            while len(_scans)>limit:_scans.popitem(last=False)
         future.set_result(value);return deepcopy(value)
     except BaseException as error:future.set_exception(error);raise
     finally:

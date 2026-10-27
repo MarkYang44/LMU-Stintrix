@@ -8,11 +8,19 @@ MODES={'normal':'标准面板','curves':'纯净 · 仅曲线','controls':'纯净
 
 
 def setup(app):
-    if app.active():return layout_actions.current(app.data_path,app.hud)
+    if app.active():return available(app,layout_actions.current(app.data_path,app.hud))
     token=tuple((p.stat().st_mtime_ns,p.stat().st_size) if p.exists() else None for p in [app.data_path/name for name in ('hud_layouts.json','vehicle_settings.json','endurance_settings.json')])
     cached=getattr(app,'_idle_display_cache',None)
     if cached is None or token!=cached[0]:app._idle_display_cache=(token,layout_actions.current(app.data_path))
-    return deepcopy(app._idle_display_cache[1])
+    return available(app,deepcopy(app._idle_display_cache[1]))
+
+
+def available(app,snapshot):
+    from simulator_profiles import capabilities
+    supported=capabilities(getattr(app,'simulator','lmu'))
+    for kind,panel in snapshot['panels'].items():
+        if not supported.panel(kind):panel['visible']=False
+    return snapshot
 
 
 def refresh(app):

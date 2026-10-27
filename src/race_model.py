@@ -20,11 +20,13 @@ def read_json(path, default):
 def lap_summaries(path):
     """O(laps) memory; keep neither input samples nor per-sample intervals."""
     result=[];current=None;seen_boundary=False;previous_et=None
-    with Path(path).open(encoding='utf-8-sig',newline='') as stream:
-        for row in csv.DictReader(stream):
-            et=number(row.get('session_time_s'));lap=number(row.get('lap'))
+    from lap_scan_index import raw_rows
+    rows=raw_rows(path,columns=('session_time_s','lap','lap_start_s','lap_invalidated','in_pits'))
+    try:
+        for raw_et,raw_lap,raw_start,raw_invalid,raw_pits in rows:
+            et=number(raw_et);lap=number(raw_lap)
             if et is None or lap is None:raise ValueError('记录包含无效时间或圈号')
-            start=number(row.get('lap_start_s'))
+            start=number(raw_start)
             timer=start is not None and 0<=start<=et+.1
             key=('timer',start) if timer else ('counter',int(lap))
             if current is None or key!=current['_key']:
@@ -44,9 +46,11 @@ def lap_summaries(path):
             current['samples']+=1
             if previous_et is not None:current['max_gap_s']=max(current['max_gap_s'],et-previous_et)
             previous_et=et
-            current['validity_known'] &= number(row.get('lap_invalidated')) is not None
-            current['invalidated'] |= (number(row.get('lap_invalidated')) or 0)>0
-            current['in_pits'] |= (number(row.get('in_pits')) or 0)>0
+            invalid=number(raw_invalid)
+            current['validity_known'] &= invalid is not None
+            current['invalidated'] |= (invalid or 0)>0
+            current['in_pits'] |= (number(raw_pits) or 0)>0
+    finally:rows.close()
     if current:result.append(current)
     for lap in result:
         lap.pop('_key')
@@ -57,6 +61,9 @@ def lap_summaries(path):
 def build_model(folder):
     folder=Path(folder);meta=read_json(folder/'session.json',{})
     if meta.get('status')=='recording':raise ValueError('请等该场记录结束后再生成图片')
+    if meta.get('simulator_id')=='ac_evo':
+        from evo_laps import model
+        return model(folder)
     laps=lap_summaries(folder/'inputs.csv');events=[]
     path=folder/'race_events.csv'
     if path.exists():

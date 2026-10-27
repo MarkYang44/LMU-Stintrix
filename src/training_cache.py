@@ -7,6 +7,40 @@ from uuid import uuid4
 from race_model import read_json
 from storage import atomic_json
 from cache_management import LOCK as _lock
+from contextvars import ContextVar
+
+_catalog=ContextVar('stintrix_training_catalog',default=None)
+
+
+def catalogued(function):
+    """Reuse only metadata within one analysis job; recheck file identity on access."""
+    @wraps(function)
+    def run(*args,**kwargs):
+        if _catalog.get() is not None:return function(*args,**kwargs)
+        token=_catalog.set({})
+        try:return function(*args,**kwargs)
+        finally:_catalog.reset(token)
+    return run
+
+
+def _stamp(path):
+    try:s=path.stat();return s.st_size,s.st_mtime_ns,s.st_ino,s.st_ctime_ns
+    except FileNotFoundError:return None
+
+
+def _remember(path,value,stamp):
+    pool=_catalog.get()
+    if pool is not None:
+        if (stamp is None or stamp[0]<=8*1024*1024) and (str(path) in pool or len(pool)<8):pool[str(path)]=(stamp,value)
+
+
+def _index(path):
+    for _ in range(2):
+        stamp=_stamp(path);pool=_catalog.get();cached=pool.get(str(path)) if pool is not None else None
+        if cached is not None and cached[0]==stamp:return cached[1]
+        value=read_json(path,{})
+        if _stamp(path)==stamp:_remember(path,value,stamp);return value
+    raise OSError('Training catalog changed during read; retry analysis')
 
 def serialized(function):
     @wraps(function)
@@ -27,9 +61,11 @@ def path(root,folder):
     base=root/'PersonalRecords/TrainingCache'
     with _lock:
         base.mkdir(parents=True,exist_ok=True)
-        index=base/'sources.json';value=read_json(index,{});key=folder.relative_to(root).as_posix();old=value.get(key,{})
+        index=base/'sources.json';value=_index(index);key=folder.relative_to(root).as_posix();old=value.get(key,{})
         if old.get('signature')!=signature or old.get('version')!=6:
-            value[key]=dict(version=6,signature=signature,token=uuid4().hex);atomic_json(index,value)
+            value=dict(value);value[key]=dict(version=6,signature=signature,token=uuid4().hex);atomic_json(index,value)
+            pool=_catalog.get()
+            if pool is not None:pool.pop(str(index),None)
         token=value[key]['token']
         if len(token)!=32 or any(c not in '0123456789abcdef' for c in token):raise ValueError('Invalid training cache identifier')
     return base/token/'profiles.json'

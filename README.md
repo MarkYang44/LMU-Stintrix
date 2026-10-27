@@ -7,7 +7,9 @@ English | [简体中文](README.zh-CN.md)
 
 # LMU Stintrix
 
-A local telemetry HUD and lap analysis toolkit for **Le Mans Ultimate**.
+A local telemetry HUD and lap analysis toolkit for **Le Mans Ultimate** and **Assetto Corsa EVO**.
+
+Choose **LMU** or **AC EVO** in the control center. Both share the industrial interface, input HUD, shortcuts, recording and lossless archives; each simulator keeps its own sessions, settings and records. [Supported features and switching](docs/SIMULATORS.md)
 
 See your inputs while driving. Compare braking, throttle application, and pace afterward. Keep a history of your progress.
 
@@ -19,13 +21,13 @@ See your inputs while driving. Compare braking, throttle application, and pace a
 
 ## Overview
 
-Stintrix brings live driving feedback, automatic recording, and post-session analysis into one desktop app. Compare complete laps by track distance to see where your inputs and lap times differ, then revisit personal records as you practice.
+Stintrix brings live driving feedback, automatic recording, and post-session analysis into one desktop app. Review complete laps from the same layout, compare your inputs and lap times, then revisit personal records as you practice.
 
-It reads LMU's native shared memory without DLL injection or game-file changes. English and Simplified Chinese menus, dark and light themes, and local reports are included. Your recordings stay on your computer.
+It reads the selected game's shared memory without DLL injection or game-file changes. English and Simplified Chinese menus, dark and light themes, and local reports are included. Your recordings stay on your computer. Available analysis depends on the simulator and recorded channels.
 
 ## Screenshots
 
-Real windows from the current source version, using generated sample sessions and the built-in DEMO, not actual driving results. The clean HUD uses language-neutral graphics. [Capture details](docs/screenshots/README.md).
+Real LMU windows captured from v0.2.43, using generated sample sessions and the built-in DEMO, not actual driving results. The current interface includes a game selector and further workflow improvements. The clean HUD uses language-neutral graphics. [Capture details](docs/screenshots/README.md).
 
 <table>
   <tr>
@@ -42,32 +44,34 @@ Real windows from the current source version, using generated sample sessions an
 
 ### See your inputs on track
 
-- Live throttle, brake, and steering traces, with raw or game-filtered input.
-- Compact layouts and optional tire, fuel, Virtual Energy, pit, stint, and weather panels.
+- Live throttle, brake, and steering traces: raw / game-filtered inputs in LMU, distinct physics / HUD inputs in EVO.
+- Compact layouts, saved HUD positions, silent recording, and global shortcuts. LMU also provides optional tire, fuel, Virtual Energy, pit, stint, and weather panels.
 
 ### Keep sessions ready for review
 
-- Automatic qualifying and race recording; practice recording is optional.
+- Automatic qualifying / timed-session and race recording; practice recording is optional, including EVO free roam.
 - Lossless telemetry storage, CSV export, searchable sessions, and ZIP / 7z session packages.
+- Background reports with per-step status and failed-task retry; EVO defers report generation and compression until capture stops.
 
 ### Understand lap differences
 
 - Compare valid complete laps from the same track layout, within or across sessions.
-- Distance-aligned inputs, speed, time differences, and recorded trajectories.
+- LMU provides distance-aligned inputs, speed, time differences, and recorded trajectories. EVO provides complete recorded input curves and game-reported lap-time differences, with zoom, pan, and original sample readouts.
 
 ### Give practice a focus
 
-- Training priorities and saved practice targets based on recorded laps.
+- In LMU, training priorities and saved practice targets based on recorded laps.
 - Progress analysis that considers car, fuel, tires, weather, and available conditions.
 
 ### Follow your records
 
-- Personal bests by layout and vehicle class, record history, and confirmed class podiums.
-- Read-only game-result XML integration and locally exported achievement cards.
+- Personal bests and record history for both simulators: LMU by layout and vehicle class, EVO by layout and specific model.
+- Lap sheets, race journals, and locally exported achievement cards. LMU also supports confirmed class podiums and read-only game-result XML integration.
+- EVO car galleries filter by brand and category; track cards show verified layouts and available official circuit maps. Artwork downloads are optional and stay local.
 
 ### Review video inputs · Experimental
 
-- Estimated throttle and brake traces from a calibrated local video, with optional historical-lap comparison.
+- In LMU, estimated throttle and brake traces from a calibrated local video, with optional historical-lap comparison.
 - Results stay separate from native records. Local FFmpeg is required; see [Video analysis](docs/VIDEO_ANALYSIS.md).
 
 ## Installation
@@ -89,26 +93,29 @@ Source setup uses **Python 3.13 x64 with Tcl/Tk**. The script can install it thr
 
 ## Quick start
 
-1. In LMU, enable **Settings → Gameplay → Enable Plugins**.
-2. Open Stintrix and click **Start HUD**. Use **中文 / EN** to switch menu language.
+1. Open Stintrix and select **LMU** or **AC EVO** at the top left. For LMU, enable **Settings → Gameplay → Enable Plugins** in the game.
+2. Click **Start Recording**. Use **中文 / EN** to switch menu language.
 3. Enter the track in windowed or borderless mode.
-4. Drive a qualifying or race session; recording starts automatically. Practice recording is off by default; enable it under **Sampling & Telemetry** if needed.
+4. Drive a qualifying / timed session or race; recording starts automatically when supported driving data arrives. Practice recording is off by default; enable it under **Sampling & Telemetry** if needed.
 5. Afterward, open **Session Review** to inspect the recording or compare laps.
 
-Try **Demo Mode** or `Demo.cmd` to explore without connecting to the game.
+Use **Stop & Save** to hide the HUD and finish saving in the background. Switching games safely closes the current HUD and waits for pending work before opening the selected mode. Try **Demo Mode** or `Demo.cmd` to explore the LMU interface without connecting to a game.
 
 ## Compatibility and data sources
 
-- **Target platform:** Windows 10 / 11 x64, matching [LMU's OS requirements](https://lemansultimate.com/system-requirements/). Builds and validation use Windows x64 with Python 3.13.
-- **Live data:** native `LMU_Data` shared memory through the bundled [pyLMUSharedMemory SDK](THIRD_PARTY_NOTICES.md#pylmusharedmemory). No DLL injection or game-file modification.
-- **Saved data:** Stintrix sessions, read-only LMU `.duckdb` import, and game-result XML where available.
+- **Target platform:** Windows 10 / 11 x64. Builds and validation use Windows x64 with Python 3.13; the selected game must also meet its own system requirements.
+- **LMU live data:** native `LMU_Data` shared memory through the bundled [pyLMUSharedMemory SDK](THIRD_PARTY_NOTICES.md#pylmusharedmemory).
+- **EVO live data:** read-only `Local\acevo_pmf_*` shared memory. Physics and HUD channels remain distinct; unavailable clocks, conditions, and results remain blank.
+- **Saved data:** separate Stintrix libraries and archives for each game. Native `.duckdb` and game-result XML import are LMU features; archives from the other game require switching modes first.
 - **Availability:** channels depend on the game / SDK and recording source. Position replay needs recorded coordinates; exclusive fullscreen may hide the desktop HUD.
 
-RaceCom image generation is optional and requires your own generator. The core HUD and lap analysis do not require it.
+EVO personal records and A/B comparison require observed valid complete laps with game-reported timing. Older recordings without that evidence remain readable but do not become verified lap records. Condition-based training, live reference laps, official results, and additional vehicle panels remain LMU features. [Detailed scope](docs/SIMULATORS.md).
+
+Lap-sheet and journal images can use the built-in compatible generator. Reusing the original RaceCom engine requires your own local installation; it is not bundled. Optional EVO artwork is downloaded from official game or circuit-operator sources and is not redistributed in releases. [Credits and sources](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering).
 
 ## Project status
 
-Under active development. The source tree and screenshots may be ahead of the latest portable release. Video extraction is experimental and produces estimates. See [release notes](docs/RELEASE_NOTES.md) for changes and [Releases](https://github.com/MarkYang44/LMU-Stintrix/releases) for packaged versions.
+Under active development. EVO shared-memory fixtures, storage round trips, and UI workflows have been checked; acceptance against an installed game during live driving remains pending. Video extraction is experimental and produces estimates. See [release notes](docs/RELEASE_NOTES.md) for changes and [Releases](https://github.com/MarkYang44/LMU-Stintrix/releases) for packaged versions.
 
 ## Privacy
 
@@ -121,6 +128,7 @@ Detailed guides are currently primarily in Chinese.
 | Document | What it covers |
 | --- | --- |
 | [Usage](docs/USAGE.md) | HUD operation, recording, review, and troubleshooting |
+| [LMU and AC EVO](docs/SIMULATORS.md) | Switching games, supported features, separate data, and EVO setup |
 | [Architecture](docs/ARCHITECTURE.md) | Module responsibilities and development boundaries |
 | [Performance](docs/PERFORMANCE.md) | Measured results, workloads, and tradeoffs |
 | [Storage](docs/STORAGE_OPTIMIZATION.md) | Lossless storage, CSV recovery, and archives |
@@ -146,4 +154,4 @@ Daily validation selects a small smoke set and checks related to pending changes
 
 [MIT](LICENSE). Third-party code and artwork: [Third-party notices](THIRD_PARTY_NOTICES.md).
 
-An independent community project, not affiliated with or endorsed by Studio 397 or Motorsport Games. Le Mans Ultimate and other referenced names belong to their respective owners.
+An independent community project, not affiliated with or endorsed by Studio 397, Motorsport Games, KUNOS Simulazioni, or 505 Games. Le Mans Ultimate, Assetto Corsa EVO, and other referenced names belong to their respective owners.

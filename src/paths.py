@@ -19,19 +19,28 @@ def local_settings():
     try:return json.loads((APP_ROOT/'local_settings.json').read_text(encoding='utf-8-sig'))
     except (OSError,ValueError):return {}
 
-def data_directory():
+def base_data_directory():
     from legacy_identity import DATA_ENV
     configured=os.environ.get('LMU_STINTRIX_DATA_DIR') or os.environ.get(DATA_ENV) or local_settings().get('data_directory')
     path=Path(configured).expanduser() if configured else APP_ROOT/'data'
     return (path if path.is_absolute() else APP_ROOT/path).resolve()
+
+def data_directory():
+    base=base_data_directory()
+    # Workers receive an already scoped root, independently of the launcher selection.
+    if os.environ.get('LMU_STINTRIX_REPORT_WORKER')=='1':return base
+    from simulators import root_for,selected
+    return root_for(base,selected(base))
 
 def track_catalog_path(assets=None):
     """Private legacy maps override the public catalog only at runtime."""
     private=data_directory()/'assets'/'tracks'/'catalog.json'
     return private if private.is_file() else Path(assets or ASSETS)/'tracks'/'catalog.json'
 
-def discover_game():
-    specified=local_settings().get('game_directory')
+def discover_game(simulator='lmu'):
+    from simulators import GAMES,validate
+    validate(simulator);settings=local_settings();directories=settings.get('game_directories',{})
+    specified=(directories.get(simulator) if isinstance(directories,dict) else None) or (settings.get('game_directory') if simulator=='lmu' else None)
     if specified and Path(specified).is_dir():return Path(specified)
     roots=[]
     if sys.platform=='win32':
@@ -48,7 +57,7 @@ def discover_game():
             libraries.extend(Path(v.replace('\\\\','\\')) for v in re.findall(r'"path"\s*"([^"]+)"',vdf))
         except OSError:pass
     for library in libraries:
-        candidate=library/'steamapps'/'common'/'Le Mans Ultimate'
+        candidate=library/'steamapps'/'common'/('Le Mans Ultimate' if simulator=='lmu' else 'Assetto Corsa EVO')
         if candidate.is_dir():return candidate
     return None
 

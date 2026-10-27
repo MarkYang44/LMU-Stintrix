@@ -9,7 +9,7 @@ from pathlib import Path
 import tkinter as tk
 from control_theme import T
 from tkinter import ttk,filedialog,messagebox
-from app_config import ROOT
+from app_config import ROOT, SIMULATOR
 from background import BackgroundTasks
 from control_widgets import GlassCard,Pill,Switch,CardGrid,LaunchArtwork,backdrop,px
 from control_fields import Select,Field
@@ -36,12 +36,15 @@ class ControlCenter:
         gc.collect()
         self.root=root or tk.Tk();self.hud=hud;self.closing=False;self.attached=hud is not None
         self.data_path=ROOT;self.form_drafts={};
+        self.simulator=SIMULATOR
+        from simulator_profiles import profile
+        self.profile=profile(self.simulator);self.capabilities=self.profile.capabilities
         from control_context import BrowseMemory
         self.browsing=BrowseMemory();self.guide_page=None;self.guide_state={};self.tasks=BackgroundTasks();self.items=[];self.scan_generation=0;self.scanning=False;self.page=0
         import i18n
         i18n.load(ROOT/'interface_settings.json')
         control_theme.load(ROOT/'interface_settings.json')
-        self.root.title(tr('LMU Stintrix · 控制中心'));self.root.configure(bg=T.BG)
+        self.root.title(tr(self.profile.title+' · 控制中心'));self.root.configure(bg=T.BG)
         self.root.protocol('WM_DELETE_WINDOW',self.hide if self.attached else self.request_close)
         from race_model import read_json
         self.reference_settings=read_json(ROOT/'reference_settings.json',{})
@@ -90,11 +93,15 @@ class ControlCenter:
     def build_shell(self):
         self.configure_styles()
         self.page_titles=PAGES;self.page_subtitles=SUBTITLES
+        if self.profile.catalogue=='official':
+            self.page_subtitles=(*SUBTITLES[:2],'配置输入采样、HUD 刷新与练习赛记录。','共享赛事选择，管理归档、无损存储和报告重试。','查看赛道布局与官方线路图。','按品牌与车型组别筛选官方图片。','赛道最快圈与纪录履历，保留每一次突破。')
         self.shell=Shell(self.root,PAGES,self.request_page,self.status,self.toggle_theme,self.toggle_language)
         self.scroll=self.shell.scroll;self.content=self.shell.content;self.content_item=self.shell.item
         self.title=self.shell.title;self.subtitle=self.shell.subtitle
         from control_pages import PageDeck
         self.pages=PageDeck(self,self.shell.content)
+        from control_simulator import install
+        install(self)
     def toggle_theme(self):self.set_theme('light' if T.mode=='dark' else 'dark')
 
     def set_theme(self,mode):
@@ -109,6 +116,8 @@ class ControlCenter:
         control_theme.recolor(self.root,previous)
         self.shell.refresh_brand()
         self.shell.theme_button.label='◐  浅色主题' if T.mode=='dark' else '◑  深色主题';self.shell.theme_button.paint()
+        gallery=getattr(self,'evo_gallery',None)
+        if gallery is not None and gallery.winfo_exists() and gallery.state.get('detail'):gallery.refresh()
         backdrop(self.root)
         if self.active():self.hud.apply_theme()
         video=getattr(self,'video_window',None)
@@ -120,29 +129,13 @@ class ControlCenter:
         try:i18n.save(ROOT/'interface_settings.json',target)
         except (OSError,ValueError) as error:self.status.set(tr('语言未保存：')+str(error));return
         self.rebuild_interface()
-        self.root.title(tr('LMU Stintrix · 控制中心'))
+        self.root.title(tr(self.profile.title+' · 控制中心'))
         self.status.set(tr('就绪 · 记录仅保存在本机'))
         i18n.refresh(self.root)
 
     def rebuild_interface(self):
-        page=self.page;geometry=self.root.geometry();fraction=self.scroll.yview()[0]
-        state={name:value.get() for name,value in vars(self).items() if isinstance(value,tk.Variable)}
-        query=self.search.get() if self.tree else ''
-        selected=self.tree.selection() if self.tree else ()
-        table_position=self.tree.offset if self.tree else 0
-        from control_forms import capture
-        self.form_drafts=capture(self.pages,self.form_drafts)
-        self.browsing.capture(self)
-        self.clear_toolbar();self.pages.dispose()
-        self.shell.motion.cancel();self.shell.scroller.cancel();self.shell.navigation.motion.cancel()
-        self.shell.detach();self.shell.side.destroy();self.shell.main.destroy();self.root.configure(bg=T.BG)
-        self.build_shell();self.root.geometry(geometry);self.show_page(page)
-        for name,value in state.items():
-            variable=getattr(self,name,None)
-            if isinstance(variable,tk.Variable):variable.set(value)
-        if self.tree:self.search.set(query);self.populate(selected)
-        self.root.update_idletasks();self.scroll.yview_moveto(fraction)
-        if self.tree:self.tree.scroller.move(table_position)
+        from control_view_state import rebuild_interface
+        return rebuild_interface(self)
 
     def label(self,parent,text,size=10,color=None,bold=False):
         return Label(parent,text='' if isinstance(text,tk.Variable) else text,textvariable=text if isinstance(text,tk.Variable) else None,
@@ -196,15 +189,8 @@ class ControlCenter:
     def request_page(self,index):self.pages.request(index)
 
     def show_page(self,index,progressive=False):
-        self.browsing.capture(self)
-        if not self.shell.covering:self.shell.cover_page()
-        self.clear_toolbar()
-        self.pages.cancel_request()
-        self.page=index;self.restore_list_context=True;self.progressive=progressive;self.scan_generation+=1;self.tree=None;self.guide_page=None
-        self.shell.scroller.cancel()
-        self.title.configure(text=PAGES[index]);self.subtitle.configure(text=SUBTITLES[index]);self.scroll.yview_moveto(0)
-        if self.shell.navigation.selected!=index:self.shell.select(index)
-        self.pages.mount(index,(self.run_page,self.review_page,self.settings_page,self.data_page,self.tracks_page,self.cars_page,self.records_page)[index],progressive)
+        from control_view_state import show_page
+        return show_page(self,index,progressive)
 
     def records_page(self):
         from control_records import show
@@ -225,6 +211,8 @@ class ControlCenter:
             from hud_layouts import defaults
             initial=defaults()
         body=self.card('',compact=True)
+        if self.simulator=='ac_evo':
+            self.label(body,'AC EVO · 输入 HUD、有效圈对比与个人纪录已适配；附加车辆面板暂未开放。',9,T.MUTED).pack(fill='x',pady=(0,8))
         from control_feedback import ConnectionFeedback
         live_row=self.row(body);live_row.pack_configure(pady=0);self.run_primary_row=live_row;self.connection_feedback=ConnectionFeedback(live_row);self.connection_feedback.pack(side='left',padx=(0,6));self.connection_feedback.set('waiting')
         self.live_label=self.label(live_row,'等待启动',11,T.ACCENT);self.live_label.pack(side='left')
@@ -256,7 +244,7 @@ class ControlCenter:
                 child.place(x=x,y=y,width=width,height=h);x+=width+gap;height=max(height,h)
             tools.pack_propagate(False);tools.configure(height=y+height)
         row.bind('<Configure>',arrange_tools)
-        policy=self.label(body,'排位和正赛自动保存；练习赛完整记录可在设置中开启。',9,T.MUTED);policy.pack(fill='x');policy.bind('<Configure>',lambda e:policy.configure(wraplength=max(100,e.width)))
+        policy=self.label(body,self.profile.recording_hint,9,T.MUTED);policy.pack(fill='x');policy.bind('<Configure>',lambda e:policy.configure(wraplength=max(100,e.width)))
         grid=CardGrid(self.content);grid.pack(fill='x')
         body=self.card('油门 / 刹车 / 转向','输入通道、显示模式与波形窗口',grid)
         self.mode=tk.StringVar(self.root,value=initial['mode'])
@@ -264,17 +252,19 @@ class ControlCenter:
         self.mode_label=tk.StringVar(self.root,value=next(k for k,v in modes.items() if v==self.mode.get()))
         self.choice(body,'显示模式',self.mode_label,list(modes),lambda:self.set_hud('mode',modes[self.mode_label.get()]))
         current=sampling.load_settings(ROOT/'settings.json');self.channel=tk.StringVar(self.root,value='游戏过滤后' if current['input_channel']=='filtered' else '原始输入')
-        self.choice(body,'输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'))
+        self.choice(body,'输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'),labels=dict(zip(('原始输入','游戏过滤后'),self.profile.input_labels)))
         self.window=tk.StringVar(self.root,value=initial['window'])
         self.choice(body,'波形窗口 / 秒',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()))
         row=self.row(body);self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
         self.label(body,'实时控制在启动记录后可用',9,T.MUTED).pack(anchor='w')
         body=self.card('附加遥测面板','按需开启，让比赛视野保持清爽',grid)
+        if self.simulator=='ac_evo':self.label(body,'AC EVO 附加车辆面板暂未适配',10,T.ACCENT).pack(fill='x',pady=(0,8))
         vehicle=vehiclelab.load_settings(ROOT/'vehicle_settings.json');end=endurance.load_settings(ROOT/'endurance_settings.json')
         switches=[]
         for module,key,title in [('vehicle','tyres','四轮轮胎温度 / 胎压 / 胎况'),('vehicle','strategy','燃油、虚拟能量与续航策略'),('endurance','pit','进站计时与补给'),('endurance','stint','Stint 长距离节奏'),('endurance','weather','天气与赛道趋势')]:
             value=tk.BooleanVar(self.root,value=initial['panels'][key]['visible'])
-            Switch(body,title,value,lambda m=module,k=key,v=value:self.set_panel_visibility(m,k,v.get())).pack(fill='x',pady=2)
+            switch=Switch(body,title,value,lambda m=module,k=key,v=value:self.set_panel_visibility(m,k,v.get()));switch.pack(fill='x',pady=2)
+            if not self.capabilities.panel(key):switch.configure(state='disabled')
             switches.append((module,key,value))
         self.panel_visibility_switches=switches
 
@@ -316,64 +306,28 @@ class ControlCenter:
         self.run_background(lambda:register(verify=True),done)
 
     def start(self,demo=False):
-        if self.active():
-            if not self.hud.silent_recording:self.hud.root.lift()
-            self.status.set(tr('记录已在运行；请先停止后切换真实 / 演示模式'));return
-        from control_maintenance import busy as maintenance_busy
-        if maintenance_busy(self):self.status.set(tr('离线维护正在处理，请完成后再启动记录'));return
-        if self.hud is not None and self.hud.root.winfo_exists():self.status.set(tr('正在保存上一场记录，请稍候'));return
-        video=getattr(self,'video_window',None)
-        if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
-        history=getattr(self,'video_history_window',None)
-        if history is not None and history.winfo_exists():history.history_state['cancel'].set()
-        from hud import App
-        self.last_recording_status=None
-        self.hud_stopped=False
-        self.hud=App(demo,root=tk.Toplevel(self.root),on_menu=self.show,shortcuts=self.shortcuts)
-        if hasattr(self,'mode_label') and not self.hud.layout_snapshot:
-            mode={'标准面板':'normal','纯净 · 仅曲线':'curves','纯净 · 曲线 + 踏板 / 方向盘':'controls'}[self.mode_label.get()]
-            self.hud.hud_mode.set(mode);self.hud.apply_clean_mode();self.hud.window.set(self.window.get())
-        self.status.set(tr('DEMO · 合成数据') if demo else tr('静默记录已启动 · 等待 LMU 遥测') if self.hud.silent_recording else tr('HUD 已启动 · 等待 LMU 遥测'))
+        from control_run_actions import start
+        return start(self,demo)
 
     def set_silent_recording(self):
-        import recording_visibility
-        enabled=self.silent_mode.get()
-        recording_visibility.save(ROOT/'recording_visibility.json',enabled)
-        if self.active():recording_visibility.apply(self.hud,enabled)
-        self.status.set(tr('静默记录已开启 · 全部 HUD 隐藏，记录规则不变') if enabled else tr('静默记录已关闭 · 恢复 HUD 显示'))
-        self.refresh_run_configuration()
+        from control_run_actions import set_silent_recording
+        return set_silent_recording(self)
 
     def stop_hud(self):
-        if self.active():
-            hud=self.hud;self.status.set(tr('正在结束录制并生成报告…'));hud.close(keep_control_center=True)
-            if not hud.closing:self.status.set(tr('继续记录；未保存修改仍保留'))
-            else:
-                self.hud_stopped=True;self.status.set(tr('HUD 已隐藏，后台正在完成保存。'))
-                from control_hud_stop import retire
-                retire(self);self.update_toolbar()
+        from control_run_actions import stop_hud
+        return stop_hud(self)
 
     def hud_action(self,method):
-        if self.active():getattr(self.hud,method)()
-        else:self.status.set(tr('请先启动 HUD，再打开这项实时功能'))
+        from control_run_actions import hud_action
+        return hud_action(self,method)
 
     def set_hud(self,key,value):
-        if key=='channel':self.update_module('sampling',{'input_channel':value})
-        elif self.active():
-            if key=='mode':self.hud.hud_mode.set(value);self.hud.apply_clean_mode()
-            else:self.hud.window.set(value)
-        elif key in ('mode','window'):
-            import layout_actions
-            try:layout_actions.adjust(self.data_path,**{key:value});self.refresh_run_configuration()
-            except (OSError,ValueError) as error:self.status.set(tr(str(error)))
+        from control_run_actions import set_hud
+        return set_hud(self,key,value)
 
     def set_panel_visibility(self,module,key,value):
-        from hud_layouts import LayoutStore
-        try:
-            if not self.active() and LayoutStore(self.data_path).current():
-                import layout_actions
-                layout_actions.adjust(self.data_path,panels={key:dict(visible=value)})
-            self.update_module(module,{key+'_enabled':value});self.refresh_run_configuration()
-        except (OSError,ValueError) as error:self.status.set(tr(str(error)))
+        from control_run_actions import set_panel_visibility
+        return set_panel_visibility(self,module,key,value)
 
     def run_background(self,work,done):return self.tasks.submit(work,done)
     def work(self,work,done=None):
@@ -396,6 +350,7 @@ class ControlCenter:
         self.search.set(self.browsing.query(self.page))
         if self.browsing.states.get(self.page,{}).get('advanced') and not self.review_filters.advanced.winfo_manager():self.review_filters.toggle()
         self.tree=SessionList(body,columns=('date','type','result','mode','track','car','lap','layout','class','trust','quality'),height=height,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
+        self.tree.simulator=self.simulator
         for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('result','完赛名次',90),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',92),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:
             self.tree.heading(key,text=title);self.tree.column(key,width=px(self.root,width),minwidth=px(self.root,60),stretch=key in ('track','car'))
         from control_table_preferences import install as table_preferences
@@ -432,7 +387,12 @@ class ControlCenter:
     def describe_selection(self):
         if not hasattr(self,'event_detail'):return
         ids=self.tree.selection() if self.tree else ()
-        if not ids:self.event_detail.set('');return
+        if not ids:
+            self.event_detail.set('');preview=getattr(self,'evo_preview',None)
+            if preview is not None and preview.winfo_exists():preview.clear()
+            return
+        preview=getattr(self,'evo_preview',None)
+        if preview is not None and preview.winfo_exists():preview.select(self.items[int(ids[0])])
         from event_catalog import normalize
         from event_filters import TRUST,QUALITY
         f=normalize(self.items[int(ids[0])]);scope=tr('最快圈条件') if f.get('condition_scope')=='fastest_lap' else tr('已记录有效圈条件')
@@ -665,7 +625,8 @@ class ControlCenter:
         if not self.closing and now-getattr(self,'report_retry_at',0)>=5:
             self.report_retry_at=now
             from report_worker import pending,resume_pending
-            if not self.tasks.busy:
+            from runtime_activity import busy as capture_busy
+            if not self.tasks.busy and not capture_busy():
                 self.run_background(lambda:resume_pending(ROOT),lambda result,error:None)
         if self.closing:return
         for done,result,error in self.tasks.completions():
@@ -698,7 +659,7 @@ class ControlCenter:
                 if variable.get()!=value:variable.set(value)
             for module,key,variable in getattr(self,'panel_visibility_switches',[]):
                 settings=self.hud.vehicle_settings if module=='vehicle' else self.hud.endurance_settings
-                value=self.hud.layout_visibility.get(key,settings[key+'_enabled'])
+                value=self.hud.layout_visibility.get(key,settings[key+'_enabled']) if self.capabilities.panel(key) else False
                 if variable.get()!=value:variable.set(value)
         elif self.page==0:
             saved=getattr(self,'last_recording_status',None)
@@ -715,7 +676,7 @@ class ControlCenter:
             if hasattr(self,'recording_detail'):self.recording_detail.pack_forget()
         self.job=self.root.after(100,self.tick)
 
-    def request_close(self):
+    def request_close(self,after_close=None):
         from control_confirm import close_editors
         from control_forms import close_forms
         from control_batch import running
@@ -727,11 +688,12 @@ class ControlCenter:
         video=getattr(self,'video_window',None)
         if video is not None and video.winfo_exists() and not video.video_wizard.allow_exit():return
         from control_renderer import close_draft
-        def finish():close_draft(self,lambda:close_forms(self,self.close))
+        def finish():close_draft(self,lambda:close_forms(self,lambda:self.close(after_close)))
         close_editors(self,lambda:close_editors(hud,finish) if hud is not None else finish())
 
-    def close(self):
+    def close(self,after_close=None):
         if not self.closing:
+            self.after_close=after_close
             if self.owns_shortcuts:self.shortcuts.close()
             video=getattr(self,'video_window',None)
             if video is not None and video.winfo_exists():video.video_wizard.cancel.set()
@@ -746,6 +708,8 @@ class ControlCenter:
         variables=[value for value in vars(self).items() if isinstance(value[1],tk.Variable)]
         forms=[value for page in self.pages.pages.values() for form in page.forms.values() for value in form.values()]
         self.clear_toolbar();self.pages.dispose();self.shell.navigation.command=None
+        selector=getattr(self,'simulator_selector',None)
+        if selector is not None and selector.winfo_exists():selector.destroy()
         self.root._brand_images=[]
         for name,variable in variables:
             variable.__del__();variable._tk=None
@@ -753,6 +717,9 @@ class ControlCenter:
             if variable._tk is not None:variable.__del__();variable._tk=None
         host=getattr(self,'hud_host_root',None);self.root.destroy()
         if host is not None and host.winfo_exists():host.destroy()
+        callback=getattr(self,'after_close',None)
+        self.after_close=None
+        if callback:callback()
 
 
 def show_attached(hud):

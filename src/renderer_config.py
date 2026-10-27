@@ -8,6 +8,10 @@ from storage import atomic_json
 def load(root=None):
     root=Path(root or data_directory())
     value=read_json(root/'renderer_settings.json',{})
+    if not (root/'renderer_settings.json').exists() and root.name=='ac_evo' and root.parent.name=='Simulators':
+        # Share the installed engine selection, with independent EVO resources.
+        shared=load(root.parent.parent)
+        value=shared
     if not isinstance(value,dict):value={}
     mode=value.get('mode','racecom');mode=mode if mode in ('racecom','native') else 'racecom'
     executable=value.get('executable','');executable=executable if isinstance(executable,str) else ''
@@ -35,4 +39,8 @@ def resolve(mode=None):
         value['mode']=mode
     if value['mode']=='racecom' and not Path(value['executable']).is_file():
         raise ValueError('尚未配置 RaceCom 原版图像生成器。请在控制中心 → 图像与数据选择 Image Generate.exe；赛事数据已保留。')
+    root=Path(data_directory())
+    if value['mode']=='racecom' and root.name=='ac_evo' and root.parent.name=='Simulators':
+        from evo_art import prepare_renderer
+        value['executable']=str(prepare_renderer(root,value['executable']))
     return value

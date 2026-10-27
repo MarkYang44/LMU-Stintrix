@@ -48,6 +48,8 @@ def _session(root,key):
     if (folder/'.storage_compression.pending').exists():raise ValueError('该赛事正在压缩，请稍后重试')
     meta=json.loads((folder/'session.json').read_text(encoding='utf-8-sig'))
     if not isinstance(meta,dict):raise ValueError('比赛信息无效')
+    from simulators import accepts
+    if not accepts(root,meta):raise ValueError('赛事属于另一款模拟器，请先切换游戏')
     if meta.get('status')=='recording':raise ValueError('请等录制结束后再导出；中断记录请先恢复')
     if not (folder/'inputs.csv').is_file():raise ValueError('记录缺少 inputs.csv')
     return folder,meta
@@ -160,6 +162,12 @@ def import_session(root,package,verify=False):
     collection.mkdir(parents=True,exist_ok=True)
     with _reader(package,collection) as archive:
         manifest=_validate(archive,verify=False)
+        if manifest['files']['session.json']['bytes']>MAX_MANIFEST:raise ValueError('比赛信息文件过大')
+        with archive.open('session/session.json') as source:raw_metadata=source.read(MAX_MANIFEST+1)
+        if len(raw_metadata)!=manifest['files']['session.json']['bytes']:raise ValueError('比赛信息文件大小不一致')
+        metadata=json.loads(raw_metadata.decode('utf-8-sig'))
+        from simulators import accepts
+        if not isinstance(metadata,dict) or not accepts(root,metadata):raise ValueError('赛事属于另一款模拟器，请先切换游戏再导入')
         from export_cache import load,signature
         for previous in load(root):
             if previous.get('archive_id')!=manifest['archive_id']:continue

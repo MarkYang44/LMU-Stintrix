@@ -11,8 +11,8 @@ LIMIT=4*1024*1024
 
 
 def signature(folder):
-    from paths import app_version
-    return dict(version=2,app=app_version(),source=source(folder))
+    from lap_cache_versions import signature as data_signature
+    return data_signature(folder,'scan')
 
 
 def load(folder):
@@ -20,8 +20,12 @@ def load(folder):
     try:
         if path.stat().st_size>LIMIT:return None
         envelope=json.loads(path.read_text('utf-8'));value=envelope['value']
-        if value['signature']!=signature(folder):return None
+        from lap_cache_versions import compatible
+        expected=signature(folder)
+        if not compatible(value['signature'],expected):return None
         if hashlib.sha256(encode(value)).hexdigest()!=envelope['sha256']:return None
+        # Normalize in memory only; preserve the historical index on disk.
+        value['signature']=expected
         return value
     except (OSError,ValueError,KeyError,TypeError):return None
 
@@ -51,25 +55,37 @@ def ranges(best,first,last,index):
     best['_text_range']=(index['clocks'][position][0] if index['clocks'] else 0,None,index['cookies'])
 
 
-def raw_rows(path,start=0,end=None,cookies=(),capture=None):
+def raw_rows(path,start=0,end=None,cookies=(),capture=None,columns=None):
     """CSV text cookies preserve quoted multiline fields and universal newlines."""
     path=Path(path)
     if not path.is_file():
-        from column_store import rows
-        yield from rows(path,start_row=start,end_row=end);return
+        from column_store import rows,values,Reader,packed
+        if columns is not None:
+            names=Reader(packed(path)).columns
+            if len(names)!=len(set(names)):
+                # Full DictReader historically chooses the last duplicate name.
+                for row in rows(path,start_row=start,end_row=end):yield tuple(row.get(k,'') for k in columns)
+                return
+        yield from (values(path,columns,start,end) if columns is not None else rows(path,start_row=start,end_row=end));return
     with path.open(encoding='utf-8-sig',newline='') as stream:
-        reader=csv.DictReader(iter(stream.readline,''));fields=reader.fieldnames
+        if columns is None:reader=csv.DictReader(iter(stream.readline,''));fields=reader.fieldnames
+        else:
+            reader=csv.reader(iter(stream.readline,''));fields=next(reader,[])
+            from csv_projection import projector
+            project=projector(fields,columns)
         position=0
         if cookies and start:
             entry=cookies[max(0,bisect.bisect_right([item[0] for item in cookies],start)-1)]
             position,cookie=entry;stream.seek(cookie)
-            reader=csv.DictReader(iter(stream.readline,''),fieldnames=fields)
+            reader=csv.DictReader(iter(stream.readline,''),fieldnames=fields) if columns is None else csv.reader(iter(stream.readline,''))
         while end is None or position<end:
             cookie=stream.tell() if capture is not None and position%STEP==0 else None
             row=next(reader,None)
+            if columns is not None:
+                while row==[]:row=next(reader,None)
             if row is None:break
             if cookie is not None:capture.append([position,cookie])
-            if position>=start:yield row
+            if position>=start:yield row if columns is None else project(row)
             position+=1
 
 

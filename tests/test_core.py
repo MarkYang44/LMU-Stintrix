@@ -360,6 +360,7 @@ class Tests(unittest.TestCase):
         engine.recorder = Mock(file=object())
         engine.actual_rates = Mock(return_value=(1,1))
         hud = object.__new__(app.App)
+        hud.simulator = 'lmu'
         hud.engine = engine
         hud.root,hud.canvas = Mock(),Mock()
         hud.canvas.winfo_width.return_value = 640

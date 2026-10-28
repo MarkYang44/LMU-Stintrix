@@ -98,7 +98,7 @@ class Shell:
         self.footer=foot;side.bind('<Configure>',self.layout_sidebar)
         self.main=main=tk.Frame(root,bg=T.BG);main.pack(side='left',fill='both',expand=True,padx=round(28*s),pady=(round(26*s),round(14*s)))
         self.motion=Motion(main)
-        head=tk.Frame(main,bg=T.BG);head.pack(fill='x',pady=(0,round(22*s)))
+        head=tk.Frame(main,bg=T.BG);head.pack(fill='x',pady=(0,round(14*s)))
         top=tk.Frame(head,bg=T.BG);top.pack(fill='x')
         self.breadcrumb=Label(top,text='STINTRIX  /  CONTROL CENTER',font=('Segoe UI',9,'bold'),bg=T.BG,fg=T.ACCENT,anchor='w');self.breadcrumb.pack(side='left')
         self.theme_button=Pill(top,'◐  浅色主题' if T.mode=='dark' else '◑  深色主题',on_theme or (lambda:None),115)

@@ -58,6 +58,7 @@ class Processing(unittest.TestCase):
     def test_curve_reuse_across_views_invalidates_source_assets_and_missing_output(self):
         from personal_records import records
         from curve_exports import save
+        from paths import ASSETS
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as t:
             root=Path(t)/'Simulators/ac_evo';events(root);entry=records(root)[0]
             page=save(root,entry);stamp=Path(page).stat().st_mtime_ns
@@ -65,7 +66,16 @@ class Processing(unittest.TestCase):
                 self.assertEqual(save(root,dict(entry)),page);self.assertEqual(Path(page).stat().st_mtime_ns,stamp)
             path=Path(entry['file']);s=path.stat();os.utime(path,ns=(s.st_atime_ns,s.st_mtime_ns+1000000));other=save(root,entry);self.assertNotEqual(other,page)
             Path(other).unlink();self.assertEqual(save(root,entry),other)
-            with patch('paths.app_version',return_value='asset-change-fixture'):self.assertNotEqual(save(root,entry),other)
+            # UI releases no longer invalidate renderer-content fingerprints.
+            with patch('paths.app_version',return_value='asset-change-fixture'),patch('evo_laps.write_curve',side_effect=AssertionError('UI-only release rerendered a curve')):self.assertEqual(save(root,entry),other)
+            assets=Path(t)/'assets';assets.mkdir()
+            for name in ('evo_compare.html','interface_theme.js','dataview.js'):shutil.copy2(ASSETS/name,assets/name)
+            with patch('paths.ASSETS',assets):
+                copied=save(root,entry);original=Path(copied).read_bytes();asset=assets/'evo_compare.html';s=asset.stat()
+                os.utime(asset,ns=(s.st_atime_ns,s.st_mtime_ns+1000000))
+                with patch('evo_laps.write_curve',side_effect=AssertionError('Unchanged renderer bytes rerendered a curve')):self.assertEqual(save(root,entry),copied)
+                asset.write_bytes(asset.read_bytes()+b'\n<!-- fixture renderer change -->\n')
+                changed=save(root,entry);self.assertNotEqual(changed,copied);self.assertEqual(Path(copied).read_bytes(),original)
             with self.assertRaises(ValueError):save(Path(t),entry)
             self.assertTrue(Path(page).is_file())
 

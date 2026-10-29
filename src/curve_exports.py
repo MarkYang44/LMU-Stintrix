@@ -2,20 +2,21 @@
 from pathlib import Path
 from threading import RLock
 import hashlib,json
-from comparison_cache import stamps
+from comparison_cache import stamps,asset_fingerprints
 
+CURVE_REVISION=1  # Bump for Python payload/page semantics, independently of UI releases.
 _lock=RLock()
 
 
 def signature(entry):
-    from paths import ASSETS,app_version,track_catalog_path
-    from control_theme import T
+    from paths import ASSETS,track_catalog_path
+    from control_theme import T,web_script
     from i18n import language
     evo=entry['session'].get('simulator_id')=='ac_evo'
     assets=[ASSETS/('evo_compare.html' if evo else 'compare.html'),ASSETS/'interface_theme.js',ASSETS/'dataview.js']
     if not evo:assets.extend([ASSETS/'laplab.js',ASSETS/'trackview.js',ASSETS/'vehicleview.js',track_catalog_path(ASSETS)])
-    return dict(version=1,app=app_version(),record=stamps([entry['file']]),assets=stamps(assets),
-        simulator=entry['session'].get('simulator_id','lmu'),lap=entry['lap']['number'],time=entry['time_s'],theme=T.mode,language=language)
+    return dict(format='stintrix.personal-curve',version=3,revision=CURVE_REVISION,record=stamps([entry['file']]),metadata=stamps([Path(entry['folder'])/'session.json']),session=dict(entry['session']),assets=asset_fingerprints(assets),
+        simulator=entry['session'].get('simulator_id','lmu'),lap=entry['lap']['number'],time=entry['time_s'],theme=T.mode,theme_payload=hashlib.sha256(web_script(ASSETS).encode('utf-8')).hexdigest(),language=language)
 
 
 def save(root,entry):
@@ -39,6 +40,8 @@ def save(root,entry):
         except (OSError,ValueError,KeyError,TypeError):pass
         record=load(source)
         try:
+            # A corrected session caption must not inherit stale metadata from an old lap export.
+            record['session']={**record.get('session',{}),**entry['session']}
             if key['simulator']=='ac_evo':
                 from evo_laps import write_curve
                 write_curve(page,record,source)

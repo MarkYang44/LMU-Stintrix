@@ -95,6 +95,10 @@ class RecordPage:
             if not Path(path).exists():raise FileNotFoundError(tr('文件或目录已移动或删除'))
             os.startfile(str(path));return True
         except OSError as error:self.say('打开失败：{error}',error=error);return False
+    def lap_overview(self):
+        if self.selected is None or self.app.closing or getattr(self.app,'simulator','lmu')!='ac_evo':return
+        from control_evo_lap_overview import show
+        return show(self.app,self.selected['folder'])
     def finish(self,reader):
         if self.kind!='best' and hasattr(self,'modes'):
             from control_record_filter_panel import Panel
@@ -140,7 +144,7 @@ def curve_identity(entry):
     file=Path(entry['file'])
     try:s=file.stat();stamp=(s.st_size,s.st_mtime_ns)
     except OSError:stamp=None
-    return str(file),str(entry['folder']),entry['lap']['number'],entry['time_s'],stamp
+    return str(file),str(entry['folder']),entry['lap']['number'],entry['time_s'],stamp,entry['session'].get('vehicle',''),entry['session'].get('vehicle_variant','')
 
 
 def save_curve(root,entry):
@@ -156,7 +160,6 @@ class CurveExport:
     def create(self,page,entry):
         if self.busy or entry is None:return
         identity=curve_identity(entry)
-        if self.identity==identity and self.path and Path(self.path).is_file():self.open(page);return
         self.busy=True;caption=entry['session'].get('vehicle','')+' · '+str(entry['lap']['number']);page.say('正在生成完整圈曲线…');page.feedback.busy('export');page.sync()
         def done(path,error):
             self.busy=False;current=self.page

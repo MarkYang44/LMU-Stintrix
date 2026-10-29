@@ -15,4 +15,9 @@ def projector(fields,columns):
         def select(row):return (take(row),) if len(row)>=width else fallback(row)
     else:
         def select(row):return take(row) if len(row)>=width else fallback(row)
+    if indices==list(range(len(indices))) and len(positions)==len(indices):
+        # A complete, uniquely named row is already in the requested order.
+        # Sparse/extra cells still use the original DictReader-compatible path.
+        def identity(row):return tuple(row) if len(row)==width else select(row)
+        return identity
     return select

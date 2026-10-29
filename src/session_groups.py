@@ -2,6 +2,16 @@
 from telemetry_file import Path
 from race_model import read_json
 
+
+def folders(root):
+    """One request's canonical event directories; no raw reads or retained cache."""
+    root=Path(root).resolve();hidden=superseded(root)
+    for category in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs'):
+        for path in (root/category).glob('*/session.json'):
+            folder=path.parent.resolve()
+            if folder not in hidden and folder.is_relative_to(root):yield category,folder
+
+
 def superseded(root):
     root=Path(root).resolve();value=read_json(root/'SessionGroups/index.json',{});out=set()
     if not isinstance(value,dict):return out

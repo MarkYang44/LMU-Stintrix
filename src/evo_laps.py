@@ -9,9 +9,21 @@ FIELDS=('time_s','lap','evo_lap_time_ms','evo_last_lap_time_ms','lap_invalidated
 
 
 def number(value):
+    if value is None or value=='':return None
     try:value=float(value)
     except (TypeError,ValueError):return None
     return value if math.isfinite(value) else None
+
+
+def _numbers(row):
+    # Common complete rows use C numeric conversion. Sparse, nonfinite and
+    # unusual tokens retain the original per-field None/finite rules.
+    if all(row):
+        try:values=list(map(float,row))
+        except (TypeError,ValueError):pass
+        else:
+            if all(map(math.isfinite,values)):return values
+    return list(map(number,row))
 
 
 def stamp(folder):
@@ -34,7 +46,7 @@ def scan(folder):
     reader=raw_rows(folder/'inputs.csv',columns=FIELDS,capture=cookies)
     try:
         for index,row in enumerate(reader):
-            values=list(map(number,row))
+            values=_numbers(row)
             host,count,timer,last,invalid,pits,distance,length,pos,total=values
             if host is None or count is None or count<1 or count!=int(count):raise ValueError('EVO record has an invalid capture time or lap counter')
             count=int(count)
@@ -138,15 +150,29 @@ def lap_info(best):
         lap_number_source='AC EVO total_lap_count + 1',lap_invalidated=False,in_pits=False)
 
 
-def read_curve(folder,best,value,target):
-    """Seek the exact observed range; never add an endpoint or merge samples."""
+def read_curve(folder,best,value,target,csv_file=None):
+    """Seek the exact observed range; one text pass supplies CSV and float64 channels."""
     from analysis_spool import DiskTable
     from lap_scan_index import raw_rows
     fields=('lap_distance_m','evo_lap_time_ms','throttle','brake','filtered_throttle','filtered_brake','speed_kmh')
+    columns=fields;writer=None;paired=False
+    if csv_file is not None:
+        import csv
+        from pathlib import Path as NativePath
+        from csv_projection import projector
+        from evo_exports import _plain,_csv_lines
+        with (Path(folder)/'inputs.csv').open(encoding='utf-8-sig',newline='') as stream:columns=next(csv.reader(stream))
+        project=projector(columns,fields);writer=csv.writer(csv_file);writer.writerow(columns)
+        paired=_plain(NativePath(folder),columns)
     def rows():
-        reader=raw_rows(Path(folder)/'inputs.csv',start=best['first_index'],end=best['end_index'],cookies=value.get('cookies',()),columns=fields)
+        if paired:
+            reader=_csv_lines(NativePath(folder)/'inputs.csv',best['first_index'],best['end_index'],value.get('cookies',()),columns,projected=fields)
+        else:reader=raw_rows(Path(folder)/'inputs.csv',start=best['first_index'],end=best['end_index'],cookies=value.get('cookies',()),columns=columns)
         try:
             for row in reader:
+                if paired:
+                    encoded,row=row;csv_file.write(encoded)
+                elif writer is not None:writer.writerow(row);row=project(row)
                 numbers=list(map(float,row))
                 if not all(map(math.isfinite,numbers)):raise ValueError('Invalid EVO lap input')
                 numbers[1]/=1000

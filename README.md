@@ -52,11 +52,14 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 - Automatic qualifying / timed-session and race recording; practice recording is optional, including EVO free roam.
 - Lossless telemetry storage, CSV export, searchable sessions, and ZIP / 7z session packages.
 - Background reports with per-step status and failed-task retry; EVO defers report generation and compression until capture stops.
+- Batch online / offline corrections keep original recordings intact; source folders and selection actions are available from the session menu.
 
 ### Understand lap differences
 
 - Compare valid complete laps from the same track layout, within or across sessions.
 - LMU provides distance-aligned inputs, speed, time differences, and recorded trajectories. EVO provides complete recorded input curves and game-reported lap-time differences, with zoom, pan, and original sample readouts.
+- Compare saved session bests directly, with 2–6 EVO sessions on the same layout. Selecting 3–6 EVO sessions makes this the main comparison action. Reopen A/B with your previous track, sessions, and valid-lap choices; both simulators keep this context separate and recheck current lap availability. EVO also has a separate action to reopen the last multi-lap page generated during the current app session.
+- EVO's lap overview shows valid-lap counts, best, median and variation, with single-lap curves, A/B and 3–6-lap overlays. Selected usable laps show their observed mean, best, slowest and variation, without condition correction. Mixed selections offer **Keep selected usable laps** before comparison or export. Export up to six full-telemetry CSVs, or export the current filtered and sorted lap-time list. Open it from personal records/history; double-click or Enter activates selected laps. The optional rhythm chart locates its source lap, and consecutive-run actions preview and select the fastest 3- or 5-lap window without bridging gaps.
 
 ### Give practice a focus
 
@@ -67,7 +70,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 - Personal bests and record history for both simulators: LMU by layout and vehicle class, EVO by layout and specific model.
 - Lap sheets, race journals, and locally exported achievement cards. LMU also supports confirmed class podiums and read-only game-result XML integration.
-- EVO car galleries filter by brand and category; track cards show verified layouts and available official circuit maps. Artwork downloads are optional and stay local.
+- EVO car galleries filter by brand and category, with two-car comparison that keeps your selections and browsing position. Track cards show verified layouts and available official circuit maps. Artwork downloads are optional and stay local.
 
 ### Review video inputs · Experimental
 
@@ -109,9 +112,9 @@ Use **Stop & Save** to hide the HUD and finish saving in the background. Switchi
 - **Saved data:** separate Stintrix libraries and archives for each game. Native `.duckdb` and game-result XML import are LMU features; archives from the other game require switching modes first.
 - **Availability:** channels depend on the game / SDK and recording source. Position replay needs recorded coordinates; exclusive fullscreen may hide the desktop HUD.
 
-EVO personal records and A/B comparison require observed valid complete laps with game-reported timing. Older recordings without that evidence remain readable but do not become verified lap records. Condition-based training, live reference laps, official results, and additional vehicle panels remain LMU features. [Detailed scope](docs/SIMULATORS.md).
+EVO personal records and A/B comparison require observed valid complete laps with game-reported timing. Older recordings without that evidence remain readable but do not become verified lap records. **More actions → Manage Recordings** opens the shared full library for layout searches, notes, archives and verified-lap selection. Report tasks can open directly on the selected sessions and keep the report browser's filters. EVO supports direct CSV export of session bests or the valid laps selected in A/B. Condition-based training, live reference laps, official results, and additional vehicle panels remain LMU features. [Detailed scope](docs/SIMULATORS.md).
 
-Lap-sheet and journal images can use the built-in compatible generator. Reusing the original RaceCom engine requires your own local installation; it is not bundled. Optional EVO artwork is downloaded from official game or circuit-operator sources and is not redistributed in releases. [Credits and sources](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering).
+Lap-sheet and journal images can use the built-in compatible generator. Personal achievement cards use the selected game's branding and matching artwork; EVO shows recorded lap facts in place of unavailable LMU conditions. Reusing the original RaceCom engine requires your own local installation; it is not bundled. Optional EVO artwork is downloaded from official game or circuit-operator sources and is not redistributed in releases. [Credits and sources](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering).
 
 ## Project status
 

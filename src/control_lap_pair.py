@@ -18,16 +18,41 @@ from control_search import SearchField
 from track_names import search_text
 
 
-def show(app,root,initial=()):
+def remember_result(app,root,page):
+    root=Path(root).resolve();page=Path(page).resolve()
+    if not page.is_relative_to(root) or not page.is_file():raise ValueError('对比文件不在当前游戏目录中')
+    context=getattr(app,'lap_pair_context',{});app.lap_pair_context=context
+    context.setdefault(str(root),{})['result']=str(page)
+    window=getattr(app,'lap_pair_window',None)
+    if window is not None and window.winfo_exists():
+        controls=window.pair_controls
+        if controls['root']==root:controls['state']['result']=str(page);controls['refresh']()
+
+
+def show(app,root,initial=(),*,selected=()):
     root=Path(root).resolve()
+    preferred={}
+    if selected:
+        selected=tuple((Path(folder).resolve(),number) for folder,number in selected)
+        if len(selected)!=2 or selected[0]==selected[1] or any(not f.is_relative_to(root) or type(n) is not int or n<1 for f,n in selected):raise ValueError('请选择两个不同的有效圈')
+        preferred={key:dict(folder=str(folder),number=number) for key,(folder,number) in zip(('A','B'),selected)}
+        initial=tuple(folder for folder,_ in selected)
     existing=getattr(app,'lap_pair_window',None)
     if existing is not None and existing.winfo_exists():
         existing.lift();existing.focus_force()
-        if initial:existing.pair_controls['select_initial'](initial)
+        if initial:existing.pair_controls['select_initial'](initial,choices=preferred or None)
         return existing
+    saved=getattr(app,'lap_pair_context',{}).get(str(root),{})
+    requested=tuple(Path(p).resolve() for p in initial)
+    remembered=tuple(Path(p).resolve() for p in saved.get('folders',()))
+    restore=saved if not requested or set(requested)==set(remembered) else {}
+    if preferred:restore={**restore,'choices':preferred}
+    initial=requested if preferred else remembered if restore else requested
+    last=saved.get('result')
+    last=last if last and Path(last).resolve().is_relative_to(root) and Path(last).is_file() else None
     window=panel(app,'Stintrix · 圈 A / 圈 B',1000,710);window.minsize(860,680);app.lap_pair_window=window
-    state={'events':{},'by_track':{},'search_terms':{},'laps':{'A':{},'B':{}},'rows':{'A':{},'B':{}},'headers':{},'generation':{'A':0,'B':0},'loading':set(),'busy':False,'reason':False,'result':None,'message':'正在读取赛事…','initial':tuple(initial),'inventory_ready':False}
-    quick={}
+    state={'events':{},'by_track':{},'search_terms':{},'laps':{'A':{},'B':{}},'rows':{'A':{},'B':{}},'headers':{},'generation':{'A':0,'B':0},'loading':set(),'busy':False,'reason':False,'result':last,'message':'正在读取赛事…','initial':tuple(initial),'inventory_ready':False}
+    quick={};csv_button=None
     status=tk.StringVar(window,value=tr('正在读取赛事…'));events={};numbers={};lap_boxes={};event_boxes={}
     footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=20,pady=(4,14))
     def say(message):state['message']=str(message);status.set(tr(str(message)))
@@ -35,7 +60,7 @@ def show(app,root,initial=()):
     if getattr(app,'simulator','lmu')=='ac_evo':
         Label(window,text='EVO：对比物理／仪表输入和游戏圈速；保留重复计时样本，不补造圈边界。',bg=T.BG,fg=T.MUTED,wraplength=940,justify='left').pack(fill='x',padx=20,pady=(0,8))
     intro.bind('<Configure>',lambda e:intro.configure(wraplength=max(100,e.width)))
-    query=tk.StringVar(window);matches=tk.StringVar(window);track=tk.StringVar(window)
+    query=tk.StringVar(window,value=restore.get('query',''));matches=tk.StringVar(window);track=tk.StringVar(window,value=restore.get('track',''))
     search_row=tk.Frame(window,bg=T.BG);search_row.pack(fill='x',padx=20)
     Label(search_row,text='赛道',bg=T.BG,fg=T.MUTED).pack(side='left',padx=(0,10))
     track_box=Select(search_row,textvariable=track,values=[],state='disabled',width=29);track_box.pack(side='left',padx=(0,10))
@@ -90,6 +115,7 @@ def show(app,root,initial=()):
         elif state['reason']:say('两圈身份兼容，可以生成对比')
         state['reason']=bool(reason);ready=ready and not reason
         button.configure(state='normal' if ready else 'disabled')
+        if csv_button is not None:csv_button.configure(state='normal' if ready else 'disabled')
         reopen.configure(state='normal' if state['result'] and not state['busy'] else 'disabled')
         for key in ('A','B'):
             event_boxes[key].configure(state='disabled' if state['busy'] or not state['inventory_ready'] or not track.get() else 'readonly')
@@ -115,11 +141,15 @@ def show(app,root,initial=()):
                 state['headers'][key]=result['session'];state['rows'][key]={v['number']:v for v in result['laps']}
                 values=lap_labels(result['laps'])
                 state['laps'][key]=values;lap_boxes[key].configure(values=list(values),state='readonly')
-                if values:numbers[key].set(next(iter(values)))
+                previous=restore.get('choices',{}).get(key,{})
+                wanted=previous.get('number') if previous.get('folder')==str(Path(event['folder']).resolve()) else None
+                restored=next((label for label,number in values.items() if number==wanted),None)
+                if values:numbers[key].set(restored or ('' if wanted is not None else next(iter(values))))
                 say('仅显示已验证的有效完整圈；排除无效圈、进站圈与未验证旧圈。')
                 if not values:say('这场赛事没有已验证的有效完整圈')
                 a=state['events'].get(events['A'].get())
-                if key=='B' and a and a['folder']==event['folder'] and len(values)>1:numbers['B'].set(list(values)[1])
+                if key=='B' and wanted is None and a and a['folder']==event['folder'] and len(values)>1:numbers['B'].set(list(values)[1])
+                if wanted is not None and not restored and values:say('上次圈号已不可用，请重新选择有效圈。')
             refresh()
         app.run_background(lambda:dict(laps=valid_laps(event['folder']),session=finished_metadata(event['folder'])),done)
     from control_history_chart import lap_time
@@ -170,7 +200,7 @@ def show(app,root,initial=()):
             state['busy']=False
             say(error or '对比已生成，原始记录保留')
             if not error:
-                state['result']=str(result['comparison']);open_last()
+                remember_result(app,root,result['comparison']);open_last()
             refresh()
         app.run_background(lambda:export_pair(root,selections,ASSETS/'compare.html'),done)
     def open_last():
@@ -182,10 +212,26 @@ def show(app,root,initial=()):
     bottom_actions=tk.Frame(footer,bg=T.BG);bottom_actions.pack(fill='x')
     button=Action(bottom_actions,'提取两圈并对比',compare,200,True);button.configure(state='disabled');button.pack(side='left')
     reopen=Action(bottom_actions,'打开上次对比',open_last,160);reopen.configure(state='disabled');reopen.pack(side='left')
+    from simulators import root_identity
+    if root_identity(root)=='ac_evo':
+        def export_csv():
+            refresh()
+            if not csv_button.enabled:return
+            from control_maintenance import offline_ready
+            if not offline_ready(app):say('请先停止 HUD 并等待后台任务完成，再导出圈 CSV。');return
+            from control_evo_exports import selected_csv
+            selections=[(state['events'][events[k].get()]['folder'],state['laps'][k][numbers[k].get()]) for k in ('A','B')]
+            try:job=selected_csv(app,root,selections)
+            except (OSError,ValueError) as error:
+                if not app.closing and window.winfo_exists():say(error)
+            else:
+                if job and not app.closing and window.winfo_exists():say('CSV 导出已交给批量任务；圈选择已保留。')
+        csv_button=Action(bottom_actions,'导出 A / B 圈 CSV',export_csv,200);csv_button.configure(state='disabled');csv_button.pack(side='left')
     install(bottom_actions)
     feedback=StatusFeedback(footer,status);feedback.pack(fill='x',pady=(6,0));feedback.busy('inventory')
-    def select_initial(paths):
+    def select_initial(paths,slots=('A','B'),choices=None):
         if state['busy']:say('当前对比正在生成，请完成后再切换赛事。');return False
+        if choices is not None:restore['choices']=choices
         state['initial']=tuple(Path(path).resolve() for path in paths[:2])
         if not state['inventory_ready']:return True
         if any(not any(Path(event['folder']).resolve()==path for event in state['events'].values()) for path in state['initial']):
@@ -194,12 +240,14 @@ def show(app,root,initial=()):
         first=next((event for event in state['events'].values() if state['initial'] and Path(event['folder']).resolve()==state['initial'][0]),None)
         if first is not None and track.get()!=circuit_key(first):track.set(circuit_key(first));choose_track()
         changed=False
-        for index,key in enumerate(('A','B')):
+        for index,key in enumerate(slots):
             if index>=len(state['initial']):break
             label=next((label for label,event in state['events'].items() if Path(event['folder']).resolve()==state['initial'][index]),None)
             if label is None:continue
             if circuit_key(state['events'][label])!=track.get():say('已按圈 A 的赛道筛选，请重新选择圈 B 的赛事');continue
             if events[key].get()!=label:events[key].set(label);scan(key);changed=True
+            elif choices is not None and key not in state['loading']:
+                wanted=choices.get(key,{}).get('number');numbers[key].set(next((text for text,n in state['laps'][key].items() if n==wanted),''))
         filter_events();refresh()
         return changed
     def loaded(result,error):
@@ -213,7 +261,11 @@ def show(app,root,initial=()):
         filter_events()
         available=tuple(path for path in state['initial'] if any(Path(event['folder']).resolve()==Path(path).resolve() for event in values.values()))
         missing=len(available)!=len(state['initial'])
-        if available:select_initial(available)
+        if available and restore:
+            targets=[(key,Path(value['folder']).resolve()) for key,value in restore.get('choices',{}).items()
+                if key in ('A','B') and Path(value['folder']).resolve() in available]
+            if targets:select_initial([path for _,path in targets],tuple(key for key,_ in targets))
+        elif available:select_initial(available)
         elif not track.get():say('先选择赛道；仅在选择赛事后读取有效圈')
         if not values:say('尚无已完成的赛事记录')
         elif missing:say('所选赛事当前不可用，已保留其他选择。')
@@ -221,6 +273,11 @@ def show(app,root,initial=()):
     app.run_background(lambda:inventory(root),loaded)
     def dispose(event):
         if event.widget is window:
+            choices={key:dict(folder=str(Path(state['events'][events[key].get()]['folder']).resolve()),number=state['laps'][key].get(numbers[key].get()))
+                for key in ('A','B') if events[key].get() in state['events']}
+            context=getattr(app,'lap_pair_context',{});app.lap_pair_context=context
+            context[str(root)]=dict(folders=[choices[k]['folder'] for k in ('A','B') if k in choices],choices=choices,
+                query=query.get(),track=track.get(),result=state['result'])
             for variable in (query,matches,status,track,*events.values(),*numbers.values(),*summaries.values()):variable.__del__();variable._tk=None
     window.bind('<Destroy>',dispose,add='+')
     def translate():
@@ -235,9 +292,9 @@ def show(app,root,initial=()):
             chosen=state['laps'][key].get(numbers[key].get());values=lap_labels(state['rows'][key].values());state['laps'][key]=values
             lap_boxes[key].configure(values=list(values));numbers[key].set(next((label for label,number in values.items() if number==chosen),''))
         from control_widgets import px
-        for action in [button,reopen,*quick.values()]:action.configure(width=max(px(action,160),action.font.measure(tr(action.label))+px(action,36)));action.paint()
+        for action in [button,reopen,*([csv_button] if csv_button is not None else []),*quick.values()]:action.configure(width=max(px(action,160),action.font.measure(tr(action.label))+px(action,36)));action.paint()
         for row in (actions,bottom_actions):row.event_generate('<Configure>',width=row.winfo_width())
         refresh()
     window.retranslate=translate
-    window.pair_controls=dict(events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=footer,track=track,track_box=track_box,choose_track=choose_track,summaries=summaries)
+    window.pair_controls=dict(root=root,events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,csv=csv_button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=footer,track=track,track_box=track_box,choose_track=choose_track,summaries=summaries)
     return window

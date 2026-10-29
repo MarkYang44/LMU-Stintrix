@@ -2,7 +2,7 @@
 import json,math
 from telemetry_file import Path
 from json_store import load
-from lap_identity import text,vehicle_class
+from lap_identity import text,vehicle_class,performance_variant
 
 class CacheRecord(dict):
     __slots__=('__weakref__',)
@@ -13,8 +13,8 @@ class CacheRecord(dict):
         return result
 
 
-def summary_for(root,folder):
-    meta=load(folder/'session.json')
+def summary_for(root,folder,metadata=None):
+    meta=load(folder/'session.json') if metadata is None else metadata
     if meta.get('simulator_id')=='ac_evo':
         from evo_laps import export,stamp
         path=folder/'fastest_lap_summary.json'
@@ -73,7 +73,7 @@ def entries(root):
                 if not accepts(root,meta):continue
                 if meta.get('status') in ('recording','write_error'):continue
                 if text(meta.get('source')).startswith('synthetic demo') or meta.get('demo') is True:continue
-                summary,base=summary_for(root,path.parent)
+                summary,base=summary_for(root,path.parent,meta)
                 if summary.get('status')!='saved':continue
                 lap=summary['lap'];duration=float(lap['time_s']);length=float(lap['track_length_m'])
                 if lap.get('validity')!='verified' or lap.get('lap_invalidated') or lap.get('in_pits'):continue
@@ -88,6 +88,7 @@ def entries(root):
                 # EVO road cars do not share a performance class; keep model PBs separate.
                 key=(text(track),text(layout or track),round(length),text(group))
                 if session.get('simulator_id')=='ac_evo':key+=('ac_evo',text(session.get('vehicle')))
+                elif performance_variant(session):key+=('variant',performance_variant(session),text(session.get('vehicle')))
                 entry=dict(race_mode=mode(session),session=session,lap=lap,conditions=summary.get('conditions',{}),
                     track=track,layout=layout,vehicle_class=group,file=str(file),folder=str(path.parent),
                     time_s=duration,length_m=length)
@@ -113,14 +114,19 @@ def select_records(values,race_mode=''):
     return sorted(winners.values(),key=lambda v:(text(v['track']),text(v['layout']),text(v['vehicle_class'])))
 
 
-def detail(entry):
-    value=load(entry['file'])
-    # Fixed-size drawing envelope retains pedal spikes; source stays full resolution.
-    buckets={};length=value['lap']['track_length_m']
-    for row in value['data']:
-        index=min(599,int(row[0]/length*599))
-        low,high=buckets.setdefault(index,([row[2],row[3]],[row[2],row[3]]))
-        for i in range(2):low[i]=min(low[i],row[2+i]);high[i]=max(high[i],row[2+i])
-    return dict(conditions=value.get('conditions',{}),
-        vehicle_summary=(value.get('vehicle_telemetry') or {}).get('summary',{}),
-        curve=[(index,low,high) for index,(low,high) in sorted(buckets.items())])
+def detail(entry,curve=True):
+    value=load(entry['file'],**({} if curve else dict(fields=('conditions',))))
+    if not curve:return dict(conditions=value.get('conditions',{}))
+    try:
+        # Fixed-size drawing envelope retains pedal spikes; source stays full resolution.
+        buckets={};length=value['lap']['track_length_m']
+        for row in value['data']:
+            index=min(599,int(row[0]/length*599))
+            low,high=buckets.setdefault(index,([row[2],row[3]],[row[2],row[3]]))
+            for i in range(2):low[i]=min(low[i],row[2+i]);high[i]=max(high[i],row[2+i])
+        return dict(conditions=value.get('conditions',{}),
+            vehicle_summary=(value.get('vehicle_telemetry') or {}).get('summary',{}),
+            curve=[(index,low,high) for index,(low,high) in sorted(buckets.items())])
+    finally:
+        close=getattr(value.get('data'),'close',None)
+        if close:close()

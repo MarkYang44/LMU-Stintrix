@@ -47,16 +47,47 @@ class VehicleJSON:
                 source=self.meta.get('source'),time_origin_s=origin,profile=self.meta.get('vehicle_profile',DEFAULT_PROFILE),
                 strategy=self.meta.get('vehicle_strategy',{}),strategy_history=self.meta.get('vehicle_settings_history',[]))
             yield from json_chunks(header,open_object=True)
-            yield b',"data":['
-            last=-math.inf;comma=False
-            for row in __import__('itertools').chain((first,) if first else (),rows):
-                t=number(row[0])
-                if t is None or t<=last:raise ValueError('附加遥测时间戳无效')
-                last=t
+            yield b',"data":'
+            def numbers():
+                last=-math.inf
+                for row in __import__('itertools').chain((first,) if first else (),rows):
+                    t=number(row[0])
+                    if t is None or t<=last:raise ValueError('附加遥测时间戳无效')
+                    last=t;yield [t,*_vehicle_values(row[2:])]
+            yield from _matrix_chunks(numbers(),len(columns)+1)
+            yield b'}'
+
+
+def _vehicle_values(row):
+    # CSV projection supplies text or missing cells. Empty cells and nonfinite
+    # text retain number()'s None result; malformed fields keep its fallback.
+    try:values=list(map(float,('nan' if v is None or v=='' else v for v in row)))
+    except (ValueError,TypeError):
+        from vehiclelab import number
+        return list(map(number,row))
+    return [v if math.isfinite(v) else None for v in values]
+
+
+def _matrix_chunks(rows,width):
+    """Exact JSON rows, at most 64 boxed rows / 8192 cells per ordinary batch."""
+    yield b'['
+    comma=False;batch=[];batch_limit=min(64,max(1,8192//width))
+    for row in rows:
+        if len(row)>256:
+            if batch:
                 if comma:yield b','
-                yield _encoder.encode([t,*[number(value) for value in row[2:]]]).encode('utf-8')
-                comma=True
-            yield b']}'
+                yield _encoder.encode(batch)[1:-1].encode('utf-8');batch=[];comma=True
+            if comma:yield b','
+            yield from json_chunks(row);comma=True
+        else:
+            batch.append(row)
+            if len(batch)>=batch_limit:
+                if comma:yield b','
+                yield _encoder.encode(batch)[1:-1].encode('utf-8');batch=[];comma=True
+    if batch:
+        if comma:yield b','
+        yield _encoder.encode(batch)[1:-1].encode('utf-8')
+    yield b']'
 
 
 def json_chunks(value,open_object=False):
@@ -74,12 +105,9 @@ def json_chunks(value,open_object=False):
             yield from json_chunks(item)
         if not open_object:yield b'}'
     elif isinstance(value,(NumericTable,DiskTable)):
-        yield b'['
-        for i,row in enumerate(value):
-            if i:yield b','
-            if len(row)<=256:yield _encoder.encode(row).encode('utf-8')
-            else:yield from json_chunks(row)
-        yield b']'
+        # Bound both boxed rows and cell count. The same encoder, separators and
+        # scalar representations produce exactly the previous JSON byte stream.
+        yield from _matrix_chunks(value,value.width)
     elif isinstance(value,(list,tuple)) and len(value)<=256 and all(type(v) in _numeric_types for v in value):
         yield _encoder.encode(value).encode('utf-8')
     elif isinstance(value,(list,tuple)) and any(isinstance(v,(dict,list,tuple,NumericTable,DiskTable,JSONFile,VehicleJSON)) for v in value):
@@ -102,8 +130,13 @@ def review_records(path):
     pack=struct.Struct('<13d');pending=bytearray()
     from column_store import values
     for row in values(path,REVIEW_COLUMNS):
-        numbers=[float(value or (0 if i<10 else 'nan')) for i,value in enumerate(row)]
-        pending.extend(pack.pack(*numbers))
+        # Input-only records often lack coordinates; skip the full-field test
+        # immediately for these rows, preserving the original sparse path.
+        if row[10] and row[11] and row[12] and all(row):pending.extend(pack.pack(*map(float,row)))
+        else:
+            # Keep the historical zero / missing-coordinate rules for sparse rows.
+            numbers=[float(value or (0 if i<10 else 'nan')) for i,value in enumerate(row)]
+            pending.extend(pack.pack(*numbers))
         if len(pending)>=65536:yield pending;pending=bytearray()
     if pending:yield pending
 

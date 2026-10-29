@@ -13,8 +13,8 @@ def vehicle_picture(vehicle):
     if not wanted:return None
     exact=next((car for car in catalog()['cars'].values() if normalized(car['name'])==wanted),None)
     if exact:return exact
-    aliases={normalized('Ferrari 296 LMGT3 Evo'):normalized('Ferrari 296 LMGT3')}
-    base=aliases.get(wanted)
+    from race_art import image_model
+    model=image_model(vehicle);base=normalized(model) if model else None
     return next(({**car,'reference_model':car['name']} for car in catalog()['cars'].values() if base and normalized(car['name'])==base),None)
 
 

@@ -47,7 +47,7 @@ class BestPage(RecordPage):
         self.modes=ModeControls(body,app,self.populate_best,'best_mode_filters');self.modes.bind_query(self.query)
         self.query.trace_add('write',lambda *_:self.modes.state.update(query=self.query.get()))
         if not self.context.get('filters_open',False):self.modes.pack_forget()
-        self.modes.hint.configure(text='每个赛道布局、车辆组别各保留最快有效圈；不包含演示或未验证旧圈。天气与车辆条件仅代表已记录有效圈。')
+        self.modes.hint.configure(text='每个赛道布局、车辆组别各保留最快有效圈；No BOP 特殊版本单独保留。天气与车辆条件仅代表已记录有效圈。')
         self.table=SessionList(body,columns=tuple(k for k,_,_ in COLUMNS),height=4)
         for key,_,width in COLUMNS:self.table.column(key,width=width*self.table.s,minwidth=(80 if key=='class' else 65)*self.table.s,stretch=key in ('track','layout','car'))
         from control_table_preferences import install as preferences
@@ -79,7 +79,9 @@ class BestPage(RecordPage):
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
         from control_action_menu import ActionMenu,MenuAction
         more=self.button(actions,'more','更多操作 ▾',lambda:self.menu.toggle())
+        from control_maintenance import offline_ready
         self.menu=ActionMenu(more,[
+            MenuAction('lap-overview','圈速总览与节奏',self.lap_overview,'分析与训练',lambda:ready() and offline_ready(app),visible=lambda:evo),
             MenuAction('lap-pair','圈 A / 圈 B',self.lap_pair,'分析与训练',ready,visible=lambda:supported.selected_laps),
             MenuAction('comparable','同条件进步分析',self.comparable,'分析与训练',ready,visible=lambda:supported.training),
             MenuAction('goals','训练目标跟进',self.goals,'分析与训练',visible=lambda:supported.training),

@@ -58,6 +58,8 @@ def save(root,folders,kind,only_unknown=False):
         for key in keys:
             path=root/key/'session.json';meta=read_object(path)
             if not path.is_file() or not meta:raise ValueError('赛事已移动或删除，请刷新记录')
+            from simulators import accepts
+            if not accepts(root,meta):raise ValueError('只能更正当前游戏的赛事记录')
             if only_unknown and mode(annotate(meta,path.parent,modes))!='unknown':continue
             if meta.get('status')=='recording':raise ValueError('请等待当前赛事停止记录后再更正')
             existing=next((old for old in entries if old.replace('\\','/').casefold()==key.casefold()),key)

@@ -60,18 +60,25 @@ def show(owner,root,render_review,make_report,initial=()):
 class Library(WorkList):
     def __init__(self,owner,root,render_review,make_report):
         self.owner=owner;self.root_path=root;self.working=False;self.pending_refresh=False;self.targets=set();self.pending_selection=();self.return_view=None;self.did_locate=False
+        from simulators import root_identity
+        from simulator_profiles import capabilities
+        self.capabilities=capabilities(root_identity(root))
         contexts=getattr(owner,'library_context',{});owner.library_context=contexts;self.context=contexts.setdefault(str(root),{})
         self.restore_position=self.context.get('offset',0),self.context.get('xoffset',0)
         host=Host(owner,root)
         if not hasattr(owner,'configure_styles'):
             from control_center import ControlCenter
             ControlCenter.configure_styles(host)
-        super().__init__(host,'Stintrix · 比赛记录管理',[
-            ('date','记录日期',165),('track','赛道',180),('vehicle','车辆',165),('best','最快圈 s',95),('phase','阶段',85),('mode','参赛方式',100),('stable','稳定性 σ s',100),('source','来源',110),('state','状态',100),('note','备注 / 交通',240)],
+        columns=[('date','记录日期',165),('track','赛道',180)]
+        if not self.capabilities.reference_laps:columns.append(('layout','具体布局',165))
+        columns.extend([('vehicle','车辆',165),('best','最快圈 s',95),('phase','阶段',85),('mode','参赛方式',100)])
+        if self.capabilities.reference_laps:columns.append(('stable','稳定性 σ s',100))
+        columns.extend([('source','来源',110),('state','状态',100),('note','备注 / 交通',240)])
+        super().__init__(host,'Stintrix · 比赛记录管理',columns,
             lambda item:str(Path(item['folder']).resolve()),self.format_entry,filters=dict(all='全部来源',Logs='Logs',ImportedLogs='ImportedLogs',RecoveredLogs='RecoveredLogs',DemoLogs='DemoLogs'),accept=self.matches,detail=self.describe,
-            hint='搜索阶段、日期、车手或备注；可多选 1–6 场对比，原始记录保留。',searchable=lambda item:search_text(item['track'])+' '+item.get('driver',''),include=lambda item:str(Path(item['folder']).resolve()) in self.targets)
+            hint='搜索阶段、日期、车手或备注；可多选 1–6 场对比，原始记录保留。' if self.capabilities.reference_laps else 'AC EVO：搜索赛道、布局、车辆或备注；可选择 1–2 场进行圈 A / 圈 B 对比。',searchable=lambda item:search_text(item['track'])+' '+item.get('driver',''),include=lambda item:str(Path(item['folder']).resolve()) in self.targets)
         host.view=self;self.window.library=self;self.window.geometry('1160x730');self.window.minsize(900,650);self.details.configure(height=2)
-        self.search.placeholder='搜索赛道、车辆、日期或备注';self.search.paint()
+        self.search.placeholder='搜索赛道、布局、车辆、日期或备注';self.search.paint()
         self.track=tk.StringVar(self.window,value=self.context.get('track',''));self.car=tk.StringVar(self.window,value=self.context.get('car',''))
         self.participation=tk.StringVar(self.window,value=self.context.get('mode',''))
         self.query.set(self.context.get('query',''));self.view.set(self.context.get('source','all'));self.remembered=tuple(self.context.get('selected',()))
@@ -91,8 +98,9 @@ class Library(WorkList):
         self.table.bind('<Return>',lambda _:self.operations.open_review());self.table.bind('<Double-1>',lambda _:self.operations.open_review());self.restoring=True
     def format_entry(self,item):
         note=(tr('交通 · ') if item['traffic'] else '')+item['note']
-        return (item['date'][:19].replace('T',' '),display(item['track']),item['vehicle'],f"{item['time_s']:.3f}" if item['time_s'] else '—',session_type(item['session_type']),tr(LABELS[mode(item)]),f"{item['stability_s']:.3f}" if item['stability_s'] is not None else tr('未分析'),item['source'],tr(STATES.get(item['status'],item['status'])),' · '.join(note.splitlines()))
-    def describe(self,item):return display(item['track'])+' · '+item['vehicle']+'\n'+item['folder']+('\n'+item['note'] if item['note'] else '')
+        values=dict(date=item['date'][:19].replace('T',' '),track=display(item['track']),layout=item.get('track_layout') or '—',vehicle=item['vehicle'],best=f"{item['time_s']:.3f}" if item['time_s'] else '—',phase=session_type(item['session_type']),mode=tr(LABELS[mode(item)]),stable=f"{item['stability_s']:.3f}" if item['stability_s'] is not None else tr('未分析'),source=item['source'],state=tr(STATES.get(item['status'],item['status'])),note=' · '.join(note.splitlines()))
+        return tuple(values[key] for key,_,_ in self.columns)
+    def describe(self,item):return ' · '.join(v for v in (display(item['track']),item.get('track_layout'),item['vehicle']) if v)+'\n'+item['folder']+('\n'+item['note'] if item['note'] else '')
     def matches(self,item,source):return (source=='all' or item['source']==source) and (not self.track.get() or item['track']==self.track.get()) and (not self.car.get() or item['vehicle']==self.car.get()) and (not self.participation.get() or mode(item)==self.participation.get())
     def capture(self):
         base=self.return_view or dict(selected=self.remembered,offset=self.table.offset,xoffset=self.table.xoffset)

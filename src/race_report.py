@@ -9,7 +9,7 @@ from race_model import build_model,describe,elapsed,lap_status,lap_time,read_jso
 from reporting import serialized
 from storage import atomic_json
 
-RENDER_VERSION=11
+RENDER_VERSION=12
 
 
 def signature(path):
@@ -34,6 +34,11 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     # Synthetic demos and explicitly selected compatibility previews stay self-contained.
     mode=renderer or ('native' if meta.get('source')=='Synthetic demo' or folder.parent.name=='DemoLogs' else None)
     config=resolve(mode)
+    if config['mode']=='racecom' and meta.get('simulator_id','lmu')=='lmu':
+        from race_art import image_model,prepare_renderer_aliases
+        if image_model(meta.get('vehicle','')):
+            base=Path(config['executable']).resolve().parent
+            prepare_renderer_aliases(base/'_customization/car_calibration.json',base/'Source/Cars')
     art=select_car(meta.get('vehicle',''),car_directory)
     if meta.get('simulator_id')=='ac_evo' and car_directory is None:
         from evo_art import item

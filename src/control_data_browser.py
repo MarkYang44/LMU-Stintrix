@@ -87,7 +87,7 @@ class DataBrowser:
         from control_split_checks import show as split
         from control_maintenance import reports,caches
         actions=[MenuAction('tasks','批量任务与失败重试',lambda:show(app),'任务'),
-            MenuAction('reports','报告任务与分步重试',lambda:reports(app),'任务'),
+            MenuAction('reports','报告任务与分步重试',lambda:reports(app,[item['folder'] for item in self.selected()]),'任务'),
             MenuAction('caches','缓存与导出文件',lambda:caches(app),'存储'),
             MenuAction('all','全选当前列表',lambda:self.table.selection_set(self.table.get_children()),'选择',lambda:bool(self.table.rows)),
             MenuAction('clear','清除选择',lambda:self.table.selection_set(()),'选择',lambda:bool(self.table.selection())),

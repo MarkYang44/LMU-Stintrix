@@ -8,6 +8,21 @@ TEXT={'.csv','.json','.html','.svg','.txt'}
 MIN_BYTES=65536
 LOCK='.storage_compression.pending'
 
+
+def _identity(stat):return [stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns,stat.st_ino]
+
+
+def _previous(folder):
+    try:
+        path=folder/'storage_compression.json'
+        if path.stat().st_size>1048576:return {}
+        with path.open(encoding='utf-8-sig') as stream:text=stream.read(1048577)
+        if len(text)>1048576:return {}
+        value=json.loads(text)
+    except (OSError,ValueError):return {}
+    if not isinstance(value,dict) or value.get('version')!=3 or value.get('method') not in ('Windows per-file LZX','STX lossless column blocks + Windows LZX reports') or not isinstance(value.get('files'),list):return {}
+    return {entry['file']:entry for entry in value['files'] if isinstance(entry,dict) and isinstance(entry.get('file'),str)}
+
 def enabled(root):
     try:return json.loads((Path(root)/'storage_settings.json').read_text(encoding='utf-8')).get('auto_compress',True) is True
     except (OSError,ValueError,AttributeError):return True
@@ -37,14 +52,16 @@ def compress(folder,columnar=False):
     metadata=json.loads((folder/'session.json').read_text(encoding='utf-8-sig'))
     if metadata.get('status') not in ('finished','complete','completed','recovered','imported'):
         raise ValueError('请等记录完整保存后再压缩')
-    if not ntfs(folder) and not columnar:return dict(supported=False,files=[],saved_bytes=0,errors=[])
+    supported=ntfs(folder)
+    if not supported and not columnar:return dict(supported=False,files=[],saved_bytes=0,errors=[])
     lock=folder/LOCK
     if lock.exists():
         try:pid=json.loads(lock.read_text(encoding='utf-8'))['pid']
         except (OSError,ValueError,KeyError):raise ValueError('压缩锁无效，请稍后重试') from None
         if process_alive(pid):raise ValueError('该赛事正在压缩，请稍后重试')
         lock.unlink()
-    result=dict(version=2,method='Windows per-file LZX',supported=True,files=[],saved_bytes=0,errors=[])
+    previous=_previous(folder)
+    result=dict(version=3,method='Windows per-file LZX',supported=True,files=[],saved_bytes=0,errors=[],reused_files=0)
     with lock.open('x',encoding='utf-8') as out:json.dump({'pid':os.getpid()},out)
     try:
         executable=str(Path(os.environ['SystemRoot'])/'System32'/'compact.exe')
@@ -62,17 +79,22 @@ def compress(folder,columnar=False):
                 raise ValueError('赛事包含链接，不能压缩')
             if file.is_file() and file.suffix.lower() in TEXT and file.name!='storage_compression.json' and file.stat().st_size>=MIN_BYTES:
                 candidates.append(file)
-        for file in sorted(candidates) if ntfs(folder) else ():
+        for file in sorted(candidates) if supported else ():
             try:
-                stat=file.stat();before=physical_size(file)
+                stat=file.stat();before=physical_size(file);name=file.relative_to(folder).as_posix();old=previous.get(name,{})
+                if (old.get('source_identity')==_identity(stat) and old.get('logical_bytes')==stat.st_size
+                        and old.get('source_mtime_ns')==stat.st_mtime_ns and old.get('physical_bytes')==before):
+                    check=file.stat()
+                    if _identity(check)!=_identity(stat):raise OSError('压缩期间记录内容发生变化')
+                    result['files'].append({**old,'saved_bytes':0,'reused':True});result['reused_files']+=1;continue
                 child=subprocess.run([executable,'/c','/exe:LZX','/q',str(file)],capture_output=True,
                     creationflags=subprocess.CREATE_NO_WINDOW|subprocess.BELOW_NORMAL_PRIORITY_CLASS,timeout=180)
                 after=physical_size(file);check=file.stat()
-                if stat.st_size!=check.st_size or stat.st_mtime_ns!=check.st_mtime_ns:
+                if stat.st_size!=check.st_size or stat.st_mtime_ns!=check.st_mtime_ns or stat.st_ino!=check.st_ino:
                     raise OSError('压缩期间记录内容发生变化')
                 if child.returncode:raise OSError('Windows compact returned '+str(child.returncode))
-                entry=dict(file=file.relative_to(folder).as_posix(),logical_bytes=stat.st_size,
-                    physical_bytes=after,source_mtime_ns=stat.st_mtime_ns,saved_bytes=max(0,before-after))
+                entry=dict(file=name,logical_bytes=stat.st_size,
+                    physical_bytes=after,source_mtime_ns=stat.st_mtime_ns,source_identity=_identity(check),saved_bytes=max(0,before-after))
                 result['files'].append(entry);result['saved_bytes']+=entry['saved_bytes']
             except (OSError,subprocess.SubprocessError) as error:
                 result['errors'].append(dict(file=file.relative_to(folder).as_posix(),error=str(error)))

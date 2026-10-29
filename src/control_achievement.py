@@ -73,7 +73,7 @@ def show(app,entry):
         cancel_job()
         if state['preview_running'] or state['details'] is None:return
         from achievement_card import payload,compose
-        value=payload(entry,state['details'],name.get(),date.get());revision=state['revision'];state['preview_running']=True
+        value=payload(entry,state['details'],name.get(),date.get(),root=data_path);revision=state['revision'];state['preview_running']=True
         def done(result,error):
             if not alive():return
             state['preview_running']=False
@@ -120,9 +120,11 @@ def show(app,entry):
             say(message);feedback.success();sync();open_last()
         app.run_background(lambda:save_image(data_path,image),done)
     def read():
-        if 'place' in entry:from podium_records import detail
-        else:from personal_records import detail
-        return detail(entry)
+        if 'place' in entry:
+            from podium_records import detail
+            return detail(entry)
+        from personal_records import detail
+        return detail(entry,curve=False)
     def load_data():
         if state['loading']:return
         state['loading']=True;state['error']=False;feedback.busy('load');say('正在读取赛事信息…');sync()

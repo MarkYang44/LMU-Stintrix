@@ -1,8 +1,14 @@
 """Lossless, bounded-memory scratch tables for offline analysis. Files auto-close."""
 from collections import OrderedDict
 from collections.abc import Sequence
+from functools import partial
 import math,struct,tempfile,sys
 from buffers import CompactRow
+
+
+def _sparse_pack(record,*row):
+    if None in row:row=(math.nan if v is None else v for v in row)
+    return record.pack(*row)
 
 class Slice(Sequence):
     def __init__(self,source,indices):self.source,self.indices=source,indices
@@ -32,22 +38,54 @@ class Column(Sequence):
 class DiskTable(Sequence):
     """Float64 records; two random-read pages plus one block per active iterator."""
     def __init__(self,rows,width,directory=None,nullable=False):
-        self.width=width;self.nullable=nullable;self.record=struct.Struct('<'+str(width)+'d')
+        self.width=width;self.nullable=nullable;self.record=struct.Struct('<'+str(width)+'d');self._pack=self.record.pack
         self._file=tempfile.TemporaryFile(dir=directory);self._cache=OrderedDict();self._size=0;self._sealed=False
         self.page_rows=max(1,65536//self.record.size)
         try:
-            for row in rows:self.append(row)
+            append=self.append
+            if getattr(append,'__func__',None) is not __class__.append or self.record.size>=65536:
+                for row in rows:append(row)
+            else:self._build(rows)
             self.seal()
         except BaseException:self.close();raise
+    def _build(self,rows):
+        # Construction has no read cache; buffer at most 64 KiB plus one row.
+        pending=bytearray();pack=self._pack;write=self._file.write;width=self.width
+        try:
+            for row in rows:
+                if len(row)!=width:raise ValueError('Scratch row width changed')
+                try:block=pack(*row)
+                except (TypeError,struct.error):
+                    if not any(v is None for v in row):raise
+                    pack=partial(_sparse_pack,self.record);self._pack=pack;block=pack(*row)
+                pending.extend(block);self._size+=1
+                if len(pending)>=65536:
+                    try:write(pending)
+                    except BaseException:pending.clear();raise
+                    pending.clear()
+        finally:
+            if pending:write(pending)
+    def extend(self,rows):
+        """Append a bounded input batch, retaining append overrides and prefix errors."""
+        if self._sealed:raise ValueError('Scratch table is sealed')
+        end=self._size*self.record.size
+        if self._file.tell()!=end:self._file.seek(end)
+        self._cache.clear()
+        append=self.append
+        if getattr(append,'__func__',None) is not __class__.append or self.record.size>=65536:
+            for row in rows:append(row)
+        else:self._build(rows)
     def append(self,row):
         if len(row)!=self.width:raise ValueError('Scratch row width changed')
         if self._sealed:raise ValueError('Scratch table is sealed')
         # Numeric scratch rows go straight through struct's C implementation.
         # Sparse rows keep the original None -> NaN wire representation.
-        try:block=self.record.pack(*row)
+        try:block=self._pack(*row)
         except (TypeError,struct.error):
             if not any(v is None for v in row):raise
-            block=self.record.pack(*(math.nan if v is None else v for v in row))
+            # Remember sparse encoding without binding this table into a cycle;
+            # only the immutable Struct is retained, so scratch files auto-close.
+            self._pack=partial(_sparse_pack,self.record);block=self._pack(*row)
         self._file.write(block);self._size+=1
         self._cache.clear()
     def seal(self):self._file.flush();self._sealed=True;return self

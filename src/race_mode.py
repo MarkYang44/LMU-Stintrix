@@ -34,7 +34,12 @@ def overlay(root):
     return apply(root,value.get('entries',{}))
 
 def annotate(meta,folder,modes):
-    value=dict(meta);extra=modes.get(str(Path(folder).resolve()),{})
+    return apply_annotation(meta,modes.get(str(Path(folder).resolve()),{}))
+
+
+def apply_annotation(meta,extra):
+    """One pure decision rule; callers may already own a canonical source key."""
+    value=dict(meta)
     if extra.get('race_mode_manual') is True and extra.get('race_mode') in ('online','single'):
         value.update(extra);return value
     known=mode(meta);other=extra.get('race_mode','unknown')

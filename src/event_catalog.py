@@ -77,27 +77,26 @@ def build(folder):
     value['stability_s']=number(stability.get('std')) if (number(stability.get('count')) or 0)>=3 else None
     return value
 
-def snapshot(root):
+def snapshot(root,*,_folders=None):
     root=Path(root).resolve()
-    from session_groups import superseded
-    hidden=superseded(root)
+    from session_groups import folders
+    sessions=folders(root) if _folders is None else _folders
     with _lock:
         path=root/'EventCatalog/index.json';old=read_json(path,{})
-        previous=old.get('entries',{}) if isinstance(old,dict) and old.get('version')==VERSION else {};previous=previous if isinstance(previous,dict) else {};current={}
-        for category in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs'):
-            for p in (root/category).glob('*/session.json'):
-                folder=p.parent.resolve()
-                if folder in hidden or not folder.is_relative_to(root):continue
-                key=str(folder.relative_to(root));signature=[]
-                for name in (*FILES,'inputs.csv','review.html','圈速单.png','比赛日志.png'):
-                    try:s=(folder/name).stat();signature.append([name,s.st_size,s.st_mtime_ns])
-                    except OSError:pass
-                cached=previous.get(key,{})
-                if isinstance(cached,dict) and cached.get('signature')==signature and isinstance(cached.get('facets'),dict):current[key]=cached
-                else:
-                    try:facets=build(folder)
-                    except (OSError,ValueError,TypeError,AttributeError):facets=dict(quality='unknown',trust='unknown',source=category)
-                    current[key]=dict(signature=signature,facets=facets)
+        previous=old.get('entries',{}) if isinstance(old,dict) and old.get('version')==VERSION else {};previous=previous if isinstance(previous,dict) else {};current={};locations={}
+        for category,folder in sessions:
+            folder=Path(folder)
+            if category not in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs') or not folder.is_absolute() or not folder.is_relative_to(root):continue
+            key=str(folder.relative_to(root));locations[key]=folder;signature=[]
+            for name in (*FILES,'inputs.csv','review.html','圈速单.png','比赛日志.png'):
+                try:s=(folder/name).stat();signature.append([name,s.st_size,s.st_mtime_ns])
+                except OSError:pass
+            cached=previous.get(key,{})
+            if isinstance(cached,dict) and cached.get('signature')==signature and isinstance(cached.get('facets'),dict):current[key]=cached
+            else:
+                try:facets=build(folder)
+                except (OSError,ValueError,TypeError,AttributeError):facets=dict(quality='unknown',trust='unknown',source=category)
+                current[key]=dict(signature=signature,facets=facets)
         official_path=root/'OfficialResults/index.json'
         try:s=official_path.stat();official_signature=[s.st_size,s.st_mtime_ns]
         except OSError:official_signature=None
@@ -119,7 +118,7 @@ def snapshot(root):
         value=dict(version=VERSION,entries=current,official_signature=official_signature,official_links=links)
         if value!=old:
             path.parent.mkdir(parents=True,exist_ok=True);atomic_json(path,value)
-    out={str((root/key).resolve()):dict(v['facets']) for key,v in current.items()}
+    out={str(locations[key]):dict(v['facets']) for key,v in current.items()}
     for folder,s in links.items():
         if folder not in out:continue
         f=out[folder];outcome,trust=result(s,True,bool(s.get('conflict')))

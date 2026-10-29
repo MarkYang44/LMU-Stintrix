@@ -38,6 +38,13 @@ def vehicle_class(session):
     return 'Unknown · ' + str(session.get('vehicle') or 'Unknown')
 
 
+def performance_variant(session):
+    """Only explicit evidence separates unrestricted laps; never infer from pace/date."""
+    import re
+    if text(session.get('vehicle_variant'))=='no_bop':return 'no_bop'
+    return 'no_bop' if re.search(r'\(\s*no[\s_-]*bop\s*\)\s*$',str(session.get('vehicle') or ''),re.I) else ''
+
+
 def canonical_class(value):
     """LMU scoring uses GT3 while older model-based records use LMGT3."""
     import re

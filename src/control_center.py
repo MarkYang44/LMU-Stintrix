@@ -377,6 +377,8 @@ class ControlCenter:
     def focus_search(self,_=None):
         guide=getattr(self,'guide_page',None)
         if guide is not None and guide.search_entry.winfo_exists():return guide.focus_search()
+        gallery=getattr(self,'evo_gallery',None)
+        if gallery is not None and gallery.winfo_exists() and gallery.winfo_ismapped():return gallery.focus_search()
         if self.page==2:
             search=getattr(self,'settings_search',None)
             if search is not None and search.field.winfo_exists():return search.focus()
@@ -522,13 +524,19 @@ class ControlCenter:
         except (ValueError,OSError) as error:self.status.set(str(error))
 
     def compare_sessions(self):
+        if self.simulator=='ac_evo':
+            from control_evo_compare import fastest
+            self.with_selection(lambda items:fastest(self,items),None);return
         from laps import write_compare
         def action(items):
             if any(not v['fastest_file'] for v in items):raise ValueError('这两场赛事需要已有最快完整圈')
             def build():
                 from lap_comparison import export_pair
                 return export_pair(ROOT,[(v['folder'],v['lap']) for v in items],ASSETS/'compare.html')['comparison']
-            self.work(build,os.startfile)
+            def opened(page):
+                from control_lap_pair import remember_result
+                remember_result(self,ROOT,page);os.startfile(page)
+            self.work(build,opened)
         self.with_selection(action,2)
 
     def library(self,initial=None):

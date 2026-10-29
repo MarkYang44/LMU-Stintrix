@@ -21,9 +21,9 @@ def shell(app,title,columns,feedback=False):
     return window,footer,table,text
 
 
-def reports(app):
+def reports(app,initial=()):
     from control_report_tasks import show
-    return show(app)
+    return show(app,initial)
 
 
 def caches(app):
@@ -32,7 +32,9 @@ def caches(app):
 
 
 def busy(app):
-    return bool(getattr(app,'maintenance_busy',False) or getattr(getattr(app,'report_retry_job',None),'busy',False))
+    from control_batch import jobs
+    return bool(getattr(app,'maintenance_busy',False) or getattr(app,'lap_curve_jobs',0) or getattr(getattr(app,'report_retry_job',None),'busy',False)
+        or any(getattr(job,'blocks_capture',False) is True and job.busy for job in jobs(app)))
 
 
 def offline_ready(app):

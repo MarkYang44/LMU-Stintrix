@@ -90,7 +90,7 @@ def toolbar(app):
     app.review_actions={'open':app.button(host,'打开记录概览',lambda:app.report('review.html'),True,160)}
     for key,label,name in [('laps','圈速单','圈速单.png'),('journal','赛事日志','比赛日志.png')]:
         app.review_actions[key]=app.button(host,label,lambda n=name:app.report(n),False,110)
-    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',app.selected_laps,False,140)
+    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',lambda:app.compare_sessions() if len(app.tree.selection())>2 else app.selected_laps(),False,140)
     from control_delete import remove
     from control_danger import Danger
     from control_list_context import install as context_menu
@@ -99,14 +99,32 @@ def toolbar(app):
     single=lambda:count()==1;chosen=lambda:count()>0
     button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,130)
     from control_event_filters import edit_note
+    from control_participation import edit as edit_mode,eligible
+    from control_maintenance import reports,offline_ready
+    from control_evo_exports import fastest_csv
+    from control_evo_lap_overview import show as lap_overview
+    from control_evo_compare import last_multi,open_multi
     actions=[MenuAction('records','个人赛道记录',lambda:app.request_page(6),'查看与对比'),
-        MenuAction('fastest','查看最快圈',lambda:app.report('fastest_lap.html'),'查看与对比',single),
-        MenuAction('note','收藏与标签',lambda:app.with_selection(lambda v:edit_note(app,v[0],app.refresh)),'整理与管理',single),
-        MenuAction('copy-cell','复制此单元格',lambda:app.tree.copy_cell(),'复制',chosen),
-        MenuAction('copy-rows','复制选中行',lambda:app.tree.copy_rows(),'复制',chosen),
+        MenuAction('lap-overview','圈速总览与节奏',lambda:app.with_selection(lambda items:lap_overview(app,items[0]['folder'])),'查看与对比',lambda:single() and offline_ready(app),visible=single),
+        MenuAction('compare-best','跨场最快圈对比',app.compare_sessions,'查看与对比',
+            lambda:2<=count()<=6 and offline_ready(app) and all(app.items[int(i)].get('fastest_file') for i in app.tree.selection()),
+            '选择 2–6 场同布局赛事，直接比较各场最快有效圈',visible=lambda:2<=count()<=6),
+        MenuAction('fastest','查看最快圈',lambda:app.report('fastest_lap.html'),'查看与对比',single,visible=single),
+        MenuAction('folder','打开赛事目录',lambda:app.with_selection(lambda v:open_directory(app,v[0])),'查看与对比',single,visible=single),
+        MenuAction('multi-reopen','打开上次多圈对比',lambda:open_multi(app),'最近对比',lambda:last_multi(app) is not None,'打开已生成的文件，保留当前选择与 A/B 记忆'),
+        MenuAction('note','收藏与标签',lambda:app.with_selection(lambda v:edit_note(app,v[0],app.refresh)),'整理与管理',single,visible=single),
+        MenuAction('mode','更正参赛方式',lambda:app.with_selection(lambda v:edit_mode(app,v,app.refresh),None),'整理与管理',
+            lambda:chosen() and all(eligible(app,app.items[int(i)]) for i in app.tree.selection()),'支持多选；默认仅更正未知记录'),
+        MenuAction('library','完整记录管理',app.library,'整理与管理'),
+        MenuAction('reports','报告任务与分步重试',lambda:app.with_selection(lambda items:reports(app,[item['folder'] for item in items]),None),'整理与管理',chosen),
+        MenuAction('fastest-csv','导出最快圈 CSV（可多选）',lambda:app.with_selection(lambda items:fastest_csv(app,items),None),'整理与管理',lambda:chosen() and offline_ready(app)),
         MenuAction('export','导出赛事包',app.export_package,'整理与管理',chosen),
         MenuAction('import','导入赛事包',app.import_package,'整理与管理'),
-        MenuAction('refresh','刷新记录',app.refresh,'整理与管理')]
+        MenuAction('refresh','刷新记录',app.refresh,'整理与管理'),
+        MenuAction('copy-cell','复制此单元格',lambda:app.tree.copy_cell(),'复制',chosen,visible=chosen),
+        MenuAction('copy-rows','复制选中行',lambda:app.tree.copy_rows(),'复制',chosen,visible=chosen),
+        MenuAction('all','全选当前列表',lambda:app.tree.selection_set(app.tree.get_children()),'列表与选项',lambda:bool(app.tree and app.tree.get_children())),
+        MenuAction('clear','清除选择',lambda:app.tree.selection_set(()),'列表与选项',chosen,visible=chosen)]
     from control_table_layouts import actions as column_actions
     actions.extend(column_actions(app.tree))
     delete=Danger(host,'删除选中记录',lambda:remove(app),145);delete.pack(side='left',padx=(0,6))
@@ -115,6 +133,31 @@ def toolbar(app):
     menu=ActionMenu(button,actions,'赛事操作',lambda:app.selected_count.get())
     app.review_menu=menu;context_menu(app.tree,menu,app.update_selection_count)
     app.update_toolbar()
+
+
+def update_compare(app,button):
+    from control_maintenance import offline_ready
+    from control_widgets import px
+    selected=app.tree.selection() if app.tree else ();count=len(selected)
+    title='跨场最快圈对比' if 3<=count<=6 else '圈 A / 圈 B';caption=(title,tr(title))
+    if getattr(button,'evo_compare_caption',None)!=caption:
+        button.evo_compare_caption=caption
+        button.configure(text=title,width=max(px(button,140),button.font.measure(caption[1])+px(button,36)))
+        button.master.event_generate('<Configure>',width=max(1,button.master.winfo_width()))
+    ready=bool(app.items) and count<=6 and offline_ready(app)
+    if count>=3:ready=ready and all(app.items[int(key)].get('fastest_file') for key in selected)
+    if button.enabled!=ready:button.configure(state='normal' if ready else 'disabled')
+
+
+def open_directory(app,entry):
+    import os
+    from race_mode_overrides import relative
+    from race_model import read_json
+    from simulators import accepts
+    folder=Path(entry['folder']).resolve();relative(app.data_path,folder)
+    if not folder.is_dir() or not accepts(app.data_path,read_json(folder/'session.json',{})):
+        raise ValueError('请选择当前游戏的本机赛事记录')
+    os.startfile(str(folder))
 
 
 class RecordPreview(tk.Frame):

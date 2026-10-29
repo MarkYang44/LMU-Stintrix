@@ -66,12 +66,18 @@ def _constant(value,count):return _encode_uncached((value,)*count)
 def _encode_uncached(values):
     out=bytearray();prefix=bytearray();compact=bytearray();last=None;count=0;previous=b''
     for value in values:
-        shared=0
-        for a,b in zip(previous,value):
-            if a!=b:break
-            shared+=1
+        if value==previous:shared=len(value)
+        else:
+            shared=0
+            for a,b in zip(previous,value):
+                if a!=b:break
+                shared+=1
         suffix=value[shared:];prefix.extend(U32.pack(shared));prefix.extend(U32.pack(len(suffix)));prefix.extend(suffix)
-        compact.extend(_varint(shared));compact.extend(_varint(len(suffix)));compact.extend(suffix);previous=value
+        # The canonical one-byte varint is already the byte itself. Keep the
+        # original integer encoder for long prefixes/fields and every candidate.
+        if shared<128 and len(suffix)<128:compact.append(shared);compact.append(len(suffix))
+        else:compact.extend(_varint(shared));compact.extend(_varint(len(suffix)))
+        compact.extend(suffix);previous=value
         if last is not None and value!=last:out.extend(U32.pack(count));out.extend(U32.pack(len(last)));out.extend(last);count=0
         last=value;count+=1
     if count:out.extend(U32.pack(count));out.extend(U32.pack(len(last)));out.extend(last)

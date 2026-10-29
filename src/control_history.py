@@ -46,6 +46,9 @@ class HistoryPage(RecordPage):
         self.button(actions,'card','生成个人战绩卡',self.card,lambda:self.selected is not None)
         from simulator_profiles import capabilities
         supported=capabilities(getattr(app,'simulator','lmu'))
+        if getattr(app,'simulator','lmu')=='ac_evo':
+            from control_maintenance import offline_ready
+            self.button(actions,'lap-overview','圈速总览与节奏',self.lap_overview,lambda:self.selected is not None and offline_ready(app))
         if supported.selected_laps:self.button(actions,'lap-pair','圈 A / 圈 B',self.lap_pair,lambda:self.selected is not None)
         if supported.training:self.button(actions,'comparable','同条件进步分析',self.comparable,lambda:self.selected is not None)
         self.button(actions,'reopen','打开上次曲线',lambda:self.exporter.open(self),lambda:bool(self.exporter.path) and not self.exporter.busy);self.button(actions,'export-folder','打开导出目录',lambda:self.open(Path(self.exporter.path).parent),lambda:bool(self.exporter.path) and not self.exporter.busy)

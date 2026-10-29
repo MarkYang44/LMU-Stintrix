@@ -19,42 +19,36 @@ def session_label(value):
 
 def inventory(root):
     root=Path(root).resolve();out=[]
-    from race_mode import overlay,annotate,mode
+    from race_mode import overlay,apply_annotation,mode
     modes=overlay(root)
     from event_catalog import snapshot
-    catalog=snapshot(root)
-    from session_groups import superseded
-    hidden=superseded(root)
+    from session_groups import folders as discover
+    folders=list(discover(root));catalog=snapshot(root,_folders=folders)
     try:notes=json.loads((root/'library_notes.json').read_text(encoding='utf-8'))
     except (OSError,ValueError):notes={}
-    for name in ('Logs','ImportedLogs','RecoveredLogs','DemoLogs'):
-        for meta_path in (root/name).glob('*/session.json'):
-            folder=meta_path.parent.resolve()
-            if folder in hidden:continue
-            if not folder.is_relative_to(root):continue
-            try:
-                meta=json.loads(meta_path.read_text(encoding='utf-8'))
-                from simulators import accepts
-                if not accepts(root,meta):continue
-                meta=annotate(meta,folder,modes);summary={};analysis={}
-                for file,target in [('fastest_lap_summary.json',summary),('session_analysis.json',analysis)]:
-                    path=folder/file
-                    if path.exists() and file!='session_analysis.json':target.update(json.loads(path.read_text(encoding='utf-8')))
-                key=str(folder.relative_to(root));note=notes.get(key,notes.get(folder.relative_to(root).as_posix()))
-                if note is None:
-                    try:note=json.loads((folder/'_archive_note.json').read_text(encoding='utf-8'))
-                    except (OSError,ValueError):note={}
-                lap=summary.get('lap',{});stable=analysis.get('recent_stability',{})
-                out.append(dict(key=key,folder=str(folder),track=meta.get('track',''),vehicle=meta.get('vehicle',''),
-                    track_layout=meta.get('track_layout') or meta.get('track',''),
-                    track_length_m=lap.get('track_length_m') or meta.get('track_length'),
-                    date=meta.get('started_utc',''),driver=meta.get('driver',''),status=meta.get('status',''),source=name,race_mode=mode(meta),
-                    session_type=session_label(meta.get('session')),
-                    lap=lap.get('number'),time_s=lap.get('time_s'),fastest_file=summary.get('file'),
-                    stable_file=catalog.get(str(folder),{}).get('stable_file'),stability_s=catalog.get(str(folder),{}).get('stability_s'),
-                    _facets=catalog.get(str(folder),{}),favorite=bool(note.get('favorite')),tags=note.get('tags',[]),note=str(note.get('text','')),traffic=bool(note.get('traffic',False)),
-                    size_mb=(folder/'inputs.csv').stat().st_size/1048576 if (folder/'inputs.csv').exists() else 0))
-            except (OSError,ValueError,TypeError):continue
+    for name,folder in folders:
+        try:
+            meta=json.loads((folder/'session.json').read_text(encoding='utf-8'))
+            from simulators import accepts
+            if not accepts(root,meta):continue
+            meta=apply_annotation(meta,modes.get(str(folder),{}));summary={}
+            path=folder/'fastest_lap_summary.json'
+            if path.exists():summary.update(json.loads(path.read_text(encoding='utf-8')))
+            key=str(folder.relative_to(root));note=notes.get(key,notes.get(folder.relative_to(root).as_posix()))
+            if note is None:
+                try:note=json.loads((folder/'_archive_note.json').read_text(encoding='utf-8'))
+                except (OSError,ValueError):note={}
+            lap=summary.get('lap',{})
+            out.append(dict(key=key,folder=str(folder),track=meta.get('track',''),vehicle=meta.get('vehicle',''),
+                track_layout=meta.get('track_layout') or meta.get('track',''),
+                track_length_m=lap.get('track_length_m') or meta.get('track_length'),
+                date=meta.get('started_utc',''),driver=meta.get('driver',''),status=meta.get('status',''),source=name,race_mode=mode(meta),
+                session_type=session_label(meta.get('session')),
+                lap=lap.get('number'),time_s=lap.get('time_s'),fastest_file=summary.get('file'),
+                stable_file=catalog.get(str(folder),{}).get('stable_file'),stability_s=catalog.get(str(folder),{}).get('stability_s'),
+                _facets=catalog.get(str(folder),{}),favorite=bool(note.get('favorite')),tags=note.get('tags',[]),note=str(note.get('text','')),traffic=bool(note.get('traffic',False)),
+                size_mb=(folder/'inputs.csv').stat().st_size/1048576 if (folder/'inputs.csv').exists() else 0))
+        except (OSError,ValueError,TypeError):continue
     return sorted(out,key=lambda x:x['date'],reverse=True)
 
 

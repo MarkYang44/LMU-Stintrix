@@ -108,6 +108,9 @@ def update(app):
         if browser is not None:browser.sync()
     for key,button in getattr(app,'review_actions',{}).items():
         if not button.winfo_exists():continue
+        if key=='compare' and getattr(app,'simulator','lmu')=='ac_evo':
+            from evo_control import update_compare
+            update_compare(app,button);continue
         ready=bool(app.tree and len(app.tree.selection())==1) if key in ('open','laps','journal') else bool(app.tree and app.tree.selection()) if key=='delete' else bool(getattr(app,'items',[]))
         state='normal' if ready else 'disabled'
         if button.cget('state')!=state:button.configure(state=state)

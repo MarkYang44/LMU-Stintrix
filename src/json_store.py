@@ -1,7 +1,14 @@
 """Incremental JSON with exact float64 scratch matrices and selective headers."""
-import json,math
+import json,math,re
 from pathlib import Path
 from analysis_spool import DiskTable
+
+_SPACE=re.compile(r'[ \t\r\n]*')
+_TOKEN=re.compile(r'[^ \t\r\n,\]}]*')
+# Batch only unselected simple rows. The standard decoder still validates every
+# token, including big-integer limits and nonstandard constants. No whole matrix.
+_ROW_BATCH=16384
+_ROWS=re.compile(r'\[[^\[\]"{}]*\](?:[ \t\r\n]*,[ \t\r\n]*\[[^\[\]"{}]*\])*')
 
 class Reader:
     def __init__(self,stream,directory=None,chunk_size=65536,fields=None):
@@ -15,7 +22,11 @@ class Reader:
         while self.pos>=len(self.buffer) and not self.eof:self.fill()
         return self.buffer[self.pos:self.pos+1]
     def space(self):
-        while self.peek() and self.peek() in ' \t\r\n':self.pos+=1
+        while True:
+            if self.pos<len(self.buffer) and self.buffer[self.pos] not in ' \t\r\n':return
+            self.pos=_SPACE.match(self.buffer,self.pos).end()
+            if self.pos<len(self.buffer) or self.eof:return
+            self.fill()
     def require(self,char):
         self.space()
         if self.peek()!=char:raise ValueError('Invalid JSON: expected '+char)
@@ -31,8 +42,7 @@ class Reader:
                     self.fill()
         # Wait for a delimiter so split exponents/numbers cannot decode partly.
         while True:
-            end=self.pos
-            while end<len(self.buffer) and self.buffer[end] not in ' \t\r\n,]}':end+=1
+            end=_TOKEN.match(self.buffer,self.pos).end()
             if end<len(self.buffer) or self.eof:break
             self.fill()
         token=self.buffer[self.pos:end];self.pos=end
@@ -45,6 +55,12 @@ class Reader:
         self.space()
         if self.peek()=='[':
             while len(self.buffer)-self.pos<=1048576:
+                if not keep:
+                    match=_ROWS.match(self.buffer,self.pos,min(len(self.buffer),self.pos+_ROW_BATCH))
+                    if match is not None and match.group().count('[')>1:
+                        try:self.decoder.raw_decode('['+match.group()+']')
+                        except json.JSONDecodeError:raise ValueError('Invalid JSON row') from None
+                        self.pos=match.end();return None
                 try:
                     value,end=self.decoder.raw_decode(self.buffer,self.pos)
                     self.pos=end;return value if keep else None
@@ -52,6 +68,18 @@ class Reader:
                     if self.eof:raise ValueError('Invalid JSON row') from None
                     self.fill()
         return self.value('',depth,keep)
+    def rows(self,depth,keep):
+        # Decode bounded sibling rows in C. Each row still goes through the
+        # original type/width checks and exact float64 scratch representation.
+        if keep:
+            self.space()
+            if self.peek()=='[':
+                match=_ROWS.match(self.buffer,self.pos,min(len(self.buffer),self.pos+_ROW_BATCH))
+                if match is not None and match.group().count('[')>1:
+                    try:value,_=self.decoder.raw_decode('['+match.group()+']')
+                    except json.JSONDecodeError:raise ValueError('Invalid JSON row') from None
+                    self.pos=match.end();return value
+        return (self.row(depth,keep),)
     def value(self,key='',depth=0,keep=True):
         if depth>100:raise ValueError('JSON nesting exceeds 100')
         self.space();char=self.peek()
@@ -73,17 +101,21 @@ class Reader:
             if self.peek()==']':self.pos+=1;return result if keep else None
             try:
                 while True:
-                    row=self.row(depth+1,keep) if key in ('data','points','profile') else self.value('',depth+1,keep)
-                    if keep:
-                        numeric=isinstance(row,list) and bool(row) and all(x is None or
-                            (type(x)==float and math.isfinite(x) or type(x)==int and abs(x)<=2**53) for x in row)
-                        if table is None and not result and key in ('data','points','profile') and numeric:
-                            table=DiskTable((),len(row),self.directory,nullable=True);table._sealed=False
-                        if table is not None:
-                            if numeric and len(row)==table.width:table.append(row)
-                            else:
-                                table.seal();result=list(table);table.close();table=None;result.append(row)
-                        else:result.append(row)
+                    rows=self.rows(depth+1,keep) if key in ('data','points','profile') else (self.value('',depth+1,keep),)
+                    pending=[]
+                    for row in rows:
+                        if keep:
+                            numeric=isinstance(row,list) and bool(row) and all(x is None or
+                                (type(x)==float and math.isfinite(x) or type(x)==int and abs(x)<=2**53) for x in row)
+                            if table is None and not result and key in ('data','points','profile') and numeric:
+                                table=DiskTable((),len(row),self.directory,nullable=True);table._sealed=False
+                            if table is not None:
+                                if numeric and len(row)==table.width:pending.append(row)
+                                else:
+                                    table.extend(pending);pending=[]
+                                    table.seal();result=list(table);table.close();table=None;result.append(row)
+                            else:result.append(row)
+                    if pending:table.extend(pending)
                     self.space();end=self.peek();self.pos+=1
                     if end==']':return table.seal() if table is not None else result if keep else None
                     if end!=',':raise ValueError('Invalid JSON array separator')
@@ -94,7 +126,9 @@ class Reader:
 
 def _metadata_only(value,depth=0):
     if depth>100:raise ValueError('JSON nesting exceeds 100')
-    if isinstance(value,list):return False
+    # Flat tags/options keep standard JSON types; matrices still use exact
+    # float64 scratch tables and the bounded streaming parser.
+    if isinstance(value,list):return all(not isinstance(item,(dict,list)) for item in value)
     return not isinstance(value,dict) or all(_metadata_only(item,depth+1) for item in value.values())
 
 

@@ -123,9 +123,11 @@ class UI(unittest.TestCase):
     def test_history_curve_reopens_without_regeneration_until_source_changes(self):
         app,root,errors=self.app();p,value=self.mount(app,root);calls=[]
         def writer(data,e):
-            calls.append(e);file=root/('curve'+str(len(calls))+'.html');file.write_text('fixture');return str(file)
+            import hashlib
+            from control_record_browser import curve_identity
+            calls.append(e);file=root/('curve'+hashlib.sha256(repr(curve_identity(e)).encode()).hexdigest()[:12]+'.html');file.write_text('fixture');return str(file)
         with patch('control_record_browser.save_curve',side_effect=writer),patch('control_record_browser.os.startfile') as opened:
-            p.curve();p.curve();self.pump(app,.25);self.assertEqual(len(calls),1);first=p.exporter.path;p.curve();self.assertEqual(len(calls),1);self.assertEqual(opened.call_count,2);Path(p.selected['file']).write_text('changed');p.curve();self.pump(app,.25);self.assertEqual(len(calls),2);self.assertNotEqual(p.exporter.path,first)
+            p.curve();p.curve();self.pump(app,.25);self.assertEqual(len(calls),1);first=p.exporter.path;p.curve();self.pump(app,.25);self.assertEqual(len(calls),2);self.assertEqual(opened.call_count,2);self.assertEqual(p.exporter.path,first);Path(p.selected['file']).write_text('changed');p.curve();self.pump(app,.25);self.assertEqual(len(calls),3);self.assertNotEqual(p.exporter.path,first)
         self.assertEqual(Path(first).read_text(),'fixture');self.assertTrue(p.saved_frame.winfo_ismapped());self.assertFalse(errors)
     def test_curve_browser_failure_retains_saved_path_and_failure_keeps_previous_report(self):
         app,root,errors=self.app();p,value=self.mount(app,root);file=root/'saved.html';file.write_text('keep')

@@ -50,14 +50,18 @@ def entries(root):
     return sorted(out,key=lambda item:str(item['meta'].get('started_utc','')),reverse=True)
 
 
-def show(app):
+def show(app,initial=()):
     old=existing(app,'report_tasks_window')
-    if old:return old
+    if old:
+        if initial:old.report_focus.locate(initial)
+        return old
     def row(item):
         meta=item['meta'];receipt=item['receipt']
         return (str(meta.get('started_utc',''))[:19],display(meta.get('track','')),meta.get('vehicle',''),tr(STATES.get(receipt.get('state'),'未完成')),' / '.join(tr(LABELS[k]) for k,v in receipt.get('steps',{}).items() if k in LABELS and v.get('state')!='ready'))
     view=WorkList(app,'报告任务与分步重试',[('date','时间（UTC）',170),('track','赛道',160),('car','车型',180),('state','报告状态',100),('steps','未完成步骤',240)],lambda item:item['folder'],row,filters=dict(pending='未完成报告',all='全部报告'),accept=lambda item,value:value=='all' or item['receipt'].get('state')!='ready',detail=details,hint='搜索赛道、车型或状态；选择待完成报告重试，成功步骤保留。需先停止 HUD。',searchable=lambda item:search_text(item['meta'].get('track','')))
     window=view.window;app.report_tasks_window=window
+    from control_report_focus import Focus
+    window.report_focus=Focus(view)
     def idle():
         from control_maintenance import offline_ready
         return offline_ready(app)
@@ -108,4 +112,6 @@ def show(app):
     view.action('folder','打开记录目录',open_folder,165,enabled=lambda:len(view.selected_items())==1)
     view.action('progress','查看重试进度',progress,170,enabled=lambda:getattr(app,'report_retry_job',None) is not None and app.report_retry_job.window.winfo_exists())
     view.action('refresh','刷新任务',refresh,135,enabled=lambda:not getattr(getattr(app,'report_retry_job',None),'busy',False))
-    window.bind('<F5>',lambda _:view.buttons['refresh'].invoke());refresh();return window
+    window.bind('<F5>',lambda _:view.buttons['refresh'].invoke());refresh()
+    if initial:window.report_focus.locate(initial)
+    return window

@@ -226,6 +226,8 @@ class Tests(unittest.TestCase):
             def configure(self,**options): self.background = options['bg']
         hud = object.__new__(app.App)
         hud.root,hud.canvas = Window(),Canvas()
+        from simulator_profiles import capabilities
+        hud.capabilities = capabilities('lmu')
         hud.hud_mode = app.tk.StringVar(master=app.tk.Tcl(),value='normal')
         hud.applied_hud_mode = 'normal'
         hud.toggle_clean(with_controls=True)
@@ -361,6 +363,8 @@ class Tests(unittest.TestCase):
         engine.actual_rates = Mock(return_value=(1,1))
         hud = object.__new__(app.App)
         hud.simulator = 'lmu'
+        from simulator_profiles import capabilities
+        hud.capabilities = capabilities('lmu')
         hud.engine = engine
         hud.root,hud.canvas = Mock(),Mock()
         hud.canvas.winfo_width.return_value = 640

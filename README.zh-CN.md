@@ -17,7 +17,7 @@
 ![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[下载 Windows x64 · v0.3.52](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip)** · [更新说明 / 其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [快速开始](#快速开始) · [使用文档](#使用文档)
+**[下载 Windows x64 · v0.3.53](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip)** · [更新说明 / 其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [快速开始](#快速开始) · [使用文档](#使用文档)
 
 ## 项目简介
 
@@ -85,7 +85,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 下载安装
 
-1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
+1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
 2. 将整个压缩包解压到可写文件夹。
 3. 双击 **`LMU-Stintrix.exe`**。
 

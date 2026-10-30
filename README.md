@@ -17,7 +17,7 @@ See your inputs while driving. Compare braking, throttle application, and pace a
 ![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[Download Windows x64 · v0.3.52](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip)** · [Release notes / other versions](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [Quick start](#quick-start) · [Documentation](#documentation)
+**[Download Windows x64 · v0.3.53](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip)** · [Release notes / other versions](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [Quick start](#quick-start) · [Documentation](#documentation)
 
 ## Overview
 
@@ -85,7 +85,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 ## Installation
 
-1. [Download the Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip), or browse [other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
+1. [Download the Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip), or browse [other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
 2. Extract the entire archive into a writable folder.
 3. Run **`LMU-Stintrix.exe`**.
 

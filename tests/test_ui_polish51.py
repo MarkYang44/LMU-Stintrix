@@ -96,5 +96,9 @@ class PolishUITests(unittest.TestCase):
             app.show_page(0);self.pump(app,.1);app.show_page(1);self.pump(app,.2)
         app.toggle_language();self.pump(app,.3)
         self.assertEqual((app.root.winfo_width(),app.root.winfo_height()),(1060,700))
+        # Eight requested filters occupy two rows; on a short window the table
+        # is reached by scrolling rather than hiding half of those filters.
+        doc=app.pages.active.frame;table_top=app.tree.viewport.winfo_rooty()-doc.winfo_rooty()
+        app.scroll.yview_moveto(max(0,table_top-12)/max(1,doc.winfo_height()));self.pump(app,.1)
         top=app.tree.viewport.winfo_rooty()-app.scroll.winfo_rooty()
         self.assertGreaterEqual((app.scroll.winfo_height()-top)/app.tree.rowheight,2);self.assertFalse(errors)

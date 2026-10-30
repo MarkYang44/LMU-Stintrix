@@ -57,17 +57,17 @@ def summary_for(root,folder,metadata=None):
 def entries(root):
     """All verified session bests, also used for chronological PB history."""
     root=Path(root).resolve();result=[]
-    from race_mode import overlay,annotate,mode
+    from race_mode import overlay,apply_annotation,mode
     modes=overlay(root)
     from session_groups import superseded
     hidden=superseded(root)
     for category in ('Logs','ImportedLogs','RecoveredLogs'):
         for path in (root/category).glob('*/session.json'):
             try:
-                if path.parent.resolve() in hidden:continue
-                if not path.parent.resolve().is_relative_to(root):continue
+                canonical=path.parent.resolve()
+                if canonical in hidden or not canonical.is_relative_to(root):continue
                 meta=json.loads(path.read_text(encoding='utf-8'))
-                if isinstance(meta,dict):meta=annotate(meta,path.parent,modes)
+                if isinstance(meta,dict):meta=apply_annotation(meta,modes.get(str(canonical),{}))
                 if not isinstance(meta,dict):continue
                 from simulators import accepts
                 if not accepts(root,meta):continue

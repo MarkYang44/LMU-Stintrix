@@ -17,7 +17,7 @@ See your inputs while driving. Compare braking, throttle application, and pace a
 ![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[Download for Windows x64](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)** · [Quick start](#quick-start) · [Documentation](#documentation)
+**[Download Windows x64 · v0.3.52](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip)** · [Release notes / other versions](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [Quick start](#quick-start) · [Documentation](#documentation)
 
 ## Overview
 
@@ -46,6 +46,8 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 - Live throttle, brake, and steering traces: raw / game-filtered inputs in LMU, distinct physics / HUD inputs in EVO.
 - Compact layouts, saved HUD positions, silent recording, and global shortcuts. LMU also provides optional tire, fuel, Virtual Energy, pit, stint, and weather panels.
+- EVO adds a compact gear / RPM strip with game-reported shift and limiter hints, plus ABS / TC / ESC activity lamps and timeline marks. Toggle each in Run & HUD or the HUD menu; display choices do not interrupt recording. New native fields are saved with every captured sample, independently of the selected input channel.
+- Lap validity follows game evidence. EVO saves its two native validity flags separately and favors an explicit valid signal when they disagree. Unresolved or historical combined signals remain pending; capture gaps and pit visits affect statistical eligibility, without being presented as game penalties.
 
 ### Keep sessions ready for review
 
@@ -59,16 +61,20 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 - Compare valid complete laps from the same track layout, within or across sessions.
 - LMU provides distance-aligned inputs, speed, time differences, and recorded trajectories. EVO provides complete recorded input curves and game-reported lap-time differences, with zoom, pan, and original sample readouts.
 - Compare saved session bests directly, with 2–6 EVO sessions on the same layout. Selecting 3–6 EVO sessions makes this the main comparison action. Reopen A/B with your previous track, sessions, and valid-lap choices; both simulators keep this context separate and recheck current lap availability. EVO also has a separate action to reopen the last multi-lap page generated during the current app session.
-- EVO's lap overview shows valid-lap counts, best, median and variation, with single-lap curves, A/B and 3–6-lap overlays. Selected usable laps show their observed mean, best, slowest and variation, without condition correction. Mixed selections offer **Keep selected usable laps** before comparison or export. Export up to six full-telemetry CSVs, or export the current filtered and sorted lap-time list. Open it from personal records/history; double-click or Enter activates selected laps. The optional rhythm chart locates its source lap, and consecutive-run actions preview and select the fastest 3- or 5-lap window without bridging gaps.
+- EVO's lap overview shows valid-lap counts, best, median and variation, with single-lap curves, A/B and 3–6-lap overlays. Select one usable lap to compare it with the session best, even when that best lap is filtered out. Selected usable laps show their observed mean, best, slowest and variation, without condition correction. Mixed selections offer **Keep selected usable laps** before comparison or export. Export up to six full-telemetry CSVs, or export the current filtered and sorted lap-time list. Open it from personal records/history; double-click or Enter activates selected laps. The optional rhythm chart locates its source lap, and consecutive-run actions preview and select the fastest 3- or 5-lap window without bridging gaps.
 
 ### Give practice a focus
 
 - In LMU, training priorities and saved practice targets based on recorded laps.
+- In EVO, **Lap overview → Practice tools** sets a lap-time target for the current window, or uses the selected valid lap's original time as that target, and counts usable laps meeting it in the filtered list and selection. Select filtered laps meeting or exceeding the target in one action, then compare or export them; no condition correction is applied. **Export selected lap times** exports any number of selected lap facts, retaining invalid and unknown states, without full telemetry.
+- EVO's lap rhythm chart can show the current target as a dashed line, with the signed difference on hover. Missing and invalid laps remain gaps; clearing the target restores the ordinary chart. The rhythm chart and LMU history chart support arrow-key browsing, Home/End and Enter selection. EVO chart mode hides the bottom actions and restores them when returning to the table.
+- Race review keeps eight filters: track, vehicle class, model, phase, race mode, time range, result and favorites. Search, sorting and saved views remain available. Both games offer a red **Delete selected records** toolbar action, with confirmation of the selected complete sessions before deletion.
 - Progress analysis that considers car, fuel, tires, weather, and available conditions.
 
 ### Follow your records
 
 - Personal bests and record history for both simulators: LMU by layout and vehicle class, EVO by layout and specific model.
+- EVO record details show available facts, without unknown placeholders or repeated model names. Car and track photos sit side by side on wide windows and stack on narrow ones; input curves follow below.
 - Lap sheets, race journals, and locally exported achievement cards. LMU also supports confirmed class podiums and read-only game-result XML integration.
 - EVO car galleries filter by brand and category, with two-car comparison that keeps your selections and browsing position. Track cards show verified layouts and available official circuit maps. Artwork downloads are optional and stay local.
 
@@ -79,7 +85,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 ## Installation
 
-1. Download `LMU-Stintrix-v*-windows-x64.zip` from the [latest release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
+1. [Download the Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.52/LMU-Stintrix-v0.3.52-windows-x64.zip), or browse [other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
 2. Extract the entire archive into a writable folder.
 3. Run **`LMU-Stintrix.exe`**.
 

@@ -129,7 +129,7 @@ class RaceJournal:
                     sectors=[s1,positive(s12-s1) if s1 and s12 else None,positive(total-s12) if total and s12 else None]
                     if total is None or s1 is None or s12 is None or not 0<s1<s12<total:sectors=[None]*3
                     self.emit(et,'official_lap',dict(num=completed,time=positive(duration),
-                        valid=False if context.get('invalidated') or total is None else True,
+                        valid=False if context.get('invalidated') else None if total is None else True,
                         start=context.get('start'),telemetry_lap=context.get('telemetry_lap'),
                         s1=sectors[0],s2=sectors[1],s3=sectors[2],partial=context.get('partial',True),
                         in_pits=context.get('in_pits',False),missed_laps=max(0,completed-previous-1)))

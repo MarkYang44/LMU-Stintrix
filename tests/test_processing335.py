@@ -83,10 +83,10 @@ with patch.object(ControlCenter,'repair_windows_entry'):
   assert not c['rhythm'].visible and table.selection()==('4','5','6','7','8')
   c['sort']('time',True);c['kind'].set('valid');c['populate']();pump();before=table.sort_state
   c['buttons']['run'].invoke();pump();menu.invoke('3');pump();assert set(table.selection())=={'4','5','6'} and table.sort_state==before and c['kind'].get()=='valid'
-  c['query'].set('2');c['populate']();pump();assert not c['state']['runs'] and not c['buttons']['run'].enabled
+  c['query'].set('2');c['populate']();pump();assert not c['state']['runs'] and c['buttons']['run'].enabled and not menu.actions[0].enabled() and not menu.actions[1].enabled()
   selected=table.selection();menu.invoke('3');assert table.selection()==selected
   c['query'].set('');c['populate']();pump();app.set_theme('light');app.toggle_language();pump()
-  assert c['buttons']['run'].cget('text')=='Consecutive laps ▾'
+  assert c['buttons']['run'].cget('text')=='Practice tools ▾'
   c['buttons']['run'].invoke();pump();assert menu.popup and menu.actions[0].label=='选择最快连续 3 圈'
   assert menu.popup.winfo_rootx()+menu.popup.winfo_width()<=w.winfo_rootx()+w.winfo_width()+1
   menu.close(False);c['state']['loading']=True;before=table.selection();c['select_run'](3);assert table.selection()==before;c['state']['loading']=False

@@ -144,9 +144,14 @@ def lap_time(value):
 
 
 def lap_status(lap):
+    from lap_validity import game_valid
     flags=[]
-    if lap['valid'] is False:flags.append('无效')
-    elif lap['valid'] is None:flags.append('有效性未知')
+    validity=game_valid(lap)
+    if validity is False:flags.append('无效')
+    elif validity is None:flags.append('待确认')
+    elif lap.get('validity_disputed'):flags.append('有效（信号有分歧）')
+    elif validity is True and lap['valid'] is False:flags.append('有效（历史标志待确认）')
+    elif lap['partial'] or not lap['complete'] or lap['in_pits']:flags.append('有效')
     if lap['partial'] or not lap['complete']:flags.append('部分记录' if lap['complete'] else '未完成')
     if lap['in_pits']:flags.append('PIT')
     if lap.get('missed_laps'):flags.append('缺圈')
@@ -157,7 +162,9 @@ def lap_status(lap):
 def describe(event):
     name=event['event'];p=event['data']
     if name in ('official_lap','reconstructed_lap'):
-        flags=(' · 无效' if p.get('valid') is False else '')+(' · 部分记录' if p.get('partial') else '')
+        from lap_validity import game_valid
+        validity=game_valid(p)
+        flags=(' · 无效' if validity is False else ' · 待确认' if validity is None else '')+(' · 部分记录' if p.get('partial') else '')
         return f"完成第 {p.get('num','?')} 圈 · {lap_time(p.get('time'))}"+flags+(' · 期间缺圈 '+str(p['missed_laps']) if p.get('missed_laps') else '')
     if name=='position':return f"名次变化 · P{p.get('from','?')} → P{p.get('to','?')}"
     if name=='class_position':

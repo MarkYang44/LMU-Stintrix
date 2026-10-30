@@ -38,10 +38,10 @@ class EventFilterUITests(unittest.TestCase):
     c=controls();c.state.update(state);c.update_options(c.items);c.callback();center.root.update();return c
    try:
     center.show_page(1);wait(lambda:center.tree is not None and len(center.tree.rows)==3)
-    c=use(track='Monza',vehicle_class='LMGT3');c.toggle();center.root.update();self.assertTrue(c.advanced.winfo_manager());self.assertTrue(c.chip_widgets)
-    use(weather='dry');self.assertEqual(len(center.tree.rows),2)
-    with patch('control_event_filters.simpledialog.askstring',return_value='Synthetic dry laps'):c.save_view()
-    c.reset();center.root.update();self.assertEqual(len(center.tree.rows),3);c.view.set('Synthetic dry laps');c.restore();center.root.update();self.assertEqual(len(center.tree.rows),2)
+    c=use(track='Monza',vehicle_class='LMGT3');center.root.update();self.assertFalse(c.advanced.winfo_manager());self.assertTrue(c.chip_widgets)
+    use(car='BMW M4 LMGT3');self.assertEqual(len(center.tree.rows),2)
+    with patch('control_event_filters.simpledialog.askstring',return_value='Synthetic BMW laps'):c.save_view()
+    c.reset();center.root.update();self.assertEqual(len(center.tree.rows),3);c.view.set('Synthetic BMW laps');c.restore();center.root.update();self.assertEqual(len(center.tree.rows),2)
     center.tree.selection_set((next(iter(center.tree.rows)),));chosen=center.items[int(center.tree.selection()[0])]
     edit_note(center,chosen,center.refresh);window=next(w for w in center.root.winfo_children() if w.winfo_class()=='Toplevel')
     from control_widgets import Switch

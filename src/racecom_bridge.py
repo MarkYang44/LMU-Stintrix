@@ -11,6 +11,7 @@ from race_model import describe,lap_time,number
 from storage import atomic_json
 from renderer_process import run
 from class_positions import inline_positions
+from lap_validity import game_valid
 
 
 def local_start(meta):
@@ -27,14 +28,16 @@ def adapt(model):
     for lap in model['laps']:
         if not lap['complete'] or number(lap['time']) is None or lap['time']<=0:continue
         item={k:lap.get(k) for k in ('num','time','valid','best','s1','s2','s3')}
-        item['game_valid']=lap['valid']
+        item['game_valid']=game_valid(lap)
         excluded=lap['partial'] or lap['in_pits'] or lap['valid'] is not True or lap.get('missed_laps',0)>0
         # RaceCom recomputes its fastest lap from 'valid'. Explicit cancellation
         # means excluded from report statistics, not a fabricated game penalty.
         item['valid']=lap['valid'] is True and not excluded
-        item['note']=' / '.join(s for s in ('无效' if lap['valid'] is False else '有效性未知' if lap['valid'] is None else '',
+        item['statistics_eligible']=item['valid']
+        item['note']=' / '.join(s for s in ('无效' if item['game_valid'] is False else '待确认' if item['game_valid'] is None else '',
             '部分记录' if lap['partial'] else '', 'PIT' if lap['in_pits'] else '', '最快' if lap['best'] else '') if s)
-        if excluded and lap['valid'] is not False:item['note']='统计无效 / '+item['note']
+        if excluded and item['game_valid'] is not False:
+            item['note']=('游戏有效 / 未计入统计 / '+item['note']) if item['game_valid'] is True else (item['note']+' / 未计入统计')
         for key,best in zip(('s1','s2','s3'),model['sector_bests']):item[key+'_best']=best is not None and lap.get(key)==best
         laps.append(item)
     start_text,end_text=inline_positions(model)
@@ -53,7 +56,8 @@ def adapt(model):
             dict(time=(start+timedelta(seconds=e['time']-model['origin'])).strftime('%H:%M:%S') if start else '',
             text=describe(e)) for e in model['events'] if e['event']!='class_position' or start_text]+[
                 dict(time='',text=text) for text in ('缺失字段显示未知；未采集的信息不补造。','出界为边界估算，非官方警告；碰撞合并连续接触。',
-                    '统计无效 = 排除部分记录 / PIT / 未验证圈，不代表游戏处罚。',model.get('note',''))])
+                    '有效性按游戏信号显示；记录不完整、PIT、待确认仅影响统计，不是游戏无效圈。',model.get('note',''))],
+        stintrix_validity_policy=1)
 
 
 def lap_rows(value):

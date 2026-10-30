@@ -12,6 +12,7 @@ class InputReader(Protocol):
 
 @dataclass(frozen=True,slots=True)
 class Capabilities:
+    driving_instruments:bool=False
     vehicle_telemetry:bool=False
     endurance:bool=False
     reference_laps:bool=False
@@ -89,7 +90,7 @@ PROFILES=MappingProxyType({
         'guide','排位和正赛自动保存；练习赛完整记录可在设置中开启。',
         ('原始输入','游戏过滤后'),'game_session'),
     'ac_evo':SimulatorProfile('ac_evo','Assetto Corsa EVO','AC EVO','Stintrix · AC EVO',
-        _evo_reader,Capabilities(selected_laps=True,record_history=True),
+        _evo_reader,Capabilities(selected_laps=True,record_history=True,driving_instruments=True),
         # EVO partial reports are independent; preserve its existing retry rules.
         ReportPolicy(('fastest','review','images','compression'),_evo_reports,error_markers=False,cache_budget=False,legacy_outputs=False),
         'official','计时赛和正赛自动保存；练习与巡航可在设置中开启。',

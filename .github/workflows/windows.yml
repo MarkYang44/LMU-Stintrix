@@ -88,12 +88,14 @@ jobs:
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           if ($env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag must match VERSION' }
+          python tools/release_notes.py --output _local/release-notes.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release notes generation failed' }
           gh release view $env:GITHUB_REF_NAME --json id 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $env:GITHUB_REF_NAME "dist/LMU-Stintrix-v$version-windows-x64.zip" --clobber
             if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
-            gh release edit $env:GITHUB_REF_NAME --latest --title "LMU Stintrix v$version" --notes-file docs/RELEASE_NOTES.md
+            gh release edit $env:GITHUB_REF_NAME --latest --title "LMU Stintrix v$version" --notes-file _local/release-notes.md
           } else {
-            gh release create $env:GITHUB_REF_NAME "dist/LMU-Stintrix-v$version-windows-x64.zip" --verify-tag --latest --title "LMU Stintrix v$version" --notes-file docs/RELEASE_NOTES.md
+            gh release create $env:GITHUB_REF_NAME "dist/LMU-Stintrix-v$version-windows-x64.zip" --verify-tag --latest --title "LMU Stintrix v$version" --notes-file _local/release-notes.md
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

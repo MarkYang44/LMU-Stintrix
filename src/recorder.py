@@ -56,7 +56,7 @@ class Recorder:
                                  'LMU_Data / pyLMUSharedMemory'))
         if sample.get('interface'):self.meta['interface']=dict(sample['interface'])
         if self.simulator=='ac_evo':
-            self.meta.update(source='Synthetic demo / AC EVO' if sample.get('demo') else 'AC EVO / read-only SharedFileOut v1',recording_scope='inputs-and-lap-timing',
+            self.meta.update(source='Synthetic demo / AC EVO' if sample.get('demo') else 'AC EVO / read-only SharedFileOut v1',recording_scope='inputs-lap-timing-and-driving-instruments',
                 clock_source='host monotonic acquisition; session_time_s unavailable',
                 input_channels=dict(raw='physics gas/brake/steerAngle',filtered='graphics gas_percent/brake_percent/steering_percent'),
                 position_units='unavailable',simulator_session=sample.get('simulator_session'),session_name=sample.get('session_name',''),
@@ -75,6 +75,13 @@ class Recorder:
         if self.simulator=='ac_evo':
             for key in ('endurance_settings','endurance_units','vehicle_telemetry','vehicle_profile','vehicle_strategy'):self.meta.pop(key,None)
             self.meta['race_mode_source']='AC EVO static is_online'
+            self.meta['driving_channels']=dict(version=1,file='inputs.csv',rate='every captured fresh physics sample',
+                activity='graphics abs_active / tc_active / esc_active; 0 inactive, 1 active',
+                instruments='graphics gear_int / rpm / rpm_percent / is_change_up_rpm / is_change_down_rpm / is_rpm_limiter_on',
+                gear_encoding='0 reverse, 1 neutral, 2+ forward gears',
+                physics='gear / rpms / currentMaxRpm / absInAction / tcinAction retained separately',
+                synchronization='independent graphics/physics producer rates; no interpolation or inferred transitions')
+            self.meta['lap_validity_policy']='game-first v1; graphics is_valid_lap takes priority; timing_state.is_invalid confirms negative; conflicting/absent negative evidence stays pending'
         self.last_et = None
         self.samples = 0
         self.set_sampling(settings or DEFAULTS, target_hz or POLL_HZ, 0)
@@ -153,7 +160,7 @@ class Recorder:
         from acevo import EXTRA
         values=dict(time_s=elapsed,utc=datetime.now(timezone.utc).isoformat(),session_time_s='',
             lap=sample['lap'],lap_distance_m=sample.get('distance',''),speed_kmh=sample['speed'],
-            lap_invalidated=int(sample.get('lap_invalidated',True)),in_pits=int(sample.get('in_pits',False)),
+            lap_invalidated='' if sample.get('lap_invalidated') is None else int(sample['lap_invalidated']),in_pits=int(sample.get('in_pits',False)),
             track_length_m=sample.get('track_length',''))
         values.update(zip(('throttle','brake','steering','filtered_throttle','filtered_brake','filtered_steering'),sample['controls']))
         values.update(sample.get('native',{}))

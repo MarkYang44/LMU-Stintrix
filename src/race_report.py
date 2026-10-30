@@ -9,7 +9,7 @@ from race_model import build_model,describe,elapsed,lap_status,lap_time,read_jso
 from reporting import serialized
 from storage import atomic_json
 
-RENDER_VERSION=12
+RENDER_VERSION=13
 
 
 def signature(path):
@@ -34,6 +34,9 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     # Synthetic demos and explicitly selected compatibility previews stay self-contained.
     mode=renderer or ('native' if meta.get('source')=='Synthetic demo' or folder.parent.name=='DemoLogs' else None)
     config=resolve(mode)
+    if config['mode']=='racecom':
+        from racecom_validity import prepare
+        prepare(config['executable'])
     if config['mode']=='racecom' and meta.get('simulator_id','lmu')=='lmu':
         from race_art import image_model,prepare_renderer_aliases
         if image_model(meta.get('vehicle','')):
@@ -46,10 +49,13 @@ def generate(folder,car_directory=None,renderer=None,force=False):
         if official:art=(Path(official['local_image']),(0,0,1,1))
     inputs={name:signature(folder/name) for name in ('inputs.csv','session.json','race_events.csv','race_summary.json') if (folder/name).is_file()}
     fingerprint=dict(version=RENDER_VERSION,inputs=inputs,car=None,renderer=config['mode'])
+    if meta.get('simulator_id')=='ac_evo':
+        from evo_laps import VERSION
+        fingerprint['lap_rules']=VERSION
     if config['mode']=='racecom':
         executable=Path(config['executable']);base=executable.parent
         fingerprint['runtime']={str(path.relative_to(base)):signature(path) for path in [executable,base/'image_generate_config.json',
-            base/'_customization'/'racecom_hooks.py',base/'_customization'/'car_calibration.json',base/'Source'/'LMU Logo.png'] if path.is_file()}
+            base/'_customization'/'racecom_hooks.py',base/'_customization'/'stintrix_game_validity_v1.py',base/'_customization'/'car_calibration.json',base/'Source'/'LMU Logo.png'] if path.is_file()}
         car_path=base/'Source'/'Cars'
         fingerprint['artwork']={path.name:signature(path) for path in car_path.iterdir() if path.is_file() and path.suffix.casefold() in ('.jpg','.png','.jpeg')} if car_path.is_dir() else {}
     if art:fingerprint['car']=dict(signature=signature(art[0]),bounds=art[1])
@@ -65,7 +71,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     files={}
     try:
         old_mode=receipt.get('fingerprint',{}).get('renderer') or ('racecom' if 'RaceCom' in receipt.get('generator','') else 'native')
-        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION):
+        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION or receipt.get('fingerprint',{}).get('lap_rules')!=fingerprint.get('lap_rules')):
             # Explicit regeneration and renderer changes retain the prior reports.
             from uuid import uuid4
             prior=uuid4().hex[:12]

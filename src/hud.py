@@ -36,6 +36,10 @@ class App:
         self.simulator=SIMULATOR
         from simulator_profiles import profile
         self.profile=profile(self.simulator);self.capabilities=self.profile.capabilities
+        self.evo_hud_settings={}
+        if self.capabilities.driving_instruments:
+            from evo_hud import load
+            self.evo_hud_settings=load(ROOT)
         import recording_visibility
         self.silent_recording=recording_visibility.load(ROOT/'recording_visibility.json')
         from hud_layouts import LayoutStore
@@ -49,7 +53,7 @@ class App:
         self.root.title(self.profile.title+(' · DEMO' if demo else ''))
         from branding import apply
         apply(self.root)
-        self.root.geometry('640x228+70+70')
+        self.root.geometry('640x268+70+70' if self.capabilities.driving_instruments else '640x228+70+70')
         self.root.minsize(440, 160)
         self.root.overrideredirect(True)
         self.root.configure(bg=T.BG)
@@ -162,6 +166,12 @@ class App:
         available.update({index:self.capabilities.reference_laps for index in (7,8,9,10,11,12)})
         for index,enabled in available.items():
             if not enabled:menu.entryconfigure(index,state='disabled')
+        if self.capabilities.driving_instruments:
+            menu.add_separator()
+            self.evo_hud_vars={}
+            for key,label in (('instruments','AC EVO · 紧凑仪表条'),('assists','AC EVO · ABS / TC / ESC 干预标记')):
+                var=tk.BooleanVar(self.root,value=self.evo_hud_settings[key]);self.evo_hud_vars[key]=var
+                menu.add_checkbutton(label=label,variable=var,command=lambda k=key:self.set_evo_hud(k,self.evo_hud_vars[k].get()))
         self.canvas = tk.Canvas(self.root, bg=T.BG, highlightthickness=0)
         self.canvas.bind('<Button-1>', begin_drag)
         self.canvas.bind('<B1-Motion>', move_drag)
@@ -387,6 +397,17 @@ class App:
                 child.configure(bg=T.CARD,fg=T.FG,activebackground=T.BUTTON,activeforeground=T.INK)
         self.render_wake.set()
 
+    def set_evo_hud(self,key,value):
+        if not self.capabilities.driving_instruments:return
+        from evo_hud import save
+        try:self.evo_hud_settings=save(ROOT,key,value)
+        except OSError as error:
+            self.evo_hud_vars[key].set(self.evo_hud_settings[key])
+            messagebox.showerror('无法保存显示设置',str(error),parent=self.root);return
+        for name,var in self.evo_hud_vars.items():var.set(self.evo_hud_settings[name])
+        self.chrome_key=None;self.live_key=None;self.trace_key=None
+        self.render_wake.set();self.wake_draw()
+
     def apply_clean_mode(self):
         mode = self.hud_mode.get()
         if mode == self.applied_hud_mode:
@@ -398,7 +419,7 @@ class App:
                 self.normal_size = (self.root.winfo_width(), self.root.winfo_height())
                 self.normal_opacity = self.root.attributes('-alpha')
             self.root.minsize(*( (320,80) if mode=='controls' else (240,60) ))
-            self.root.geometry('600x100' if mode=='controls' else '440x100')
+            self.root.geometry(('600x136' if mode=='controls' else '440x136') if self.capabilities.driving_instruments else ('600x100' if mode=='controls' else '440x100'))
             self.root.configure(bg='#000000')
             self.root.attributes('-alpha', 1.0)
             self.canvas.configure(bg='#000000')
@@ -571,9 +592,10 @@ class App:
             x1-r,y1, x0+r,y1, x0,y1, x0,y1-r, x0,y0+r, x0,y0,
             smooth=True, splinesteps=24, **options)
 
-    def paint_chrome(self, w, h, clean, controls=False):
+    def paint_chrome(self, w, h, clean, controls=False,outer_h=None):
         """Cache vector glass surfaces outside the live refresh path."""
-        key = (w, h, clean, controls, T.mode)
+        outer_h=h if outer_h is None else outer_h
+        key = (w, h, clean, controls, T.mode,outer_h)
         if key == self.chrome_key:
             return
         self.chrome_key = key
@@ -588,12 +610,12 @@ class App:
                     c.create_rectangle(*bounds,fill=T.FIELD,outline=T.EDGE,tags='chrome')
                 c.tag_lower('chrome')
             return
-        region = self.gdi32.CreateRoundRectRgn(0, 0, w+1, h+1, round(32*s), round(32*s))
+        region = self.gdi32.CreateRoundRectRgn(0, 0, w+1, round(outer_h)+1, round(32*s), round(32*s))
         if region and not self.user32.SetWindowRgn(handle, region, True):
             self.gdi32.DeleteObject(region)
         # Static industrial surface, cached outside the telemetry draw path.
-        c.create_rectangle(0,0,w,h,fill=T.BG,outline='',tags='chrome')
-        self.rounded(1, 1, w-1, h-1, 16*s, fill='', outline=T.EDGE, width=1, tags='chrome')
+        c.create_rectangle(0,0,w,outer_h,fill=T.BG,outline='',tags='chrome')
+        self.rounded(1, 1, w-1, outer_h-1, 16*s, fill='', outline=T.EDGE, width=1, tags='chrome')
         c.create_line(23*s, 1, w-23*s, 1, fill=T.ACCENT, tags='chrome')
         c.create_text(18*s, 18*s, text='STINTRIX', fill=T.FG, anchor='w',
                       font=('Segoe UI', -max(10,round(12*s)), 'bold'), tags='chrome')
@@ -715,7 +737,11 @@ class App:
             self.live_items.clear()
             self.wheel_display = None
             self.live_key = (w,h,mode,T.mode)
-        self.paint_chrome(w, h, clean, controls)
+        full_h=h
+        if self.capabilities.driving_instruments:
+            from evo_hud import band_height
+            h-=band_height(w,h,mode,self.evo_hud_settings)
+        self.paint_chrome(w, h, clean, controls,outer_h=full_h)
         s = min(w/640,h/228)
         window = float(self.window.get())
         now = time.monotonic()
@@ -731,6 +757,7 @@ class App:
             latest = self.engine.latest
             reference_points = packed_window(self.engine.reference_points, now-window) if rebuild and self.engine.reference_enabled else ()
             reference_latest = self.engine.reference_latest
+            activity_snapshot=self.engine.evo_activity.snapshot(now-window) if self.capabilities.driving_instruments and self.evo_hud_settings['assists'] else ((),None)
             if hasattr(self,'diagnostics'):self.paint_sample=latest
         finally:self.engine.lock.release()
         if rebuild:
@@ -782,21 +809,24 @@ class App:
                         coords=[]
                     coords.extend((x1-(now-point[0])/window*(x1-x0),y1-point[offset+lane]*(y1-y0)));previous=point[0]
                 if len(coords)>=4:c.create_line(*reduce_trace(coords),fill=color,width=max(1,s),dash=(3,4),tags='trace')
+        if self.capabilities.driving_instruments:
+            from evo_hud import paint
+            paint(self,w,full_h,h,mode,latest,activity_snapshot,now,window,layout['plot'])
         poll_hz, sample_hz = self.engine.actual_rates()
         draw_hz = self.actual_draw_rate()
         failure=getattr(self.engine,'recording_failure',None)
         state = 'ERROR / 记录停止' if failure else 'DEMO' if self.engine.demo else 'REC' if self.engine.recorder.file else 'WAIT / SAVED'
         lock = '穿透' if self.clickthrough else '可拖动'
         if not clean:
-            self.live_item('state',c.create_oval,16*s,h-17*s,21*s,h-12*s,
+            self.live_item('state',c.create_oval,16*s,full_h-17*s,21*s,full_h-12*s,
                            fill=COLORS[1] if failure else COLORS[0] if self.engine.recorder.file else T.MUTED,outline='')
             mode = 'DYN' if self.settings['mode']=='dynamic' else 'FIX'
-            self.live_item('rates',c.create_text,28*s,h-14*s,
+            self.live_item('rates',c.create_text,28*s,full_h-14*s,
                            text=f'{state} {mode}{self.engine.target_hz}   ·   新{sample_hz:.0f} / 绘{draw_hz:.0f} Hz',
                            fill=T.MUTED,anchor='w',font=('Segoe UI',-max(9,round(10*s))))
             alignment=getattr(self.engine,'reference_state',{})
             approximate=isinstance(alignment,dict) and (alignment.get('confidence',1)<.6 or alignment.get('conditions',{}).get('unknown'))
-            self.live_item('keys',c.create_text,w-16*s,h-14*s,
+            self.live_item('keys',c.create_text,w-16*s,full_h-14*s,
                            text=('写盘异常 · 该段已停止' if failure else f'REF{"≈" if approximate else ""} {reference_latest[-1]:+.3f}s · F6' if self.reference_on.get() and reference_latest else
                                  ('REF '+self.engine.reference_state.get('mode','未匹配')+' · F6' if self.reference_on.get() else f'{int(window)}s   ·   F8 {lock}   ·   F9 纯净')),
                            fill=T.MUTED,anchor='e',font=('Segoe UI',-max(9,round(10*s))))

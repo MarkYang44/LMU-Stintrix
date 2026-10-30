@@ -19,13 +19,16 @@ SHORT_SORTS=('最新优先','最早优先','阶段 ↑','阶段 ↓','赛道 ↑
 SHORT_SORTS+=('圈速 ↓','同组名次 ↓')
 
 class EventControls(tk.Frame):
-    def __init__(self,parent,app,callback,key):
+    def __init__(self,parent,app,callback,key,filter_fields=None):
         super().__init__(parent,bg=T.CARD);self.app=app;self.callback=callback;self.key=key;self.items=[];self.variables={};self.choices={};self.lookup={};self.tiles=[]
+        self.filter_keys=None if filter_fields is None else frozenset(name for name,_ in filter_fields)
         self.path=Path(app.data_path)/'EventCatalog/views.json';self.path.parent.mkdir(parents=True,exist_ok=True);saved=read_json(self.path,{})
         self.state={**DEFAULTS,**saved.get('states',{}).get(key,{}),**getattr(app,key,{})};setattr(app,key,self.state)
+        self.prune_state()
         self.basic=tk.Frame(self,bg=T.CARD);self.basic.pack(fill='x');self.advanced=tk.Frame(self,bg=T.CARD);self.titles={}
         fields=[('track','赛道'),('layout','具体布局'),('vehicle_class','车辆组别'),('car','车型')]
         advanced=[('phase','阶段'),('mode','参赛方式'),('period','时间范围（UTC）'),('team','车队'),('outcome','比赛成绩'),('trust','成绩依据'),('quality','数据质量'),('weather','已记录圈天气'),('front','前轮胎种'),('rear','后轮胎种'),('source','记录来源'),('favorite','收藏'),('traffic','交通人工标记'),('tag','标签'),('available','可用数据'),('start','开始日期（UTC）'),('end','结束日期（UTC）'),('min_laps','至少有效完整圈'),('fuel_min','圈起点油量 ≥ L'),('fuel_max','圈起点油量 ≤ L'),('temp_min','赛道温度 ≥ °C'),('temp_max','赛道温度 ≤ °C'),('tc_min','TC ≥'),('tc_max','TC ≤'),('abs_min','ABS ≥'),('abs_max','ABS ≤'),('duration_min','比赛时长 ≥ 分钟'),('duration_max','比赛时长 ≤ 分钟')]
+        if filter_fields is not None:fields=list(filter_fields);advanced=[]
         for parent,spec in ((self.basic,fields),(self.advanced,advanced)):
             group=[]
             for name,label in spec:
@@ -38,7 +41,7 @@ class EventControls(tk.Frame):
                     w=Select(tile,textvariable=var,width=18);self.choices[name]=w;w.bind('<<ComboboxSelected>>',lambda _:self.apply())
                 w.pack(fill='x')
             parent.bind('<Configure>',lambda e,p=parent,g=group:self.arrange(e,p,g))
-        tools=app.row(self);self.toggle_button=app.button(tools,'更多筛选',self.toggle,False,90)
+        tools=app.row(self);self.toggle_button=app.button(tools,'更多筛选',self.toggle,False,90) if self.filter_keys is None else None
         app.button(tools,'重置筛选',self.reset,False,100)
         self.variables['sort']=tk.StringVar(self);self.titles['sort']='排序';self.choices['sort']=Select(tools,textvariable=self.variables['sort'],width=13);self.choices['sort'].pack(side='left',padx=5);self.choices['sort'].bind('<<ComboboxSelected>>',lambda _:self.apply())
         self.view=tk.StringVar(self);self.viewbox=Select(tools,textvariable=self.view,width=13);self.viewbox.pack(side='left',padx=5);self.viewbox.bind('<<ComboboxSelected>>',lambda _:self.restore())
@@ -56,7 +59,11 @@ class EventControls(tk.Frame):
         self.selection_detail=tk.StringVar(self);self.detail=app.label(self,self.selection_detail,9,T.ACCENT);self.detail.bind('<Configure>',lambda e:self.detail.configure(wraplength=max(100,e.width)))
         self.hint=app.label(self,'天气与车辆条件仅代表已记录有效圈；最快圈页按候选圈条件筛选后再选纪录。比赛时长缺少起终点时不推算。',9,T.MUTED);self.hint.bind('<Configure>',lambda e:self.hint.configure(wraplength=max(100,e.width)))
         self.update_views();self.update_options([]);self.pack(fill='x',pady=8)
-        if getattr(app,'filter_expansion',{}).get(key):self.toggle()
+        if self.filter_keys is None and getattr(app,'filter_expansion',{}).get(key):self.toggle()
+    def prune_state(self):
+        if self.filter_keys is None:return
+        for key,value in DEFAULTS.items():
+            if key not in self.filter_keys and key!='sort':self.state[key]=value
     def arrange_toolbar(self,event,parent):
         if not parent.winfo_exists():return
         self.flow(parent,[w for w in parent.winfo_children() if not isinstance(w,(tk.Menu,tk.Toplevel))],event.width)
@@ -74,22 +81,26 @@ class EventControls(tk.Frame):
         for i in range(4):parent.columnconfigure(i,weight=1 if i<cols else 0,uniform='facets' if i<cols else '')
         for i,tile in enumerate(tiles):tile.grid(row=i//cols,column=i%cols,sticky='ew',padx=(0,px(self,10)) if i%cols<cols-1 else 0,pady=(0,px(self,6)))
     def toggle(self):
+        if self.filter_keys is not None:return
         if not hasattr(self.app,'filter_expansion'):self.app.filter_expansion={}
         self.app.filter_expansion[self.key]=not bool(self.advanced.winfo_manager())
         if self.advanced.winfo_manager():self.advanced.pack_forget();self.hint.pack_forget()
         else:self.advanced.pack(fill='x',after=self.basic);self.hint.pack(fill='x',pady=3)
     def update_views(self):
         value=read_json(self.path,{});self.views={**BUILTINS,**value.get('views',{})}
+        if self.filter_keys is not None:
+            self.views={name:state for name,state in self.views.items() if name not in BUILTINS or any(k in self.filter_keys and v!=DEFAULTS.get(k) for k,v in state.items())}
         self.viewbox.compact_labels={'线上 LMGT3 正赛':'线上 GT3','同组领奖台':'领奖台','采样缺口待检查':'检查缺口','已收藏赛事':'已收藏'}
         self.viewbox.configure(values=[tr('常用视图'),*self.views]);self.view.set(tr('常用视图'))
     def persist(self):
+        self.prune_state()
         value=read_json(self.path,{});value.setdefault('states',{})[self.key]=dict(self.state);atomic_json(self.path,value)
     def save_view(self):
         name=simpledialog.askstring(tr('保存视图'),tr('输入视图名称'),parent=self.app.root)
         if not name or not name.strip():return
         name=name.strip()[:60]
         if name in BUILTINS:self.app.status.set(tr('内置视图名称不可覆盖'));return
-        value=read_json(self.path,{});view=dict(self.state)
+        self.prune_state();value=read_json(self.path,{});view=dict(self.state)
         if hasattr(self,'query'):view['query']=self.query.get()
         value.setdefault('views',{})[name]=view;atomic_json(self.path,value);self.update_views();self.view.set(name)
     def delete_view(self):
@@ -117,6 +128,7 @@ class EventControls(tk.Frame):
         if hasattr(self,'query'):proposed['query']=self.query.get()
         self.state.update(proposed);self.update_options(self.items);self.persist();self.callback()
     def update_options(self,items):
+        self.prune_state()
         self.items=items;facets=[normalize(e) for e in items]
         for key in self.choices:
             if key=='period':mapping=dict(enumerate(PERIODS))
@@ -189,6 +201,7 @@ class EventControls(tk.Frame):
         if hasattr(self,'query'):self.state['query']=self.query.get()
         self.update_options(self.items);self.persist();self.callback()
     def pairs(self,values,query=''):
+        self.prune_state()
         if hasattr(self,'sort_table'):self.sort_table()
         if hasattr(self,'query'):self.state['query']=self.query.get()
         try:rows=filtered(values,self.state,query)

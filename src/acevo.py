@@ -3,6 +3,7 @@ import ctypes as ct
 import math
 import time
 from acevo_structs import SPageFilePhysics, SPageFileGraphicEvo, SPageFileStaticEvo
+from lap_validity import evo_flags
 
 MAPS=(('physics',r'Local\acevo_pmf_physics',SPageFilePhysics),
       ('graphics',r'Local\acevo_pmf_graphics',SPageFileGraphicEvo),
@@ -10,6 +11,12 @@ MAPS=(('physics',r'Local\acevo_pmf_physics',SPageFilePhysics),
 EXTRA=('evo_physics_packet','evo_graphics_packet','evo_lap_time_ms','evo_npos',
        'evo_status','evo_event_id','evo_session_id','evo_session_type',
        'evo_last_lap_time_ms','evo_best_lap_time_ms','evo_current_pos','evo_total_drivers')
+DRIVING_COLUMNS=('evo_abs_active','evo_tc_active','evo_esc_active','evo_gear','evo_rpm',
+    'evo_rpm_percent','evo_shift_up','evo_shift_down','evo_rpm_limiter',
+    'evo_physics_gear','evo_physics_rpm','evo_physics_max_rpm',
+    'evo_physics_abs_active','evo_physics_tc_active')
+VALIDITY_COLUMNS=('evo_is_valid_lap','evo_timing_invalid')
+EXTRA=(*EXTRA,*DRIVING_COLUMNS,*VALIDITY_COLUMNS)
 
 
 def text(value):return bytes(value).split(b'\0',1)[0].decode('utf-8',errors='strict')
@@ -32,6 +39,14 @@ def extract(physics,graphics,static,now):
     extra=dict(zip(EXTRA,(int(physics.packetId),int(graphics.packetId),int(graphics.current_lap_time_ms),
         npos if math.isfinite(npos) else '',int(graphics.status),int(static.event_id),int(static.session_id),int(static.session),
         int(graphics.last_laptime_ms),int(graphics.best_laptime_ms),int(graphics.current_pos),int(graphics.total_drivers))))
+    # Preserve the two producers separately. Activity is not the configured level;
+    # never combine graphics flags with physics settings or guessed thresholds.
+    extra.update(zip(DRIVING_COLUMNS,(int(graphics.abs_active),int(graphics.tc_active),int(graphics.esc_active),
+        int(graphics.gear_int),int(graphics.rpm),float(graphics.rpm_percent),
+        int(graphics.is_change_up_rpm),int(graphics.is_change_down_rpm),int(graphics.is_rpm_limiter_on),
+        int(physics.gear),int(physics.rpms),int(physics.currentMaxRpm),int(physics.absInAction),int(physics.tcinAction))))
+    valid=evo_flags(int(graphics.is_valid_lap),int(graphics.timing_state.is_invalid))
+    extra.update(evo_is_valid_lap=int(graphics.is_valid_lap),evo_timing_invalid=int(graphics.timing_state.is_invalid))
     result=dict(simulator_id='ac_evo',track=track,track_layout=text(static.track_configuration) or track,
         driver=(text(graphics.driver_name)+' '+text(graphics.driver_surname)).strip(),vehicle=car,vehicle_class='',
         session={0:5,1:10,2:0,3:0}.get(static.session,-1),simulator_session=int(static.session),
@@ -41,7 +56,7 @@ def extract(physics,graphics,static,now):
         controls=controls,speed=float(physics.speedKmh),finish=1 if graphics.session_state.end_session_flag else 0,
         race_mode='online' if static.is_online else 'single',
         in_pits=bool(graphics.is_in_pit_box or graphics.is_in_pit_lane),
-        lap_invalidated=bool(graphics.timing_state.is_invalid or not graphics.is_valid_lap),
+        lap_invalidated=None if valid is None else not valid,
         conditions={},native=extra,
         interface=dict(simulator='ac_evo',layout='SharedFileOut v1 / 2026-04-28',
             sm_version=text(static.sm_version),game_version=text(static.ac_evo_version),

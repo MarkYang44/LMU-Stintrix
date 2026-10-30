@@ -98,12 +98,16 @@ def filtered(values,state,query='',now=None):
         f=normalize(e);d=stamp(f.get('date'))
         if not matches(f,state,bounds):continue
         if (start or end or cutoff) and (d is None or start and d<start or end and d>=end or cutoff and d<cutoff or d>now):continue
-        text=' '.join(str(f.get(k,'')) for k in ('vehicle','vehicle_class','team','phase','date','note','tags'))+' '+search_text(f.get('track'))+' '+search_text(f.get('layout'))+' '+layout(f.get('track'),f.get('layout'),f.get('length_m'))+' '+{'Race':'正赛','Qualify':'排位赛','Practice':'练习赛','Warmup':'热身赛'}.get(f.get('phase'),'')+' '+str((e.get('session') or e).get('driver',''))
-        if term and term not in text.casefold():continue
-        rows.append((i,e,f))
-    rows.sort(key=lambda p:(stamp(p[2].get('date')) or datetime.min.replace(tzinfo=timezone.utc),str(p[1].get('folder',p[1].get('id','')))),reverse=True)
+        if term:
+            text=' '.join(str(f.get(k,'')) for k in ('vehicle','vehicle_class','team','phase','date','note','tags'))+' '+search_text(f.get('track'))+' '+search_text(f.get('layout'))+' '+layout(f.get('track'),f.get('layout'),f.get('length_m'))+' '+{'Race':'正赛','Qualify':'排位赛','Practice':'练习赛','Warmup':'热身赛'}.get(f.get('phase'),'')+' '+str((e.get('session') or e).get('driver',''))
+            if term not in text.casefold():continue
+        rows.append((i,e,f,d))
+    oldest=datetime.min.replace(tzinfo=timezone.utc)
+    rows.sort(key=lambda p:(p[3] or oldest,str(p[1].get('folder',p[1].get('id','')))),reverse=True)
     order=state.get('sort',0);order=order if isinstance(order,int) and 0<=order<len(SORTS) else 0
-    if order==1:rows.sort(key=lambda p:(stamp(p[2].get('date')) is None,stamp(p[2].get('date')) or datetime.max.replace(tzinfo=timezone.utc)))
+    if order==1:
+        latest=datetime.max.replace(tzinfo=timezone.utc)
+        rows.sort(key=lambda p:(p[3] is None,p[3] or latest))
     elif order in (2,3,4,5,6,7):
         key={2:'phase',3:'phase',4:'track',5:'track',6:'vehicle',7:'vehicle'}[order]
         known=[p for p in rows if p[2].get(key)];unknown=[p for p in rows if not p[2].get(key)]
@@ -114,4 +118,4 @@ def filtered(values,state,query='',now=None):
         key={10:'time_s',11:'finish_class',12:'class_gain',13:'finish',14:'gain',15:'race_s',16:'stability_s',17:'recorded_s',18:'time_s',19:'finish_class'}[order];reverse=order in (12,14,15,17,18,19)
         known=[p for p in rows if number(p[2].get(key)) is not None];unknown=[p for p in rows if number(p[2].get(key)) is None]
         known.sort(key=lambda p:p[2][key],reverse=reverse);rows=known+unknown
-    return [(i,e) for i,e,_ in rows]
+    return [(i,e) for i,e,_,_ in rows]

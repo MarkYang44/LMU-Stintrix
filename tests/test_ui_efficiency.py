@@ -39,12 +39,12 @@ class EfficiencyTests(unittest.TestCase):
                     app.root.update();time.sleep(.005)
                 except tk.TclError:break
         self.addCleanup(close);self.pump(app);return app,root,errors
-    def test_query_selection_scroll_and_advanced_filters_survive_page_changes(self):
+    def test_query_selection_scroll_and_eight_filters_survive_page_changes(self):
         app,root,errors=self.app(True);app.show_page(1);self.pump(app,.5)
-        app.search.set('Fuji');app.populate();chosen=app.tree.get_children()[0];app.tree.selection_set((chosen,));app.review_filters.toggle()
+        app.search.set('Fuji');app.populate();chosen=app.tree.get_children()[0];app.tree.selection_set((chosen,))
         app.scroll.yview_moveto(.3);self.pump(app,.1);position=app.scroll.yview()[0]
         app.show_page(0);self.pump(app,.1);app.show_page(1);self.pump(app,.5)
-        self.assertEqual(app.search.get(),'Fuji');self.assertEqual(app.tree.selection(),(chosen,));self.assertTrue(app.review_filters.advanced.winfo_manager())
+        self.assertEqual(app.search.get(),'Fuji');self.assertEqual(app.tree.selection(),(chosen,));self.assertEqual(set(app.review_filters.choices)-{'sort'},{'track','vehicle_class','car','phase','mode','period','outcome','favorite'});self.assertFalse(app.review_filters.advanced.winfo_manager())
         self.assertAlmostEqual(app.scroll.yview()[0],position,places=2);self.assertFalse(errors)
     def test_small_window_has_real_rows_and_fixed_actions(self):
         app,root,errors=self.app(True);app.show_page(1);self.pump(app,.5)

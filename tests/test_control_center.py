@@ -35,7 +35,7 @@ class ControlTests(unittest.TestCase):
         valid=[lap for lap in value['laps'] if lap['valid']]
         self.assertEqual(min(valid,key=lambda lap:lap['time'])['num'],4)
         pit=next(lap for lap in value['laps'] if lap['num']==3)
-        self.assertFalse(pit['valid']);self.assertTrue(pit['game_valid']);self.assertIn('统计无效',pit['note'])
+        self.assertFalse(pit['valid']);self.assertTrue(pit['game_valid']);self.assertFalse(pit['statistics_eligible']);self.assertIn('未计入统计',pit['note']);self.assertNotIn('无效',pit['note'])
         self.assertNotIn(5,[lap['num'] for lap in value['laps']])
 
     def test_workbook_is_original_inline_string_shape_and_escapes_metadata(self):

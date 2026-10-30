@@ -36,6 +36,11 @@ def refresh(app):
         for _,key,variable in getattr(app,'panel_visibility_switches',[]):
             value=snapshot['panels'][key]['visible']
             if variable.get()!=value:variable.set(value)
+        if getattr(app,'evo_hud_vars',None):
+            from evo_hud import load
+            values=app.hud.evo_hud_settings if app.active() else load(app.data_path)
+            for key,var in app.evo_hud_vars.items():
+                if var.get()!=values[key]:var.set(values[key])
         from control_hud_stop import saving
         text=tr('当前画面' if app.active() else 'HUD 已隐藏' if saving(app) else '下次启动')+' · '+name+' · '+tr(MODES[snapshot['mode']])+' · '+tr('显示面板')+f" {sum(p['visible'] for p in snapshot['panels'].values())}"
         if getattr(app,'silent_mode',None) and app.silent_mode.get():text+=' · '+tr('静默记录')

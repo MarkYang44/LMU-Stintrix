@@ -43,6 +43,10 @@ class Engine:
         self.plot_hz = math.ceil(592*4/10)
         self.plot_y_scale = 102*4
         self.plot_revision = 0
+        self.evo_activity=None
+        if self.capabilities.driving_instruments:
+            from evo_driving import ActivityHistory
+            self.evo_activity=ActivityHistory()
         self.sample_times = NumericRing(1,12001)
         self.poll_times = NumericRing(1,12001)
         self._rates_at = -math.inf
@@ -220,6 +224,7 @@ class Engine:
                             self.reference_state={'mode':'新场次','confidence':0}
                             self.reference_revision += 1
                             self.plot_points.clear()
+                            if self.evo_activity is not None:self.evo_activity.clear()
                             self.plot_revision += 1
                             self.sample_times.clear()
                     last_session_clock=clock if last_session_clock is None or reset or next_key!=key else max(clock,last_session_clock)
@@ -261,6 +266,7 @@ class Engine:
                                 self.vehicle_latest=sample.get('vehicle_data')
                                 self.vehicle_estimate=self.fuel_planner.estimate_cached(vehicle_sample)
                             self.add_plot_point(now, sample['controls'])
+                            if self.evo_activity is not None:self.evo_activity.add(now,sample.get('native',{}))
                             aligned=self.aligner.update(sample,self.reference) if self.reference_enabled else None
                             self.reference_state=self.aligner.state if self.reference_enabled else {'mode':'关闭','confidence':0}
                             if aligned is not None:

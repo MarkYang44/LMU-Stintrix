@@ -47,7 +47,7 @@ class Reader:
             self.fill()
         token=self.buffer[self.pos:end];self.pos=end
         if not token:raise ValueError('Invalid JSON value')
-        try:return json.loads(token)
+        try:return self.decoder.decode(token)
         except json.JSONDecodeError:raise ValueError('Invalid JSON value') from None
     def row(self,depth,keep):
         # Decode one numeric row in C, never the entire telemetry matrix.

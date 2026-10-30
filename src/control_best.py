@@ -41,6 +41,7 @@ class BestPage(RecordPage):
         body=app.card('',compact=True);super().__init__(app,'best',body)
         self.identity=lambda e:(str(e['folder']),e['lap']['number'],e['identity'])
         self.entries=[];self.state=dict(data=None,error=None,loading=False,vehicle=None);self.fixed={}
+        self.evo=getattr(app,'simulator','lmu')=='ac_evo'
         row=app.row(body);self.search(row,command=self.populate_best)
         self.button(row,'filters','筛选条件',self.toggle_filters)
         self.button(row,'refresh','刷新记录',self.refresh_records,lambda:not self.loader.running)
@@ -53,22 +54,26 @@ class BestPage(RecordPage):
         from control_table_preferences import install as preferences
         preferences(app,self.table,'best',self.modes,frozen=('track','time'));self.table.pack(fill='x',pady=8)
         self.modes.compact(self.table)
-        info=app.card('纪录详情','双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。',compact=True)
+        info=app.card('纪录详情','最快圈、赛道布局与驾驶输入。' if self.evo else '双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。',compact=True)
         from control_best_view import Layout
         self.view_layout=Layout(self,info)
-        self.header=RecordHeader(info,app);self.header.pack(fill='x',pady=(4,8))
+        from control_evo_record import Header,Facts
+        self.header=(Header if self.evo else RecordHeader)(info,app);self.header.pack(fill='x',pady=(4,8))
         self.track_title=self.hint(self.header.text,'尚无选择',17,T.FG,True)
         self.time_label=self.hint(self.header.text,'—',32,T.ACCENT,True)
         self.car_label=self.hint(self.header.text,'',11,T.FG,True)
         self.date_label=self.hint(self.header.text,'')
         self.badge=self.hint(self.header.text,'',10,T.ACCENT,True)
-        self.message=self.variable('message');self.hint(info,self.message)
-        navigation=self.row(info)
+        self.message=self.variable('message');self.message_hint=self.hint(info,self.message)
+        navigation=self.row(info);self.navigation=navigation
         self.button(navigation,'previous','← 上一条',lambda:self.neighbor(-1),lambda:self.can_step(-1))
         self.position=self.variable('position');app.label(navigation,self.position,10,T.MUTED).pack(side='left',padx=8)
         self.button(navigation,'next','下一条 →',lambda:self.neighbor(1),lambda:self.can_step(1))
         self.button(navigation,'list','返回纪录列表',self.view_layout.listing)
-        actions=self.row(info)
+        actions=self.row(info);self.detail_actions=actions
+        if self.evo:
+            navigation.pack_configure(before=self.header);actions.pack_configure(before=self.header)
+            self.message_hint.pack_forget();self.badge.pack_forget()
         self.exporter=getattr(app,'best_curve_export',None) or CurveExport(app);app.best_curve_export=self.exporter
         ready=lambda:self.selected is not None
         self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:ready() and not self.exporter.busy,True)
@@ -78,7 +83,7 @@ class BestPage(RecordPage):
         if supported.training:self.button(actions,'training','训练优先级报告',self.training,ready)
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
         from control_action_menu import ActionMenu,MenuAction
-        more=self.button(actions,'more','更多操作 ▾',lambda:self.menu.toggle())
+        more=self.button(navigation if self.evo else actions,'more','更多操作 ▾',lambda:self.menu.toggle())
         from control_maintenance import offline_ready
         self.menu=ActionMenu(more,[
             MenuAction('lap-overview','圈速总览与节奏',self.lap_overview,'分析与训练',lambda:ready() and offline_ready(app),visible=lambda:evo),
@@ -101,11 +106,14 @@ class BestPage(RecordPage):
         self.report_caption=self.hint(self.saved_frame,'')
         path_entry=tk.Entry(self.saved_frame,textvariable=self.saved,state='readonly',readonlybackground=T.FIELD,fg=T.FG,selectbackground=T.SELECT,selectforeground=T.FG,font=(T.FONT,9),relief='flat')
         path_entry.pack(fill='x',pady=4);path_entry.bind('<Control-a>',lambda _:(path_entry.selection_range(0,'end'),'break')[1])
-        self.detail_heading=self.hint(info,'赛道条件',12,T.FG,True)
-        self.track_metrics=Metrics(info,[('layout','布局 / 长度'),('track_temp','赛道温度'),('air_temp','气温'),('wetness','路面湿度'),('rain','降雨强度')]);self.track_metrics.pack(fill='x')
-        self.hint(info,'车辆与轮胎',12,T.FG,True)
-        self.car_metrics=Metrics(info,[('fuel','圈起点油量'),('front','前轮胎种'),('rear','后轮胎种'),('remaining','最低轮胎余量'),('assists','驾驶辅助')]);self.car_metrics.pack(fill='x')
+        if self.evo:self.evo_facts=Facts(self.header.facts_host)
+        else:
+            self.detail_heading=self.hint(info,'赛道条件',12,T.FG,True)
+            self.track_metrics=Metrics(info,[('layout','布局 / 长度'),('track_temp','赛道温度'),('air_temp','气温'),('wetness','路面湿度'),('rain','降雨强度')]);self.track_metrics.pack(fill='x')
+            self.hint(info,'车辆与轮胎',12,T.FG,True)
+            self.car_metrics=Metrics(info,[('fuel','圈起点油量'),('front','前轮胎种'),('rear','后轮胎种'),('remaining','最低轮胎余量'),('assists','驾驶辅助')]);self.car_metrics.pack(fill='x')
         self.canvas=tk.Canvas(info,bg=T.FIELD,highlightthickness=0,height=250);self.canvas.pack(fill='x',pady=8);self.canvas.bind('<Configure>',self.draw)
+        if self.evo:self.detail_heading=self.canvas
         readers=getattr(app,'record_detail_loaders',{});app.record_detail_loaders=readers
         readers.setdefault('best',DetailLoader(app,detail_key)).attach(self,read_detail)
         self.render=self.render_selection;self.refresh_rows=self.populate_best;self.primary=self.curve
@@ -124,6 +132,8 @@ class BestPage(RecordPage):
         baseline,improved=record_improvements(select_records(values),getattr(self.app,'record_best_baseline',None));self.app.record_best_baseline=baseline
         self.entries=values;self.modes.update_options(values);self.populate_best()
         self.badge.configure(text=tr('新纪录')+' · '+display(improved[0]['track']) if improved else '')
+        if self.evo:
+            self.badge.pack(fill='x',pady=4) if improved else self.badge.pack_forget()
         self.say('{count} 条个人赛道纪录',count=len(self.rows));self.app.status.set(str(len(self.rows))+' '+tr('条个人赛道纪录'))
 
     def populate_best(self,*_):
@@ -166,11 +176,17 @@ class BestPage(RecordPage):
         e=self.selected;self.state.update(data=None,error=None,loading=False);self.modes.describe(e)
         vehicle=(e['session'].get('vehicle',''),e['track'],e['layout']) if e and getattr(self.app,'simulator','lmu')=='ac_evo' else e['session'].get('vehicle','') if e else ''
         if vehicle!=self.state['vehicle']:self.header.show_vehicle(vehicle);self.state['vehicle']=vehicle
-        self.track_metrics.set();self.car_metrics.set()
+        if self.evo:self.evo_facts.set()
+        else:self.track_metrics.set();self.car_metrics.set()
         if e:
             self.app.record_selected_folder=e['folder'];v=present(e,{})
             participation=tr(LABELS[mode(e)])+(' · '+tr('人工确认') if e['session'].get('race_mode_manual') else '')
-            self.track_title.configure(text=v['track']);self.time_label.configure(text=v['time']);self.car_label.configure(text=v['car']);self.date_label.configure(text=v['context']+' · '+participation+' · '+v['session_type'])
+            context=v['context']+' · '+participation+' · '+v['session_type']
+            if self.evo:
+                from evo_record_presentation import known
+                context=' · '.join(value for value in (v['context'],participation,v['session_type']) if known(value))
+                self.evo_facts.set(v['facts'])
+            self.track_title.configure(text=v['track']);self.time_label.configure(text=v['time']);self.car_label.configure(text=v['car']);self.date_label.configure(text=context)
         else:
             self.track_title.configure(text=tr('尚无选择'));self.time_label.configure(text='—');self.car_label.configure(text='');self.date_label.configure(text='');self.message.set(tr('先选择一条纪录，再打开曲线或分析。'))
         self.details.select(e);self.draw()
@@ -182,7 +198,10 @@ class BestPage(RecordPage):
         self.state.update(data=data if error is None else None,error=error,loading=False)
         if error is not None:self.message.set(tr('详情读取失败，可重试：{error}').format(error=error))
         elif self.selected:
-            v=present(self.selected,data);self.track_metrics.set(v['track_metrics']);self.car_metrics.set(v['car_metrics']);self.message.set('')
+            v=present(self.selected,data)
+            if self.evo:self.evo_facts.set(v['facts'])
+            else:self.track_metrics.set(v['track_metrics']);self.car_metrics.set(v['car_metrics'])
+            self.message.set('')
         self.draw();self.sync()
 
     def draw(self,_=None):
@@ -252,6 +271,7 @@ class BestPage(RecordPage):
         for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('mode','更正参赛方式',self.correct_mode),('details','纪录详情',self.view_layout.details)]:
             if key=='training' and not supported.training:continue
             b=self.app.button(row,title,command,key=='curve',100 if key=='details' else 140);b.configure(height=px(b,38));self.fixed[key]=b
+        if self.evo:self.detail_actions.pack_forget()
         self.sync()
 
     def sync(self):
@@ -262,6 +282,11 @@ class BestPage(RecordPage):
         retry=self.buttons['retry']
         if retry.enabled and not retry.winfo_manager():retry.pack(side='left')
         elif not retry.enabled:retry.pack_forget()
+        if self.evo:
+            if retry.enabled and not self.retry_row.winfo_manager():self.retry_row.pack(fill='x',before=self.header)
+            elif not retry.enabled:self.retry_row.pack_forget()
+            if self.message.get() and not self.message_hint.winfo_manager():self.message_hint.pack(fill='x',pady=4,before=self.navigation)
+            elif not self.message.get():self.message_hint.pack_forget()
         for key,b in self.fixed.items():
             if b.winfo_exists():b.configure(state='normal' if self.selected is not None and (key!='curve' or not self.exporter.busy) and (key!='mode' or not self.loader.running) else 'disabled')
 

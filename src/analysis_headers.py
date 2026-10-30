@@ -3,6 +3,7 @@ from collections import OrderedDict
 import json
 from pathlib import Path
 from threading import RLock
+from stat import S_ISREG
 from json_store import Reader
 from race_model import read_json
 from storage import atomic_json
@@ -16,7 +17,7 @@ def _signature(folder):
     for name in ('session_analysis.json','analysis_index.json'):
         path=folder/name
         try:
-            stat=path.stat();stamp=(stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns,stat.st_ino)
+            stat=path.stat();stamp=(stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns,stat.st_ino) if name!='session_analysis.json' or S_ISREG(stat.st_mode) else None
         except FileNotFoundError:stamp=None
         result.append((str(path),stamp))
     return tuple(result)
@@ -35,22 +36,33 @@ def _payload(value):
     return b''.join(chunks)
 
 
+def _metadata_only(value):
+    """Only the generated scalar/dictionary header shape may enter sidecar cache."""
+    if not isinstance(value,dict) or set(value)-{'laps','recent_stability','stable_reference_file'}:return False
+    def plain(item):
+        if isinstance(item,dict):return not set(item)&{'profile','trajectory','vehicle_summary','action','data','features'} and all(plain(v) for v in item.values())
+        return type(item) in (str,int,float,bool,type(None))
+    laps=value.get('laps',[])
+    return isinstance(laps,list) and all(isinstance(lap,dict) and plain(lap) for lap in laps) and all(plain(v) for k,v in value.items() if k!='laps')
+
+
 def load(folder):
-    folder=Path(folder);path=folder/'session_analysis.json';cached=read_json(folder/'analysis_index.json',{})
-    if not path.is_file():return {}
-    stat=path.stat()
-    # Existing valid sidecars keep their original fast path.
-    if cached.get('source_size')==stat.st_size and cached.get('source_mtime_ns')==stat.st_mtime_ns:return cached.get('headers',{})
-    folder=folder.absolute();signature=_signature(folder)
+    folder=Path(folder).absolute();path=folder/'session_analysis.json'
+    signature=_signature(folder)
     if signature[0][1] is None:return {}
     with _lock:
         cached=_cache.pop(signature,None)
         if cached is not None:_cache[signature]=cached
+    valid=False
     if cached is not None:value=json.loads(cached)
-    else:value=_read(path)
+    else:
+        sidecar=read_json(folder/'analysis_index.json',{});source=signature[0][1]
+        valid=sidecar.get('source_size')==source[0] and sidecar.get('source_mtime_ns')==source[1]
+        value=sidecar.get('headers',{}) if valid else _read(path)
     if _signature(folder)!=signature:raise OSError('赛事分析已变化，请重试')
     if cached is None:
-        payload=_payload(value)
+        side=signature[1][1]
+        payload=_payload(value) if not valid or side is not None and side[0]<=_MAX_BYTES and _metadata_only(value) else None
         if payload is not None:
             with _lock:
                 _cache[signature]=payload

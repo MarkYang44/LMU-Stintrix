@@ -5,6 +5,31 @@ from collections import deque
 from evo_comparison import available
 
 
+def parse_goal(text):
+    """Seconds or M:SS decimals; add in decimal before the final float conversion."""
+    import re
+    from decimal import Decimal,localcontext
+    text=str(text).strip()
+    if not text or len(text)>32 or not re.fullmatch(r'(?:[0-9]+:)?[0-9]+(?:\.[0-9]+)?',text):raise ValueError('请输入正数秒数或 分:秒，例如 1:40.123')
+    parts=text.split(':')
+    with localcontext() as context:
+        context.prec=64;seconds=Decimal(parts[-1])
+        if len(parts)==2:
+            if seconds>=60:raise ValueError('冒号后的秒数必须小于 60')
+            seconds+=Decimal(parts[0])*60
+        value=float(seconds)
+    if not math.isfinite(value) or value<=0:raise ValueError('请输入正数秒数或 分:秒，例如 1:40.123')
+    return value
+
+
+def goal_counts(rows,target):
+    if target is None:return None
+    valid=met=0
+    for row in rows:
+        if row['usable']:valid+=1;met+=row['lap']['time']<=target
+    return dict(valid=valid,met=met)
+
+
 def summary(value):
     usable=available(value);times=[lap['time'] for lap in usable.values()]
     return dict(total=len(value['laps']),valid=len(times),fastest=min(times) if times else None,

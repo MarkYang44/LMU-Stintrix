@@ -2,6 +2,7 @@
 from race_model import describe,elapsed,lap_status,lap_time
 from windows_png import Canvas
 from class_positions import inline_positions
+from lap_validity import game_valid
 
 WIDTH=1800
 ROWS_PER_PAGE=36
@@ -38,7 +39,7 @@ def sheet(c,model,rows,page,total):
     c.fill(60,476,1680,58,'#20344c')
     for x,w,label in zip(positions,widths,labels):c.text(label,x+12,485,w-20,41,24,MUTED,bold=True)
     for i,lap in enumerate(rows):
-        y=542+i*49;color=GREEN if lap['best'] else RED if lap['valid'] is False else AMBER if lap['partial'] or not lap['complete'] else '#edf3fc'
+        y=542+i*49;color=GREEN if lap['best'] else RED if game_valid(lap) is False else AMBER if game_valid(lap) is None or lap['partial'] or not lap['complete'] else '#edf3fc'
         c.fill(60,y,1680,48,'#142d2b' if lap['best'] else CARD if i%2==0 else BG)
         values=[str(lap['num']),lap_time(lap['time']),f"{lap['delta']:+.3f}" if lap['delta'] is not None else '—',
             *[f'{lap[key]:.3f}' if lap[key] else '—' for key in ('s1','s2','s3')],lap_status(lap)]

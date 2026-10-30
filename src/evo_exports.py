@@ -24,9 +24,9 @@ def _csv_lines(path,start,end,cookies,columns,*,projected=None):
             if not line:break
             stripped=line.rstrip('\r\n')
             if not stripped:continue
-            if '"' not in line and len(line)<=csv.field_size_limit() and stripped.count(',')==width-1:
+            if '"' not in line and len(line)<=csv.field_size_limit() and (len(parts:=stripped.split(','))==width if numeric is not None and position>=start else stripped.count(',')==width-1):
                 encoded=stripped+'\r\n'
-                if numeric is not None and position>=start:selected=numeric(stripped.split(','))
+                if numeric is not None and position>=start:selected=numeric(parts)
             else:
                 row=next(csv.reader(chain((line,),iter(source.readline,''))),None)
                 if not row:continue
@@ -77,6 +77,21 @@ class Inventory:
         return prepared
 
 
+def _write_lines(rows,out,limit=65536):
+    """Bounded canonical text chunks; large individual records go straight through."""
+    pending=[];size=count=0
+    for line in rows:
+        length=len(line);count+=1
+        if length>=limit:
+            if pending:out.write(''.join(pending));pending=[];size=0
+            out.write(line);continue
+        if not length:continue
+        pending.append(line);size+=length
+        if size>=limit:out.write(''.join(pending));pending=[];size=0
+    if pending:out.write(''.join(pending))
+    return count
+
+
 def lap_csv(root,folder,destination,number=None,*,_inventory=None):
     if number is not None and (type(number) is not int or number<1):raise ValueError('请选择有效圈号')
     from simulators import accepts,root_identity
@@ -114,9 +129,10 @@ def lap_csv(root,folder,destination,number=None,*,_inventory=None):
             else:
                 from itertools import islice
                 reader,serialized=inventory.rows(folder,best,value,columns);rows=islice(reader,best['end_index']-best['first_index'])
-            write=out.write if serialized else writer.writerow
             try:
-                for row in rows:write(row);count+=1
+                if serialized:count=_write_lines(rows,out)
+                else:
+                    for row in rows:writer.writerow(row);count+=1
             finally:
                 if _inventory is None:reader.close()
         if count!=best['samples'] or stamp(folder)!=value['signature']:raise OSError('EVO lap source changed; retry after capture stops')

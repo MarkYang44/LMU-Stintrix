@@ -26,6 +26,9 @@ def tire(conditions,axle):
 
 
 def present(entry,detail):
+    if entry['session'].get('simulator_id')=='ac_evo':
+        from evo_record_presentation import present as evo_present
+        return evo_present(entry,detail)
     c=detail.get('conditions',{});session=entry['session'];lap=entry['lap'];duration=entry['time_s']
     try:
         when=datetime.fromisoformat(session.get('started_utc','').replace('Z','+00:00'))

@@ -212,7 +212,7 @@ class ControlCenter:
             initial=defaults()
         body=self.card('',compact=True)
         if self.simulator=='ac_evo':
-            self.label(body,'AC EVO · 输入 HUD、有效圈对比与个人纪录已适配；附加车辆面板暂未开放。',9,T.MUTED).pack(fill='x',pady=(0,8))
+            self.label(body,'AC EVO · 紧凑仪表、实际干预标记、有效圈对比与个人纪录已适配。',9,T.MUTED).pack(fill='x',pady=(0,8))
         from control_feedback import ConnectionFeedback
         live_row=self.row(body);live_row.pack_configure(pady=0);self.run_primary_row=live_row;self.connection_feedback=ConnectionFeedback(live_row);self.connection_feedback.pack(side='left',padx=(0,6));self.connection_feedback.set('waiting')
         self.live_label=self.label(live_row,'等待启动',11,T.ACCENT);self.live_label.pack(side='left')
@@ -257,11 +257,25 @@ class ControlCenter:
         self.choice(body,'波形窗口 / 秒',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()))
         row=self.row(body);self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
         self.label(body,'实时控制在启动记录后可用',9,T.MUTED).pack(anchor='w')
-        body=self.card('附加遥测面板','按需开启，让比赛视野保持清爽',grid)
-        if self.simulator=='ac_evo':self.label(body,'AC EVO 附加车辆面板暂未适配',10,T.ACCENT).pack(fill='x',pady=(0,8))
+        body=self.card('EVO 驾驶信息' if self.capabilities.driving_instruments else '附加遥测面板','按需开启，让比赛视野保持清爽',grid)
+        if self.capabilities.driving_instruments:
+            import evo_hud
+            self.evo_hud_vars={}
+            for key,title in (('instruments','紧凑仪表条 · 挡位 / 转速'),('assists','ABS / TC / ESC 实际干预标记')):
+                var=tk.BooleanVar(self.root,value=evo_hud.load(ROOT)[key]);self.evo_hud_vars[key]=var
+                def change(k=key,v=var):
+                    try:
+                        if self.active():self.hud.set_evo_hud(k,v.get())
+                        else:evo_hud.save(ROOT,k,v.get())
+                    except (OSError,ValueError) as error:self.status.set(str(error))
+                Switch(body,title,var,change).pack(fill='x',pady=2)
+            hint=self.label(body,'显示开关不影响完整保存；彩色刻度表示已采集的实际介入，? 表示未知。',9,T.MUTED);hint.pack(fill='x',pady=(4,8))
+            hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
+        if self.simulator=='ac_evo':self.label(body,'轮胎与策略面板暂未适配',10,T.MUTED).pack(fill='x',pady=(0,8))
         vehicle=vehiclelab.load_settings(ROOT/'vehicle_settings.json');end=endurance.load_settings(ROOT/'endurance_settings.json')
         switches=[]
         for module,key,title in [('vehicle','tyres','四轮轮胎温度 / 胎压 / 胎况'),('vehicle','strategy','燃油、虚拟能量与续航策略'),('endurance','pit','进站计时与补给'),('endurance','stint','Stint 长距离节奏'),('endurance','weather','天气与赛道趋势')]:
+            if self.capabilities.driving_instruments and not self.capabilities.panel(key):continue
             value=tk.BooleanVar(self.root,value=initial['panels'][key]['visible'])
             switch=Switch(body,title,value,lambda m=module,k=key,v=value:self.set_panel_visibility(m,k,v.get()));switch.pack(fill='x',pady=2)
             if not self.capabilities.panel(key):switch.configure(state='disabled')
@@ -348,7 +362,6 @@ class ControlCenter:
         from control_review_filters import ReviewFilters
         self.review_filters=ReviewFilters(body,self)
         self.search.set(self.browsing.query(self.page))
-        if self.browsing.states.get(self.page,{}).get('advanced') and not self.review_filters.advanced.winfo_manager():self.review_filters.toggle()
         self.tree=SessionList(body,columns=('date','type','result','mode','track','car','lap','layout','class','trust','quality'),height=height,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
         self.tree.simulator=self.simulator
         for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('result','完赛名次',90),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',92),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:

@@ -38,6 +38,9 @@ def install(app):
         count=lambda:len(app.tree.selection()) if app.tree else 0
         single=lambda:count()==1;any_selected=lambda:count()>0
         button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110)
+        from control_danger import Danger
+        delete=Danger(host,'删除选中记录',lambda:remove(app),145);delete.pack(side='left',padx=(0,6))
+        app.review_actions['delete']=delete
         actions=[
             MenuAction('copy-cell','复制此单元格',lambda:app.tree.copy_cell(),'复制',any_selected,'Ctrl+Shift+C；复制当前单元格的完整文字',visible=any_selected),
             MenuAction('copy-rows','复制选中行',lambda:app.tree.copy_rows(),'复制',any_selected,'Ctrl+C；复制显示列，可粘贴到表格',visible=any_selected),
@@ -59,7 +62,7 @@ def install(app):
         index=next(i for i,a in enumerate(actions) if a.key=='all');actions[index:index]=layouts
         menu=ActionMenu(button,actions,'赛事操作',lambda:app.selected_count.get());app.review_menu=menu
         label=app.label(host,app.selected_count,9,T.MUTED);label.pack(side='left',padx=4)
-        buttons=[*app.review_actions.values(),button]
+        buttons=[*[value for key,value in app.review_actions.items() if key!='delete'],button,delete]
         def layout(event):
             if event.widget is not host or not all(child.winfo_exists() for child in [*buttons,label]):return
             x=y=height=0;gap=px(host,6)
@@ -68,9 +71,12 @@ def install(app):
                 if x and x+w>event.width:y+=height+gap;x=height=0
                 child.place(x=x,y=y,width=min(event.width,w),height=h);x+=w+gap;height=max(height,h)
             label.pack_forget();label.place_forget()
-            if event.width-x>=label.winfo_reqwidth():label.place(x=x,y=y+height/2,anchor='w')
-            host.pack_propagate(False);host.configure(height=y+height)
+            if event.width-x>=label.winfo_reqwidth():label.place(x=x,y=y+height/2,anchor='w');total=y+height
+            else:
+                label.place(x=0,y=y+height+gap,width=event.width);total=y+height+gap+label.winfo_reqheight()
+            host.pack_propagate(False);host.configure(height=total)
         app.toolbar_layout_binding=(host,host.bind('<Configure>',layout))
+        label.bind('<Configure>',lambda _:host.event_generate('<Configure>',width=host.winfo_width()))
         from control_list_context import install as context_actions
         context_actions(app.tree,menu,app.update_selection_count)
         update(app)

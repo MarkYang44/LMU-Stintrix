@@ -3,11 +3,20 @@ import json
 import math
 from pathlib import Path
 import re
+from functools import lru_cache
 from paths import data_directory
 
 
 def normalized(value):
-    return re.sub(r'[^a-z0-9\u4e00-\u9fff]', '', str(value).casefold())
+    value=str(value)
+    return _short_normalized(value) if len(value)<=256 else _normalize(value)
+
+
+def _normalize(value):return re.sub(r'[^a-z0-9\u4e00-\u9fff]', '', value.casefold())
+
+
+@lru_cache(maxsize=512)
+def _short_normalized(value):return _normalize(value)
 
 
 MODEL_IMAGE_ALIASES={'Ferrari 296 LMGT3 Evo':'Ferrari 296 LMGT3','Ferrari 296 LMGT3 Evo (No BOP)':'Ferrari 296 LMGT3'}

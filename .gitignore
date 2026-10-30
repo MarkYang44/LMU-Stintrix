@@ -56,6 +56,7 @@
 **/reference_settings.json
 **/vehicle_settings.json
 **/endurance_settings.json
+**/evo_hud.json
 **/last_native_import.json
 **/race_log.json
 **/race_summary.json

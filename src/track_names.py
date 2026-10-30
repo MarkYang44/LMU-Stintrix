@@ -30,15 +30,16 @@ def key(name):
 
 
 LOOKUP={key(alias):zh for zh,aliases in NAMES for alias in aliases}
+_PREFIXES=tuple((key(alias),zh) for zh,aliases in NAMES for alias in aliases)
 
 
 def display(name,language=None):
     original=str(name or '').strip()
     if (language or i18n.language)=='en':return original
-    found=LOOKUP.get(key(original))
+    token=key(original);found=LOOKUP.get(token)
     if found:return found
-    for zh,aliases in NAMES:
-        if any(key(original).startswith(key(alias)) and key(alias) for alias in aliases):return zh
+    for prefix,zh in _PREFIXES:
+        if prefix and token.startswith(prefix):return zh
     return original
 
 

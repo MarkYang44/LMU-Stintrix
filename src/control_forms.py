@@ -15,6 +15,30 @@ NOTES={'fixed':('仅固定采样时生效','以下 {count} 项仅固定采样时
 FILES={'sampling':'settings.json','vehicle':'vehicle_settings.json','endurance':'endurance_settings.json'}
 
 
+class Status:
+    """Right-aligned card-header state: silent when saved, fades in when edited."""
+    def __init__(self,body,center):
+        from control_motion import Motion
+        self.body=body;self.heading=getattr(body,'heading',None);self.state=('',None)
+        self.label=center.label(body,'',9,T.ACCENT,True);self.motion=Motion(self.label)
+        if self.heading is not None:self.heading.bind('<Configure>',self.place,add='+')
+    def place(self,_=None):
+        if not self.label.winfo_exists() or not self.state[0]:return
+        from control_widgets import px
+        heading=self.heading
+        y=heading.winfo_y()+heading.winfo_height()//2 if heading is not None and heading.winfo_height()>1 else px(self.body,14)
+        self.label.place(relx=1.0,x=0,y=y,anchor='e')
+    def show(self,text,color):
+        if (text,color)==self.state or not self.label.winfo_exists():return
+        previous=self.state;self.state=(text,color)
+        # Leaving is instant; arriving blends from the card so it reads as news.
+        if not text:self.motion.cancel();self.label.place_forget();return
+        from control_motion import blend
+        start=color if previous[0] and previous[1]==color else T.CARD
+        self.label.configure(text=text);self.place()
+        self.motion.animate('status',lambda t:self.label.configure(fg=blend(start,color,t)),160)
+
+
 def close_forms(center,done):
     """Validate every draft before saving any; keep unsaved modules on failure."""
     drafts={key:value for key,value in capture(center.pages,getattr(center,'form_drafts',{})).items() if value}
@@ -76,14 +100,12 @@ def build(center,body,module,specs,choices=()):
     from control_settings_search import register
     feedback=Feedback()
     drafts=getattr(center,'form_drafts',{}).get(module,{})
-    state=tk.StringVar(center.root)
-    hint=center.label(body,state,9,T.MUTED);hint.pack(anchor='w',pady=(0,6))
-    save_button=None;complete=False;conditions={}
+    # A quiet header status replaces the old status line and per-card save
+    # button: the fixed form bar (and Ctrl+S) is the single save surface.
+    badge=Status(body,center);body.form_status=badge;complete=False;conditions={}
     def dirty(*_):
-        changed=any(not equal(v.get(),baseline[k]) for k,v in variables.items())
-        state.set(tr('有未保存修改') if changed else tr('设置与已保存值一致'))
-        hint.configure(fg=T.ACCENT if changed else T.MUTED)
-        if save_button is not None:save_button.configure(state='normal' if changed and complete else 'disabled')
+        changed=sum(not equal(v.get(),baseline[k]) for k,v in variables.items())
+        badge.show('● '+tr('已修改 {count} 项').format(count=changed) if changed else '',T.ACCENT)
         bar=getattr(center,'form_bar',None)
         if complete and bar and bar.winfo_exists():bar.refresh(module)
         mode=variables.get('mode');draw=variables.get('draw_mode')
@@ -105,7 +127,6 @@ def build(center,body,module,specs,choices=()):
     # Register before yielding so a language switch during incremental page
     # construction preserves fields the user has already edited.
     center.pages.register(module,variables,refresh,baseline)
-    save_button=center.button(center.row(body),'应用并保存',lambda:save(),True,145);save_button.configure(state='disabled')
     def variable(key):
         var=tk.StringVar(center.root,value=drafts.get(key,str(source[key])));variables[key]=var
         var.trace_add('write',dirty);return var
@@ -119,7 +140,7 @@ def build(center,body,module,specs,choices=()):
                 item=feedback.fields.get(error.fields[0])
                 if item:
                     widget=item[0];center.root.update_idletasks();y=widget.winfo_rooty()-center.content.winfo_rooty();center.scroll.yview_moveto(max(0,y-45)/max(1,center.content.winfo_height()));widget.focus_set()
-            state.set(tr('请修正标记的设置'));return False
+            badge.show(tr('请修正标记的设置'),T.RED);return False
     # Modes come first: they decide which of the following values apply.
     for key,label,options in choices:
         tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');field=center.choice(tile,label,variable(key),options,labels=LABELS.get(key))

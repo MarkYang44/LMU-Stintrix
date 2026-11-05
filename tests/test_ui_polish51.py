@@ -82,7 +82,8 @@ class PolishUITests(unittest.TestCase):
         app.show_page(0);self.pump(app,.1);app.show_page(1);self.pump(app,.5)
         self.assertNotIn('car',app.tree.displaycolumns);self.assertAlmostEqual(app.tree.widths['date']/app.tree.s,233);self.assertEqual(app.tree.selection(),(chosen,));self.assertFalse(errors)
     def test_short_sort_labels_keep_stored_values_and_full_popup_text(self):
-        app,root,errors=self.app(True);app.show_page(1);self.pump(app,.4);filters=app.review_filters;choice=filters.choices['sort']
+        # Sorting presets live in the folded filter panel; open it like a user would.
+        app,root,errors=self.app(True);app.show_page(1);self.pump(app,.4);filters=app.review_filters;filters.toggle_filters();self.pump(app,.05);choice=filters.choices['sort']
         full=next(label for label,index in filters.lookup['sort'].items() if index==11);choice.variable.set(full);choice.event_generate('<<ComboboxSelected>>');self.pump(app,.1)
         self.assertEqual(filters.state['sort'],11);self.assertEqual(choice.display(full),full);self.assertIn(full,choice.compact_labels);self.assertLess(len(choice.compact_labels[full]),len(full));self.assertFalse(errors)
         app.toggle_language();self.pump(app,.3);choice=app.review_filters.choices['sort']

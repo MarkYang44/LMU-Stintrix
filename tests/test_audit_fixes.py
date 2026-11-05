@@ -94,10 +94,9 @@ class DraftTests(unittest.TestCase):
             app=control_center.ControlCenter();app.root.withdraw()
             try:
                 app.show_page(2);app.pages.pages[2].forms['sampling']['fixed_hz'].set('777');app.toggle_language();app.show_page(2)
-                def descendants(widget):
-                    for child in widget.winfo_children():yield child;yield from descendants(child)
-                button=next(w for w in descendants(app.pages.pages[2].frame) if getattr(w,'label',None)=='应用并保存')
-                button.command();self.assertNotIn('sampling',app.form_drafts)
+                # The fixed form bar is the single save surface for parameter cards.
+                bar=app.form_bar;bar.select('sampling');self.assertTrue(bar.save.enabled)
+                bar.save.invoke();self.assertNotIn('sampling',app.form_drafts)
                 self.assertEqual(json.loads((Path(tmp)/'settings.json').read_text())['fixed_hz'],777)
                 app.toggle_language();self.assertEqual(float(app.pages.pages[2].forms['sampling']['fixed_hz'].get()),777)
             finally:

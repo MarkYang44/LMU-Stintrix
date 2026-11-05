@@ -92,9 +92,9 @@ class Shell:
         except (OSError,tk.TclError):pass
         self.navigation=Navigation(side,names,command);self.navigation.pack(fill='x',padx=round(16*s))
         foot=tk.Frame(side,bg=T.RAIL);foot.pack(side='bottom',fill='x',padx=round(25*s),pady=round(26*s))
+        # The recording policy lives beside the start controls; the rail keeps
+        # only the privacy promise, leaving navigation more room in short windows.
         Label(foot,text='●  LOCAL & PRIVATE',bg=T.RAIL,fg=T.ACCENT,font=('Segoe UI',9,'bold'),anchor='w').pack(fill='x')
-        from app_config import SIMULATOR
-        Label(foot,text='计时赛 / 正赛自动记录\n练习与巡航可在设置中开启' if SIMULATOR=='ac_evo' else '排位 / 正赛自动记录\n练习完整记录可在设置中开启',bg=T.RAIL,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left',pady=12,wraplength=self.rail_width-round(50*s)).pack(fill='x')
         self.footer=foot;side.bind('<Configure>',self.layout_sidebar)
         self.main=main=tk.Frame(root,bg=T.BG);main.pack(side='left',fill='both',expand=True,padx=round(28*s),pady=(round(26*s),round(14*s)))
         self.motion=Motion(main)

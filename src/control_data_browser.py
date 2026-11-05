@@ -14,9 +14,11 @@ class DataBrowser:
     def __init__(self,app,parent,packages,storage,summary_host):
         self.app=app;self.packages=packages;self.storage=storage;self.summary_host=summary_host;self.toolbar={};self.conditions={};self.token=None
         self.host=tk.Frame(parent,bg=T.CARD);self.host.retranslate=self.translate
-        app.sessions(self.host,True,True,False,compact_actions=True,height=4)
+        app.sessions(self.host,True,True,False,compact_actions=True,height=4,filter_toggle=False)
         self.table=app.tree;self.filters=app.review_filters
         self.filter_button=app.button(app.search_target.master,'筛选条件',self.toggle_filters,False,110)
+        # Same order as review and records: search, filters, then refresh.
+        self.filter_button.pack_configure(before=app.review_refresh)
         self.filters_open=getattr(app,'data_filters_open',False)
         if not self.filters_open:self.filters.pack_forget()
         self.filters.compact(self.table)

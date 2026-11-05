@@ -151,7 +151,7 @@ class ControlCenter:
         if parent:parent.add(card)
         else:card.pack(fill='x',pady=(0,px(self.root,18)))
         body=card.body
-        if title:self.label(body,title,14,T.FG,True).pack(anchor='w',pady=(0,5))
+        if title:body.heading=self.label(body,title,14,T.FG,True);body.heading.pack(anchor='w',pady=(0,5))
         if subtitle:
             label=self.label(body,subtitle,9,T.MUTED);label.pack(fill='x',pady=(0,px(self.root,14)))
             label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
@@ -293,12 +293,13 @@ class ControlCenter:
         refresh_display(self)
         self.pages.on_resume(refresh_run)
 
-        body=self.card('Windows 快捷启动','添加后可在开始菜单 / Windows 搜索中输入 Stintrix 或 LMU 启动；迁移程序后可再次更新入口')
-        options=tk.Frame(body,bg=T.CARD)
-        def toggle_startup():
-            if options.winfo_manager():options.pack_forget()
-            else:options.pack(fill='x',pady=6)
-        self.button(self.row(body),'管理启动入口',toggle_startup,False,140)
+        # A one-time setup: one compact row, details only on request.
+        body=self.card('',compact=True);head=self.row(body);head.pack_configure(pady=0)
+        self.label(head,'Windows 快捷启动',11,T.FG,True).pack(side='left')
+        from control_sections import Disclosure
+        options=Disclosure(body,self,'windows-entry','管理启动入口',header=head).body
+        hint=self.label(options,'添加后可在开始菜单 / Windows 搜索中输入 Stintrix 或 LMU 启动；迁移程序后可再次更新入口',9,T.MUTED);hint.pack(fill='x')
+        hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
         row=self.row(options)
         self.button(row,'添加 / 更新开始菜单',self.register_app,False,185)
         self.button(row,'移除开始菜单入口',lambda:self.register_app(True),False,170)
@@ -357,11 +358,12 @@ class ControlCenter:
                 if done:done(result)
         self.run_background(work,finish)
 
-    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False,height=9):
+    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False,height=9,filter_toggle=True):
         from control_search import SearchField
         row=self.row(body);self.label(row,'搜索',10,T.MUTED).pack(side='left',padx=(0,8));self.search=tk.StringVar(self.root);entry=SearchField(row,textvariable=self.search,command=self.populate)
         self.search_target=entry;entry.pack(side='left',fill='x',expand=True)
-        self.button(row,'刷新记录',self.refresh,False,112)
+        filters=self.button(row,'筛选条件',lambda:self.review_filters.toggle_filters(),False,112) if filter_toggle else None
+        self.review_refresh=self.button(row,'刷新记录',self.refresh,False,112)
         from control_review_filters import ReviewFilters
         self.review_filters=ReviewFilters(body,self)
         self.search.set(self.browsing.query(self.page))
@@ -371,7 +373,8 @@ class ControlCenter:
             self.tree.heading(key,text=title);self.tree.column(key,width=px(self.root,width),minwidth=px(self.root,60),stretch=key in ('track','car'))
         from control_table_preferences import install as table_preferences
         table_preferences(self,self.tree,'review',self.review_filters)
-        self.tree.pack(fill='x',pady=(6,2));
+        self.tree.pack(fill='x',pady=(6,2))
+        if filters is not None:self.review_filters.attach(filters,self.tree)
         self.tree.bind('<Double-1>',lambda _:self.report('review.html'))
         self.tree.bind('<Return>',lambda _:self.report('review.html'))
         if checkboxes:

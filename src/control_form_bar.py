@@ -11,6 +11,8 @@ class FormBar:
     def __init__(self,app):
         self.app=app;self.current=getattr(app,'settings_form_module',None);self.frame=tk.Frame(app.shell.main,bg=T.CARD);self.packed=False
         self.message=tk.StringVar(self.frame);label=app.label(self.frame,self.message,9,T.ACCENT);label.pack(fill='x',padx=10,pady=(4,0));label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
+        from control_motion import Motion
+        self.label=label;self.motion=Motion(label)
         row=app.row(self.frame);install(row);self.choice=tk.StringVar(self.frame);self.selector=Select(row,textvariable=self.choice,values=[],width=22);self.selector.pack(side='left')
         self.selector.bind('<<ComboboxSelected>>',lambda _:self.select(self.choice.get(),True))
         self.save=app.button(row,'保存本模块',self.apply,True,140);self.reset=app.button(row,'撤销本次修改',self.discard,False,150)
@@ -21,8 +23,12 @@ class FormBar:
         if self.current not in panels:self.current=next((key for key,n in changed.items() if n),next(iter(panels),None))
         if module and not self.current:self.current=module
         if any(changed.values()):
-            if not self.packed:self.frame.pack(side='bottom',fill='x',before=self.app.shell.scroll.master,pady=(6,0));self.packed=True
-        else:self.frame.pack_forget();self.packed=False
+            if not self.packed:
+                self.frame.pack(side='bottom',fill='x',before=self.app.shell.scroll.master,pady=(6,0));self.packed=True
+                # The save surface arrives with a short accent fade; leaving stays instant.
+                from control_motion import blend
+                self.motion.animate('arrive',lambda t:self.label.configure(fg=blend(T.CARD,T.ACCENT,t)),180)
+        else:self.motion.cancel();self.label.configure(fg=T.ACCENT);self.frame.pack_forget();self.packed=False
         count=changed.get(self.current,0);self.message.set(tr(SECTIONS.get(self.current,''))+' · '+tr('已修改 {count} 项').format(count=count))
         self.save.configure(state='normal' if count else 'disabled');self.reset.configure(state='normal' if count else 'disabled')
         others=sum(n>0 for key,n in changed.items() if key!=self.current)

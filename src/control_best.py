@@ -270,7 +270,9 @@ class BestPage(RecordPage):
         host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,6));row=self.app.row(host);install(row);self.fixed={}
         from simulator_profiles import capabilities
         supported=capabilities(getattr(self.app,'simulator','lmu'))
-        for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('mode','更正参赛方式',self.correct_mode),('details','纪录详情',self.view_layout.details)]:
+        # Occasional corrections stay in the record menu and the unknown-mode
+        # notice; the fixed bar keeps only the actions used on every visit.
+        for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('details','纪录详情',self.view_layout.details)]:
             if key=='training' and not supported.training:continue
             b=self.app.button(row,title,command,key=='curve',100 if key=='details' else 140);b.configure(height=px(b,38));self.fixed[key]=b
         # The fixed toolbar already offers curve, training and card actions.

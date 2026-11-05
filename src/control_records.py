@@ -40,8 +40,10 @@ def show(app):
         from control_disposal import release
         from control_pages import Page
         for widget in view.winfo_children():release(Page(widget),app)
+        # Tabs use the shared selected state; the yellow primary fill stays
+        # reserved for each view's main action, such as opening a curve.
         for key,button in buttons:
-            button.primary=key==kind;button.paint()
+            button.configure(selected=key==kind)
             if key==kind:indicator.select(button)
         app.content=view
         try:
@@ -60,7 +62,7 @@ def show(app):
         if app.pages.building is None:app.install_toolbar()
         if token is not None:app.shell.reveal_page(token)
     for kind,label in choices:
-        buttons.append((kind,app.button(row,label,lambda k=kind:mount(k),kind==selected,155)))
+        buttons.append((kind,app.button(row,label,lambda k=kind:mount(k),False,155)))
     app.personal_record_tabs=dict(buttons)
     mount(selected)
 

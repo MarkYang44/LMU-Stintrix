@@ -25,9 +25,8 @@ class UI(unittest.TestCase):
             from i18n import tr
             body=app.form_panels['sampling'];heading=next(w for w in body.winfo_children() if w.winfo_class()=='Label' and w.cget('text')==tr('输入采样与 HUD 刷新'))
             self.assertEqual(heading.cget('foreground'),T.FG)
-            def walk(widget):
-                for child in widget.winfo_children():yield child;yield from walk(child)
-            primary=next(w for w in walk(body) if getattr(w,'primary',False));variable=app.pages.pages[2].forms['sampling']['fixed_hz'];previous=variable.get()
+            # The fixed form bar's save action is the parameter page's primary button.
+            primary=app.form_bar.save;self.assertTrue(primary.primary);variable=app.pages.pages[2].forms['sampling']['fixed_hz'];previous=variable.get()
             try:
                 variable.set('240' if previous!='240' else '120');self.pump(app,.05);self.assertTrue(primary.enabled);self.assertEqual(primary.itemcget(primary.caption,'fill'),T.INK)
             finally:variable.set(previous)

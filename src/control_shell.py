@@ -33,13 +33,20 @@ class Navigation(tk.Canvas):
         self.motion=Motion(self);self.bind('<Configure>',lambda _:self.paint());self.bind('<Motion>',self.hover);self.bind('<Leave>',self.leave)
         self.bind('<Button-1>',self.click);self.bind('<Up>',lambda _:keyboard_action(self,lambda:self.command(max(0,self.selected-1))))
         self.bind('<Down>',lambda _:keyboard_action(self,lambda:self.command(min(len(names)-1,self.selected+1))))
+        from control_tooltip import Tooltip
+        self.tip=Tooltip(self)
     def click(self,event):
-        index=int(event.y//self.step)
+        index=int(event.y//self.step);self.tip.hide()
         if 0<=index<len(self.names):self.focus_set();self.command(index)
     def hover(self,event):
         index=int(event.y//self.step)
         if self.hovered!=index:self.hovered=index;self.paint()
-    def leave(self,_):self.hovered=-1;self.paint()
+        # A delayed hint teaches each entry's Ctrl+number shortcut; once one
+        # is open, neighbouring entries answer at once while scanning.
+        if 0<=index<len(self.names):
+            self.tip.request(index,tr(self.names[index])+'  ·  Ctrl+'+str(index+1),self.winfo_rootx()+self.winfo_width(),round(self.winfo_rooty()+index*self.step+self.step/2))
+        else:self.tip.hide()
+    def leave(self,_):self.hovered=-1;self.paint();self.tip.hide()
     def select(self,index):
         # Commit the selected row immediately; animate only its accent, never
         # slide a stale highlight across the previously selected menu entries.
@@ -82,7 +89,7 @@ class Shell:
         self.side=side=tk.Frame(root,bg=T.RAIL,width=self.rail_width);side.pack(side='left',fill='y');side.pack_propagate(False)
         self.brand=tk.Canvas(side,bg=T.RAIL,highlightthickness=0,height=round(177*s));self.brand.pack(fill='x',padx=round(25*s),pady=(round(22*s),round(4*s)))
         self.brand.bind('<Configure>',self.paint_brand)
-        self.logo=None;self.logo_source=None;self.logo_width=None
+        self.logo=None;self.logo_source=None;self.logo_width=None;self.context=None
         self.brand.bind('<Destroy>',self.release_brand,add='+')
         try:
             from PIL import Image,ImageOps,ImageTk
@@ -100,14 +107,17 @@ class Shell:
         self.motion=Motion(main)
         head=tk.Frame(main,bg=T.BG);head.pack(fill='x',pady=(0,round(14*s)))
         top=tk.Frame(head,bg=T.BG);top.pack(fill='x')
-        self.breadcrumb=Label(top,text='STINTRIX  /  CONTROL CENTER',font=('Segoe UI',9,'bold'),bg=T.BG,fg=T.ACCENT,anchor='w');self.breadcrumb.pack(side='left')
+        # Retained for compatibility only: the page title now heads this row.
+        self.breadcrumb=Label(top,text='STINTRIX  /  CONTROL CENTER',font=('Segoe UI',9,'bold'),bg=T.BG,fg=T.ACCENT,anchor='w')
         self.theme_button=Pill(top,'◐  浅色主题' if T.mode=='dark' else '◑  深色主题',on_theme or (lambda:None),115)
         self.theme_button.configure(height=round(32*s));self.theme_button.pack(side='right')
         import i18n
         self.language_button=Pill(top,'EN / 中文' if i18n.language=='zh' else '中文 / EN',on_language or (lambda:None),115)
         self.language_button.configure(height=round(32*s));self.language_button.pack(side='right',padx=round(8*s))
-        self.title=Label(head,font=(T.FONT,25,'bold'),bg=T.BG,fg=T.FG,anchor='w');self.title.pack(fill='x',pady=(round(10*s),round(3*s)))
-        self.subtitle=Label(head,font=(T.FONT,10),bg=T.BG,fg=T.MUTED,anchor='w');self.subtitle.pack(fill='x')
+        # Title and global toggles share one row; the game switcher lives under
+        # the logo, so every page gains a full row of content height.
+        self.title=Label(top,font=(T.FONT,25,'bold'),bg=T.BG,fg=T.FG,anchor='w');self.title.pack(side='left',fill='x',expand=True)
+        self.subtitle=Label(head,font=(T.FONT,10),bg=T.BG,fg=T.MUTED,anchor='w');self.subtitle.pack(fill='x',pady=(round(2*s),0))
         self.subtitle.bind('<Configure>',lambda e:self.subtitle.configure(wraplength=e.width))
         footer=tk.Frame(main,bg=T.BG);footer.pack(side='bottom',fill='x',pady=(round(12*s),0))
         self.status_feedback=StatusFeedback(footer,status);self.status_feedback.pack(side='left',fill='x',expand=True)
@@ -124,7 +134,13 @@ class Shell:
             lambda:max(0,self.content.winfo_height()-self.scroll.winfo_height()),
             lambda value:self.scroll.yview_moveto(value/max(1,self.content.winfo_height())))
         bar=ttk.Scrollbar(viewport,orient='vertical',command=self.scrollbar,style='Lab.Vertical.TScrollbar')
-        bar.pack(side='right',fill='y',padx=(round(8*s),0));self.scroll.pack(side='left',fill='both',expand=True);self.scroll.configure(yscrollcommand=bar.set)
+        bar.pack(side='right',fill='y',padx=(round(8*s),0));self.scroll.pack(side='left',fill='both',expand=True)
+        # Pages may follow the reading position (settings section tabs).
+        self.scroll_listeners=[]
+        def scrolled(*args):
+            bar.set(*args)
+            for listener in list(self.scroll_listeners):listener()
+        self.scroll.configure(yscrollcommand=scrolled)
         self.content=tk.Frame(self.scroll,bg=T.BG);self.item=self.scroll.create_window(0,0,anchor='nw',window=self.content)
         self.scroll.bind('<Configure>',lambda e:self.scroll.itemconfigure(self.item,width=e.width))
         self.content.bind('<Configure>',lambda e:self.scroll.configure(scrollregion=(0,0,e.width,e.height)))
@@ -139,19 +155,28 @@ class Shell:
             with Image.open(branding.directory()/('menu-icon-light.png' if T.mode=='light' else 'menu-icon.png')) as artwork:self.logo_source=artwork.convert('RGBA')
         except OSError:self.logo_source=None;self.logo=None
         self.logo_width=None;self.paint_brand()
+    def attach_context(self,widget):
+        """Show one context control (the game switcher) under the logo."""
+        self.context=widget;self.paint_brand()
     def paint_brand(self,_=None):
         c=self.brand;s=self.s;c.delete('all')
-        width=c.winfo_width()
-        if self.logo_source is not None and width>1 and width!=self.logo_width:
+        width=c.winfo_width();logo_height=round((70 if self.compact and self.context is not None else 101)*s)
+        if self.logo_source is not None and width>1 and (width,logo_height)!=self.logo_width:
             from PIL import ImageOps,ImageTk
-            self.logo=ImageTk.PhotoImage(ImageOps.contain(self.logo_source,(max(1,width),round(101*s))),master=self.root);self.logo_width=width
+            self.logo=ImageTk.PhotoImage(ImageOps.contain(self.logo_source,(max(1,width),logo_height)),master=self.root);self.logo_width=(width,logo_height)
         if self.logo:c.create_image(0,0,image=self.logo,anchor='nw')
-        if not self.logo:c.create_text(0,82*s,text='Stintrix',font=self.brand_font,fill=T.FG,anchor='w')
-        from app_config import SIMULATOR
-        from simulators import GAMES
-        c.create_text(1*s,114*s,text=GAMES[SIMULATOR].upper(),font=('Segoe UI',9,'bold'),fill=T.MUTED,anchor='w')
+        if not self.logo:c.create_text(0,logo_height*.8,text='Stintrix',font=self.brand_font,fill=T.FG,anchor='w')
+        context=self.context if self.context is not None and self.context.winfo_exists() else None
+        if context is not None:
+            # The switcher replaces the static game caption: one control, one name.
+            top=logo_height+round(4*s);c.create_window(0,top,anchor='nw',window=context,width=max(1,width))
+            line=top+context.winfo_reqheight()+round(14*s)
+        else:
+            from app_config import SIMULATOR
+            from simulators import GAMES
+            c.create_text(1*s,114*s,text=GAMES[SIMULATOR].upper(),font=('Segoe UI',9,'bold'),fill=T.MUTED,anchor='w')
+            line=(132 if self.compact else 153)*s
         right=c.winfo_width()
-        line=(132 if self.compact else 153)*s
         c.create_line(0,line,right,line,fill=T.EDGE);c.create_line(0,line,44*s,line,fill=T.ACCENT,width=2*s)
     def scrollbar(self,*args):
         self.scroller.cancel();self.scroll.yview(*args)

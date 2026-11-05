@@ -239,11 +239,16 @@ class ControlCenter:
         self.button(row,'HUD 布局',lambda:layouts(self),False,145)
         self.button(row,'全局快捷键',lambda:shortcuts(self),False,135)
         self.demo_button=self.button(row,'演示模式',lambda:self.start(True),False,110)
+        # Live HUD controls join this row only while a HUD runs; idle, the demo
+        # takes their place, so nothing sits disabled waiting to be useful.
+        self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
+        for button in self.live_actions:button.flow_hidden=True
+        self.run_tools_row=row
         def arrange_tools(event,tools=row):
             if not tools.winfo_exists():return
             from control_flow import lines,place
-            gap=px(tools,8);children=[child for child in tools.winfo_children() if child.winfo_exists()]
-            for child in children:child.pack_forget()
+            gap=px(tools,8);children=[child for child in tools.winfo_children() if child.winfo_exists() and not getattr(child,'flow_hidden',False)]
+            for child in tools.winfo_children():child.pack_forget();child.place_forget()
             # The compact switch shares a centre line with the taller buttons.
             tools.pack_propagate(False);tools.configure(height=place(lines(children,event.width,gap),event.width,gap))
         row.bind('<Configure>',arrange_tools)
@@ -258,8 +263,6 @@ class ControlCenter:
         self.choice(body,'输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'),labels=dict(zip(('原始输入','游戏过滤后'),self.profile.input_labels)))
         self.window=tk.StringVar(self.root,value=initial['window'])
         self.choice(body,'波形窗口 / 秒',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()))
-        row=self.row(body);self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
-        self.label(body,'实时控制在启动记录后可用',9,T.MUTED).pack(anchor='w')
         body=self.card('EVO 驾驶信息' if self.capabilities.driving_instruments else '附加遥测面板','按需开启，让比赛视野保持清爽',grid)
         if self.capabilities.driving_instruments:
             import evo_hud

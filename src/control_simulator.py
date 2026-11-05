@@ -6,13 +6,15 @@ from i18n import tr
 
 
 def install(app):
-    app.shell.breadcrumb.pack_forget()
     app.simulator_choice=tk.StringVar(app.root,value=app.simulator)
     from simulator_icons import load
     from control_widgets import px
-    box=Select(app.shell.breadcrumb.master,textvariable=app.simulator_choice,values=list(GAMES),
-        labels={key:SHORT[key]+' · '+name for key,name in GAMES.items()},images=load(app.root,px(app.root,26)),width=33)
-    box.pack(side='left');app.simulator_selector=box
+    # The game is the whole app's context, so its switcher sits under the logo
+    # in place of the old static caption. Closed, it shows the short name next
+    # to the game mark; the list keeps the full names.
+    box=Select(app.shell.brand,textvariable=app.simulator_choice,values=list(GAMES),
+        labels={key:SHORT[key]+' · '+name for key,name in GAMES.items()},images=load(app.root,px(app.root,26)),width=20)
+    box.compact_labels=dict(SHORT);app.simulator_selector=box;app.shell.attach_context(box)
     from control_tooltip import Tooltip
     tip=Tooltip(box)
     box.bind('<Enter>',lambda _:tip.request('simulator',tr('切换模拟器；自动停止保存后重新打开控制中心'),box.winfo_rootx(),box.winfo_rooty()+box.winfo_height()),add='+')

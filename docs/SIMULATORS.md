@@ -1,6 +1,6 @@
 # LMU 与 AC EVO
 
-控制中心左上角的游戏选项可选择 Le Mans Ultimate 或 Assetto Corsa EVO。切换会走正常退出流程：停止 HUD，保存输入，等待后台任务完成，再重新打开所选游戏的控制中心。未保存草稿仍使用现有的保存／放弃／继续编辑流程。重开后点击“启动记录”。
+控制中心左上角标志下方的游戏选项可选择 Le Mans Ultimate 或 Assetto Corsa EVO。切换会走正常退出流程：停止 HUD，保存输入，等待后台任务完成，再重新打开所选游戏的控制中心。未保存草稿仍使用现有的保存／放弃／继续编辑流程。重开后点击“启动记录”。
 
 选择框和下拉选项会读取本机游戏图标；未找到安装文件时使用带名称的徽标。图标只在本机读取，不打包游戏素材，不修改游戏文件。
 
@@ -141,7 +141,7 @@ EVO 日志使用完整官方游戏标识；报告用深色字标适配浅色纸�
 
 ## English
 
-Choose the simulator at the top left. Switching saves and closes the current HUD, waits for background work, then reopens the control center. LMU keeps its existing data path; EVO uses `Simulators/ac_evo/`. Records, notes, recent sessions and caches are isolated. Archives from the other simulator are rejected before publishing imported files; untagged legacy records belong to LMU.
+Choose the simulator under the logo at the top left. Switching saves and closes the current HUD, waits for background work, then reopens the control center. LMU keeps its existing data path; EVO uses `Simulators/ac_evo/`. Records, notes, recent sessions and caches are isolated. Archives from the other simulator are rejected before publishing imported files; untagged legacy records belong to LMU.
 
 Initial EVO support includes the industrial interface, input HUD, shortcuts, layouts, input recording, lossless storage, archives and background tasks. Physics and HUD inputs remain distinct. The timeline uses the host capture clock; unavailable game clocks remain blank. Verified-lap input comparison, exact selected-lap exports, personal records, reports and official galleries are available. Live references, condition-based training, official results and vehicle panels remain unavailable. Synthetic native mappings and storage round trips have been verified; live driving compatibility has not yet been accepted.
 

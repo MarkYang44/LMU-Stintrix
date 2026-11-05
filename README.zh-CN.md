@@ -102,7 +102,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 快速开始
 
-1. 打开 Stintrix，在左上角选择 **LMU** 或 **AC EVO**；LMU 需在游戏中开启 **Settings → Gameplay → Enable Plugins**。
+1. 打开 Stintrix，在左上角标志下方选择 **LMU** 或 **AC EVO**；LMU 需在游戏中开启 **Settings → Gameplay → Enable Plugins**。
 2. 点击**启动记录**；顶部 **EN / 中文** 可切换菜单语言。
 3. 使用窗口或无边框窗口模式进入赛道。
 4. 驾驶排位／计时赛或正赛，收到支持的驾驶数据后自动录制。练习赛默认不记录，可在**采样与遥测**中开启。

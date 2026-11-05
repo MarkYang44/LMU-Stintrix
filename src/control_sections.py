@@ -24,6 +24,41 @@ class TaskSections:
         if token is not None:self.app.shell.reveal_page(token)
 
 
+class ScrollSpy:
+    """Section tabs that follow the reading position of one long page.
+
+    The tab whose section has crossed the upper reading line is selected;
+    reaching the end of the page selects the last tab, because short final
+    sections can never scroll up to that line.
+    """
+    LINE=.2
+    def __init__(self,app,tabs,indicator,owner):
+        self.app=app;self.tabs=tabs;self.indicator=indicator;self.current=None
+        app.shell.scroll_listeners.append(self.update)
+        owner.bind('<Destroy>',lambda e:self.dispose() if e.widget is owner else None,add='+')
+        owner.after_idle(self.update)
+    def dispose(self):
+        listeners=getattr(self.app.shell,'scroll_listeners',[])
+        if self.update in listeners:listeners.remove(self.update)
+    def section(self):
+        scroll=self.app.scroll;first,last=scroll.yview()
+        if last>=.999 and first>.001:return self.tabs[-1][1]
+        line=scroll.winfo_rooty()+scroll.winfo_height()*self.LINE;current=self.tabs[0][1]
+        for _,body in self.tabs:
+            if body.winfo_exists() and body.winfo_ismapped() and body.winfo_rooty()<=line:current=body
+        return current
+    def update(self):
+        if not self.tabs or not self.indicator.winfo_exists():return
+        body=self.section()
+        if body is not self.current:self.show(body)
+    def show(self,body):
+        self.current=body
+        for button,target in self.tabs:
+            if button.winfo_exists():button.configure(selected=target is body)
+        chosen=next((button for button,target in self.tabs if target is body),None)
+        if chosen is not None and chosen.winfo_exists():self.indicator.select(chosen)
+
+
 class Disclosure(tk.Frame):
     """Low-frequency details retain their open state without consuming the first screen."""
     def __init__(self,parent,app,key,title,header=None):

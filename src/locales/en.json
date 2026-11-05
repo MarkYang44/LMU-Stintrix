@@ -1718,6 +1718,8 @@
   "没有匹配的纪录；清空搜索后保留筛选。": "No matching records. Clear search while keeping filters.",
   "当前筛选下没有纪录。": "No records match the current filters.",
   "暂无符合条件的有效赛道纪录。": "No eligible verified circuit records yet.",
+  "还没有有效赛道纪录；记录一场完整比赛后会自动出现。": "No verified circuit records yet; they appear after you record a complete session.",
+  "前往运行与 HUD": "Go to Run & HUD",
   "请选择本机资料库中的赛事": "Select a race in the local library.",
   "参赛方式修正文件过大，原文件已保留": "The participation correction file is too large. The original is kept.",
   "参赛方式修正文件无效，原文件已保留": "The participation correction file is invalid. The original is kept.",

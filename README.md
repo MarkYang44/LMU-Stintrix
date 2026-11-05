@@ -102,7 +102,7 @@ Source setup uses **Python 3.13 x64 with Tcl/Tk**. The script can install it thr
 
 ## Quick start
 
-1. Open Stintrix and select **LMU** or **AC EVO** at the top left. For LMU, enable **Settings → Gameplay → Enable Plugins** in the game.
+1. Open Stintrix and select **LMU** or **AC EVO** under the logo at the top left. For LMU, enable **Settings → Gameplay → Enable Plugins** in the game.
 2. Click **Start Recording**. Use **中文 / EN** to switch menu language.
 3. Enter the track in windowed or borderless mode.
 4. Drive a qualifying / timed session or race; recording starts automatically when supported driving data arrives. Practice recording is off by default; enable it under **Sampling & Telemetry** if needed.

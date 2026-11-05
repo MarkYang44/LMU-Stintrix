@@ -94,7 +94,7 @@ def install(app):
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
         from control_settings_search import Search
         app.settings_search=Search(app,host)
-        anchors=tk.Frame(host,bg=T.BG);anchors.pack(fill='x')
+        anchors=tk.Frame(host,bg=T.BG);anchors.pack(fill='x');tabs=[]
         for label,target in getattr(app,'settings_anchors',[]):
             def jump(body=target):
                 module=getattr(body,'form_module',None)
@@ -103,7 +103,19 @@ def install(app):
                 if reveal:reveal()
                 app.root.update_idletasks();y=body.winfo_rooty()-app.content.winfo_rooty()-20
                 app.scroll.yview_moveto(max(0,y)/max(1,app.content.winfo_height()))
-            app.button(anchors,label,jump,False,110)
+                app.settings_spy.show(body)
+            tabs.append((app.button(anchors,label,jump,False,110),target))
+        # The section buttons double as tabs that follow the reading position.
+        from control_feedback import TabIndicator
+        from control_sections import ScrollSpy
+        indicator=TabIndicator(host);indicator.pack(fill='x')
+        app.settings_spy=ScrollSpy(app,tabs,indicator,anchors)
+        def step(index):
+            if 0<=index<len(tabs):
+                target=tabs[index][0];keyboard_action(target,target.invoke);target.focus_set()
+            return 'break'
+        for index,(button,_) in enumerate(tabs):
+            button.bind('<Left>',lambda _,i=index-1:step(i));button.bind('<Right>',lambda _,i=index+1:step(i))
 
 
 def update(app):
@@ -133,3 +145,17 @@ def update(app):
             if button is not None and button.winfo_exists() and button.enabled!=ready:button.configure(state='normal' if ready else 'disabled')
         for button in getattr(app,'live_actions',[]):
             if button.winfo_exists() and button.enabled!=app.active():button.configure(state='normal' if app.active() else 'disabled')
+        # The primary fill follows the one action that matters now: start while
+        # idle, stop-and-save while a HUD records.
+        active=app.active()
+        for name,primary in (('start_button',not active),('stop_button',active)):
+            button=getattr(app,name,None)
+            if button is not None and button.winfo_exists() and button.primary!=primary:button.primary=primary;button.paint()
+        # Swap live HUD controls and the demo in the start row by HUD state.
+        row=getattr(app,'run_tools_row',None)
+        if row is not None and row.winfo_exists():
+            wanted=[(button,active) for button in getattr(app,'live_actions',[])]+[(getattr(app,'demo_button',None),not active)]
+            changed=False
+            for button,visible in wanted:
+                if button is not None and button.winfo_exists() and getattr(button,'flow_hidden',False)==visible:button.flow_hidden=not visible;changed=True
+            if changed:row.event_generate('<Configure>',width=row.winfo_width())

@@ -90,7 +90,7 @@ class Rules(unittest.TestCase):
             def _lap_row_flags(self,rows):return min((i for i,r in enumerate(rows) if '无效' not in r[6]),key=lambda i:float(rows[i][1]),default=None),{}
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as temp:
             path=Path(temp)/'laps.xlsx'
-            items=[dict(num=i,game_valid=g,statistics_eligible=e,note=n) for i,g,e,n in ((1,True,False,'游戏有效 / 部分记录'),(2,True,True,'最快'),(3,None,False,'待确认'),(4,False,False,'无效'))]
+            items=[dict(num=i,time=t,game_valid=g,statistics_eligible=e,note=n) for i,t,g,e,n in ((1,5,True,False,'游戏有效 / 部分记录'),(2,20,True,True,'最快'),(3,4,None,False,'待确认'),(4,3,False,False,'无效'))]
             (path.parent/'race_log.json').write_text(json.dumps(dict(stintrix_validity_policy=1,laps=items)),'utf-8')
             ns=dict(LapSheet=Sheet,load_lap_sheet=Sheet,recompute_lap_flags=recompute,LapSheetPilRenderer=Pil,RaceLogRenderer=Log)
             install(ns);install(ns);sheet=ns['load_lap_sheet'](path)

@@ -6,6 +6,11 @@ from control_theme import T
 from i18n import tr
 
 LABELS={'mode':{'fixed':'固定频率','dynamic':'动态频率'},'draw_mode':{'sync':'跟随采样','manual':'手动刷新'},'target_mode':{'auto':'自动识别','laps':'按圈数','time':'按时间'},'rate_mode':{'conservative':'保守估算','median':'中位数'}}
+# Sampling fields that only apply to one mode, grouped so each condition is
+# explained once above its fields instead of beneath every affected value.
+CONDITIONS={'fixed_hz':'fixed','min_hz':'dynamic','max_hz':'dynamic','change_pct_s':'dynamic','hold_s':'dynamic','brake_pct':'dynamic','draw_hz':'manual'}
+NOTES={'fixed':('仅固定采样时生效','以下 {count} 项仅固定采样时生效'),'dynamic':('仅动态采样时生效','以下 {count} 项仅动态采样时生效'),
+    'manual':('仅手动刷新时生效','以下 {count} 项仅手动刷新时生效')}
 
 FILES={'sampling':'settings.json','vehicle':'vehicle_settings.json','endurance':'endurance_settings.json'}
 
@@ -81,13 +86,17 @@ def build(center,body,module,specs,choices=()):
         if save_button is not None:save_button.configure(state='normal' if changed and complete else 'disabled')
         bar=getattr(center,'form_bar',None)
         if complete and bar and bar.winfo_exists():bar.refresh(module)
-        for key,(field,label,note) in conditions.items():
-            mode=variables.get('mode');draw=variables.get('draw_mode')
-            active=(mode is None or (mode.get()=='fixed' if key=='fixed_hz' else mode.get()=='dynamic')) if key!='draw_hz' else draw is None or draw.get()=='manual'
-            label.configure(fg=T.FG if active else T.MUTED)
-            note.configure(text='' if active else tr('仅手动刷新时生效' if key=='draw_hz' else '仅固定采样时生效' if key=='fixed_hz' else '仅动态采样时生效'))
-            # Keep fields editable: an invalid retained value can always be repaired.
-            field.entry.configure(fg=T.FG if active else T.MUTED)
+        mode=variables.get('mode');draw=variables.get('draw_mode')
+        for group,(note,anchor,members) in conditions.items():
+            active=(draw is None or draw.get()=='manual') if group=='manual' else mode is None or mode.get()==group
+            for field,label in members:
+                label.configure(fg=T.FG if active else T.MUTED)
+                # Keep fields editable: an invalid retained value can always be repaired.
+                field.entry.configure(fg=T.FG if active else T.MUTED)
+            if active:note.pack_forget();continue
+            single,several=NOTES[group]
+            note.configure(text=tr(single) if len(members)==1 else tr(several).format(count=len(members)))
+            if not note.winfo_manager():note.pack(fill='x',before=anchor,pady=(4,0))
     def refresh():
         current=load(path)
         for key,var in variables.items():
@@ -111,19 +120,23 @@ def build(center,body,module,specs,choices=()):
                 if item:
                     widget=item[0];center.root.update_idletasks();y=widget.winfo_rooty()-center.content.winfo_rooty();center.scroll.yview_moveto(max(0,y-45)/max(1,center.content.winfo_height()));widget.focus_set()
             state.set(tr('请修正标记的设置'));return False
-    for key,label in specs:
-        tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');row=center.row(tile);center.label(row,label,10,T.MUTED).pack(side='left')
-        field=Field(row,textvariable=variable(key),width=15,font=('Segoe UI',11));field.pack(side='right',padx=4)
-        if module=='sampling' and key in ('fixed_hz','min_hz','max_hz','change_pct_s','hold_s','brake_pct','draw_hz'):
-            note=center.label(tile,'',9,T.MUTED);note.pack(fill='x');conditions[key]=(field,row.winfo_children()[0],note)
-        error_hint=center.label(tile,'',9,T.RED);feedback.add(key,field,label,error_hint);register(center,key,label,field,module)
-        field.entry.bind('<FocusOut>',lambda _:validation() if complete else None,add='+')
-        variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k))
-        yield
+    # Modes come first: they decide which of the following values apply.
     for key,label,options in choices:
         tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');field=center.choice(tile,label,variable(key),options,labels=LABELS.get(key))
         feedback.add(key,field,label,center.label(tile,'',9,T.RED));register(center,key,label,field,module)
         variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k));yield
+    for key,label in specs:
+        tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');row=center.row(tile);caption=center.label(row,label,10,T.MUTED);caption.pack(side='left')
+        field=Field(row,textvariable=variable(key),width=15,font=('Segoe UI',11));field.pack(side='right',padx=4)
+        group=CONDITIONS.get(key) if module=='sampling' else None
+        if group:
+            # One unpacked caption per group, shown above it only while inactive.
+            if group not in conditions:conditions[group]=(center.label(body,'',9,T.MUTED),tile,[])
+            conditions[group][2].append((field,caption))
+        error_hint=center.label(tile,'',9,T.RED);feedback.add(key,field,label,error_hint);register(center,key,label,field,module)
+        field.entry.bind('<FocusOut>',lambda _:validation() if complete else None,add='+')
+        variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k))
+        yield
     def save():
         if not validation(True):return
         try:

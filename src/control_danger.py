@@ -9,7 +9,11 @@ from i18n import tr
 
 class Danger(Action):
     def paint(self):
-        super().paint();self.itemconfigure(self.surface,fill=blend(T.CARD,T.RED,.06+self.amount*.06),outline=T.FG if self.focused else T.RED);self.itemconfigure(self.caption,fill=T.RED);self.itemconfigure(self.accent,fill=T.RED)
+        super().paint()
+        # Without a target the action stays as quiet as any unavailable button;
+        # the red treatment appears only once deleting is actually possible.
+        if not self.enabled:return
+        self.itemconfigure(self.surface,fill=blend(T.CARD,T.RED,.06+self.amount*.06),outline=T.FG if self.focused else T.RED);self.itemconfigure(self.caption,fill=T.RED);self.itemconfigure(self.accent,fill=T.RED)
 
 
 def confirm(parent,title,summary,details,action='永久删除',warning=''):

@@ -1,6 +1,14 @@
 """Delayed, non-focusing text hints owned by a single widget."""
+import time
 import tkinter as tk
 from control_theme import T
+
+DELAY_MS=450
+# Once a hint has been read, neighbouring hints open at once: the first delay
+# prevents accidental pop-ups, later ones would only make scanning feel slow.
+# A perceptually instant 60 ms still coalesces fast sweeps across table cells.
+WARM_S=.6;WARM_DELAY_MS=60
+_warm_until=0.
 
 
 def position(window,x,y):
@@ -24,14 +32,19 @@ class Tooltip:
             self.pending=None
             if not self.widget.winfo_exists() or not self.widget.winfo_ismapped():return
             window=tk.Toplevel(self.widget.winfo_toplevel());self.window=window;window.overrideredirect(True);window.title('Stintrix Tooltip')
-            tk.Label(window,text=str(text)[:2000],wraplength=480,justify='left',anchor='w',bg=T.FIELD,fg=T.FG,relief='solid',borderwidth=1,font=(T.FONT,9),padx=10,pady=7).pack()
+            from control_widgets import px
+            # Same hairline edge as the selector and action-menu popovers.
+            tk.Label(window,text=str(text)[:2000],wraplength=px(window,480),justify='left',anchor='w',bg=T.FIELD,fg=T.FG,relief='flat',borderwidth=0,
+                highlightthickness=1,highlightbackground=T.EDGE,highlightcolor=T.EDGE,font=(T.FONT,9),padx=px(window,10),pady=px(window,7)).pack()
             window.update_idletasks()
             from control_layout_preview import monitors
             screens=monitors(self.widget);sx,sy,sw,sh=next((r for r in screens if r[0]<=x<r[0]+r[2] and r[1]<=y<r[1]+r[3]),screens[0])
             width=window.winfo_reqwidth();height=window.winfo_reqheight();left=max(sx,min(x+14,sx+sw-width));top=max(sy,min(y+18,sy+sh-height))
             if self.window is window and window.winfo_exists():position(window,left,top)
-        self.pending=self.widget.after(450,show)
+        self.pending=self.widget.after(WARM_DELAY_MS if time.perf_counter()<_warm_until else DELAY_MS,show)
     def hide(self):
+        global _warm_until
+        if self.window is not None:_warm_until=time.perf_counter()+WARM_S
         for owner,sequence,token in self.bindings:
             if owner.winfo_exists():owner.unbind(sequence,token)
         self.bindings=[]

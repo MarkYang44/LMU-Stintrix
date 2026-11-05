@@ -31,7 +31,8 @@ class Activity(tk.Canvas):
         if time.perf_counter()<getattr(self,'ready_at',0):
             self.job=self.after(max(1,round((self.ready_at-time.perf_counter())*1000)),self.tick);return
         self.itemconfigure(self.mark,state='hidden')
-        self.itemconfigure(self.arc,state='normal',start=-(time.perf_counter()*240)%360,extent=240)
+        # One turn per second: a brisker spinner makes the same wait feel shorter.
+        self.itemconfigure(self.arc,state='normal',start=-(time.perf_counter()*360)%360,extent=240)
         self.deadline,self.job=schedule_frame(self,self.deadline,self.tick)
     def confirm(self):
         self.set(False);self.itemconfigure(self.mark,text='✓',state='normal')

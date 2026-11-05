@@ -52,6 +52,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     if meta.get('simulator_id')=='ac_evo':
         from evo_laps import VERSION
         fingerprint['lap_rules']=VERSION
+    else:fingerprint['lmu_validity_policy']=1
     if config['mode']=='racecom':
         executable=Path(config['executable']);base=executable.parent
         fingerprint['runtime']={str(path.relative_to(base)):signature(path) for path in [executable,base/'image_generate_config.json',
@@ -71,7 +72,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     files={}
     try:
         old_mode=receipt.get('fingerprint',{}).get('renderer') or ('racecom' if 'RaceCom' in receipt.get('generator','') else 'native')
-        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION or receipt.get('fingerprint',{}).get('lap_rules')!=fingerprint.get('lap_rules')):
+        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION or receipt.get('fingerprint',{}).get('lap_rules')!=fingerprint.get('lap_rules') or receipt.get('fingerprint',{}).get('lmu_validity_policy')!=fingerprint.get('lmu_validity_policy')):
             # Explicit regeneration and renderer changes retain the prior reports.
             from uuid import uuid4
             prior=uuid4().hex[:12]

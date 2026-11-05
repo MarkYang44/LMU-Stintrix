@@ -83,7 +83,9 @@ class BestPage(RecordPage):
         if supported.training:self.button(actions,'training','训练优先级报告',self.training,ready)
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
         from control_action_menu import ActionMenu,MenuAction
-        more=self.button(navigation if self.evo else actions,'more','更多操作 ▾',lambda:self.menu.toggle())
+        # The menu lives beside record navigation, so the detail card keeps it
+        # even when the fixed page toolbar replaces the duplicate action row.
+        more=self.button(navigation,'more','更多操作 ▾',lambda:self.menu.toggle())
         from control_maintenance import offline_ready
         self.menu=ActionMenu(more,[
             MenuAction('lap-overview','圈速总览与节奏',self.lap_overview,'分析与训练',lambda:ready() and offline_ready(app),visible=lambda:evo),
@@ -271,7 +273,8 @@ class BestPage(RecordPage):
         for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('mode','更正参赛方式',self.correct_mode),('details','纪录详情',self.view_layout.details)]:
             if key=='training' and not supported.training:continue
             b=self.app.button(row,title,command,key=='curve',100 if key=='details' else 140);b.configure(height=px(b,38));self.fixed[key]=b
-        if self.evo:self.detail_actions.pack_forget()
+        # The fixed toolbar already offers curve, training and card actions.
+        self.detail_actions.pack_forget()
         self.sync()
 
     def sync(self):

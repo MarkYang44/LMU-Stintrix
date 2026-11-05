@@ -7,14 +7,34 @@ def uninstall(parent):
     if token:parent.unbind('<Configure>',token);parent.flow_binding=None
 
 
+def lines(children,available,gap):
+    """Group (child,width,height) into wrapped lines at natural widths."""
+    rows=[];x=0
+    for child in children:
+        width=child.winfo_reqwidth()
+        if not rows or (x and x+width>available):rows.append([]);x=0
+        rows[-1].append((child,width,child.winfo_reqheight()));x+=width+gap
+    return rows
+
+
+def place(rows,available,gap):
+    """Centre captions, switches and buttons on each line's tallest control."""
+    y=0
+    for index,row in enumerate(rows):
+        if index:y+=gap
+        height=max(h for *_,h in row);x=0
+        for child,width,h in row:
+            child.place(x=x,y=y+(height-h)//2,width=min(available,width),height=h);x+=width+gap
+        y+=height
+    return y
+
+
 def install(parent):
     uninstall(parent)
     def arrange(event):
         if event.widget is not parent:return
-        x=y=height=0;gap=px(parent,8)
-        for child in parent.winfo_children():
-            child.pack_forget();width=child.winfo_reqwidth();h=child.winfo_reqheight()
-            if x and x+width>event.width:y+=height+gap;x=height=0
-            child.place(x=x,y=y,width=min(event.width,width),height=h);x+=width+gap;height=max(height,h)
-        parent.pack_propagate(False);parent.configure(height=max(1,y+height))
+        gap=px(parent,8);children=parent.winfo_children()
+        for child in children:child.pack_forget()
+        height=place(lines(children,event.width,gap),event.width,gap)
+        parent.pack_propagate(False);parent.configure(height=max(1,height))
     parent.flow_binding=parent.bind('<Configure>',arrange,add='+')

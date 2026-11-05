@@ -46,7 +46,10 @@ class GuidePage:
         row=center.row(body);query=tk.StringVar(center.root,value=self.state['query']);self.variables['query']=query
         center.label(row,tr('搜索  ','Search  '),10,T.MUTED).pack(side='left')
         from control_search import SearchField
-        entry=SearchField(row,textvariable=query,command=self.filter_changed,placeholder=tr('搜索赛道、地区或车型','Search circuit, location or car'),font=(T.FONT,11));self.search_field=entry
+        # Describe only what this view's text search actually matches; the car
+        # filter below narrows circuit recommendations separately.
+        hint=tr('搜索赛道或地区','Search circuit or location') if self.view=='tracks' else tr('搜索车型、品牌或组别','Search car, brand or class')
+        entry=SearchField(row,textvariable=query,command=self.filter_changed,placeholder=hint,font=(T.FONT,11));self.search_field=entry
         entry.pack(side='left',fill='x',expand=True);self.search_entry=entry.entry
         self.filter_button=center.button(row,tr('筛选条件','Filters'),self.toggle_filters,width=110)
         self.query_trace=query.trace_add('write',lambda *_:self.remember_query())

@@ -1,9 +1,24 @@
 """One private completed-session pointer; never scan all races or rewrite sources."""
+from datetime import datetime,timezone
 from pathlib import Path
 import time
 import os,threading
 from race_model import read_json
 from storage import atomic_json
+
+
+def summary(meta):
+    """Readable circuit, car and finish time; stored identities are never rewritten."""
+    from track_names import display
+    parts=[display(meta.get('track','')),str(meta.get('vehicle') or '').strip()]
+    stamp=meta.get('ended_utc') or meta.get('started_utc')
+    try:
+        when=datetime.fromisoformat(str(stamp).replace('Z','+00:00'))
+        when=when.replace(tzinfo=timezone.utc) if when.tzinfo is None else when
+        parts.append(when.astimezone(timezone.utc).strftime('%Y-%m-%d %H:%M UTC'))
+    except (ValueError,TypeError):
+        if stamp:parts.append(str(stamp))
+    return ' · '.join(part for part in parts if part)
 
 
 def checked(root,folder):
@@ -67,11 +82,12 @@ class RecentSession:
         from report_state import latest,current
         receipt=latest(self.folder)
         if receipt is None:receipt=current(self.folder)
-        signature=(str(self.folder),receipt.get('updated_utc'),receipt.get('state'),str(receipt.get('steps')),self.artifacts)
+        import i18n
+        signature=(str(self.folder),receipt.get('updated_utc'),receipt.get('state'),str(receipt.get('steps')),self.artifacts,i18n.language)
         if signature==self.signature:return self.value
         self.signature=signature;steps=receipt.get('steps',{})
         ready=lambda step,name:steps.get(step,{}).get('state')=='ready' and (self.folder/name).is_file()
         status='赛事已保存，报告正在生成' if receipt.get('state') in ('building','queued','deferred') else '赛事与报告已保存' if receipt.get('state')=='ready' else '赛事已保存，部分报告待完成'
-        self.value=dict(folder=self.folder,text=' · '.join(str(self.meta.get(k,'')) for k in ('track','vehicle','ended_utc')),status=status,
+        self.value=dict(folder=self.folder,text=summary(self.meta),status=status,
             review=ready('review','review.html'),laps=ready('images','圈速单.png'),note=self.folder.is_dir())
         return self.value

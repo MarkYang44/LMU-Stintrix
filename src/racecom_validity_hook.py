@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from functools import lru_cache
 import json
 from pathlib import Path
+from collections import defaultdict,deque
+import math
 
 
 def payload(path):
@@ -22,14 +24,40 @@ def _payload(path,size,mtime):
     return value if isinstance(value,dict) and value.get('stintrix_validity_policy')==1 else None
 
 
+def key(number,time):
+    try:
+        if isinstance(time,str) and ':' in time:
+            minutes,seconds=time.split(':');time=float(minutes)*60+float(seconds)
+        time=float(time)
+        return (int(number),round(time*1000)) if math.isfinite(time) and time>0 else None
+    except (ValueError,TypeError,OverflowError):return None
+
+
+def matched(items,rows,identify):
+    """Repeated lap numbers need time plus occurrence, not a number dictionary."""
+    queues=defaultdict(deque)
+    for row in rows:
+        identity=key(row.get('num'),row.get('time'))
+        if identity is not None:queues[identity].append(row)
+    for item in items:
+        queue=queues.get(key(*identify(item)))
+        yield item,queue.popleft() if queue else None
+
+
+class StatisticTime(str):
+    """Keep the displayed time intact while the renderer computes highlights."""
+    def __new__(cls,text,eligible):
+        value=super().__new__(cls,text);value.eligible=eligible;return value
+
+
 @contextmanager
 def statistics(sheet):
     saved=[]
     try:
-        value=payload(sheet.source);eligible={row['num']:row.get('statistics_eligible') is True for row in value['laps']} if value else {}
-        for lap in sheet.laps:
-            if lap.num in eligible:
-                saved.append((lap,lap.valid));lap.valid=eligible[lap.num]
+        value=payload(sheet.source)
+        if value:
+            for lap,row in matched(sheet.laps,value['laps'],lambda lap:(lap.num,lap.time)):
+                saved.append((lap,lap.valid));lap.valid=row is not None and row.get('statistics_eligible') is True
         yield
     finally:
         for lap,valid in saved:lap.valid=valid
@@ -51,9 +79,7 @@ def install(ns):
     def load(path):
         sheet=original_load(path);value=payload(path)
         if value is None:return sheet
-        rows={lap['num']:lap for lap in value['laps']}
-        for lap in sheet.laps:
-            row=rows.get(lap.num)
+        for lap,row in matched(sheet.laps,value['laps'],lambda lap:(lap.num,lap.time)):
             if row is None:continue
             lap.valid=row.get('game_valid') is not False
             lap.extra_note=row.get('note','')
@@ -71,20 +97,35 @@ def install(ns):
             return sum(row.get('game_valid') is True for row in value['laps']) if value else original_count(self)
         sheet_type.valid_count=valid_count
     pil_type=ns['LapSheetPilRenderer'];original_rows=pil_type.rows
+    parse=ns.get('parse_lap_time')
+    if callable(parse):
+        def parse_statistic_time(value):
+            # RaceCom uses zero for missing statistics and tests the result > 0.
+            return 0.0 if isinstance(value,StatisticTime) and not value.eligible else parse(value)
+        ns['parse_lap_time']=parse_statistic_time
     def rows(self):
         result=original_rows(self)
-        if self.sheet is None or payload(self.sheet.source) is None:return result
-        return [(*row[:6],lap.extra_note) for row,lap in zip(result,self.sheet.laps)]
+        value=payload(self.sheet.source) if self.sheet is not None else None
+        if value is None:return result
+        output=[]
+        for row,source in matched(result,value['laps'],lambda row:(row[0],row[1])):
+            copy=list(row)
+            if source is not None:copy[6]=source.get('note','')
+            # The original PIL table recomputes highlights from its row text,
+            # independently of LapSheet.best_lap. Restrict this fix to LMU.
+            if callable(parse) and value.get('simulator_id','lmu')=='lmu':
+                for column in (1,3,4,5):copy[column]=StatisticTime(copy[column],source is not None and source.get('statistics_eligible') is True)
+            output.append(tuple(copy))
+        return output
     pil_type.rows=rows
     renderer=ns['RaceLogRenderer'];original_flags=renderer._lap_row_flags
     def flags(self,rows):
         value=payload(self.data.source_txt)
         if value is None:return original_flags(self,rows)
-        eligible={lap['num'] for lap in value['laps'] if lap.get('statistics_eligible') is True}
         statistical=[]
-        for row in rows:
+        for row,source in matched(rows,value['laps'],lambda row:(row[0],row[1])):
             copy=list(row)
-            if int(copy[0]) not in eligible:copy[6]='无效'
+            if source is None or source.get('statistics_eligible') is not True:copy[6]='无效'
             statistical.append(copy)
         return original_flags(self,statistical)
     renderer._lap_row_flags=flags

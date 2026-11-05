@@ -47,7 +47,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 - Live throttle, brake, and steering traces: raw / game-filtered inputs in LMU, distinct physics / HUD inputs in EVO.
 - Compact layouts, saved HUD positions, silent recording, and global shortcuts. LMU also provides optional tire, fuel, Virtual Energy, pit, stint, and weather panels.
 - EVO adds a compact gear / RPM strip with game-reported shift and limiter hints, plus ABS / TC / ESC activity lamps and timeline marks. Toggle each in Run & HUD or the HUD menu; display choices do not interrupt recording. New native fields are saved with every captured sample, independently of the selected input channel.
-- Lap validity follows game evidence. EVO saves its two native validity flags separately and favors an explicit valid signal when they disagree. Unresolved or historical combined signals remain pending; capture gaps and pit visits affect statistical eligibility, without being presented as game penalties.
+- LMU treats pending verdicts as invalid in reports. EVO saves its two native validity flags separately and favors an explicit valid signal when they disagree; unresolved or historical combined signals remain pending. Capture gaps and pit visits separately affect statistical eligibility.
 
 ### Keep sessions ready for review
 

@@ -102,10 +102,11 @@ class RaceImageTests(unittest.TestCase):
             with self.assertRaises(OSError):j.finish('test')
         self.assertFalse(j.writer.thread.is_alive())
 
-    def test_legacy_missing_fields_and_partial_laps_remain_unknown(self):
-        f=self.folder(True);m=build_model(f)
+    def test_legacy_missing_fields_keep_sources_and_pending_laps_are_invalid(self):
+        f=self.folder(True);before={n:digest(f/n) for n in ('inputs.csv','session.json')};m=build_model(f)
         self.assertFalse(m['scoring_available']);self.assertIsNone(m['fastest'])
-        self.assertTrue(all(lap['valid'] is None and lap['s1'] is None for lap in m['laps']))
+        self.assertTrue(all(lap['valid'] is False and lap['game_valid'] is False and lap['s1'] is None for lap in m['laps']))
+        self.assertEqual(before,{n:digest(f/n) for n in before})
         self.assertTrue(m['laps'][0]['partial']);self.assertFalse(m['laps'][-1]['complete'])
         self.assertIsNone(m['laps'][-1]['time']);self.assertEqual(len(m['laps']),6)
         self.assertEqual(lap_time(59.9996),'1:00.000')

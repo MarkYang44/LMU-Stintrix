@@ -89,6 +89,10 @@ def build_model(folder):
         target.update(complete=True,partial=bool(value.get('partial',True)),timing_source='official')
         target['missed_laps']=value.get('missed_laps',0)
     laps.sort(key=lambda lap:lap['start'] if lap['start'] is not None else float('inf'))
+    from lap_validity import finish_lmu
+    for lap in laps:finish_lmu(lap)
+    for event in events:
+        if event['event'] in ('official_lap','reconstructed_lap'):finish_lmu(event['data'])
     # Give an unfinished telemetry group its expected next official lap number.
     # The original telemetry counter remains separately available for matching.
     anchors=[e for e in official if isinstance(e['data'].get('telemetry_lap'),int)]

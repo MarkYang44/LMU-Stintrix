@@ -7,16 +7,18 @@
  html{color-scheme:dark}html[data-theme=light]{color-scheme:light}
  body{background:var(--sl-bg)!important;color:var(--sl-fg)!important}
  .card,section,.lap-card,.vehicle-card,.endurance-card{background:var(--sl-card)!important;border-color:var(--sl-edge)!important;border-radius:3px!important}
- button,select,input,textarea,.file-button{background:var(--sl-field)!important;color:var(--sl-fg)!important;border-color:var(--sl-edge)!important;border-radius:3px!important;accent-color:var(--sl-accent);transition:background .15s,border-color .15s,transform .15s}
- button:hover,.file-button:hover{background:var(--sl-hover)!important;border-color:var(--sl-accent)!important}
- button:active{transform:translateY(1px)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sl-accent);outline-offset:3px}
+ button,select,input,textarea,.file-button{background:var(--sl-field)!important;color:var(--sl-fg)!important;border-color:var(--sl-edge)!important;border-radius:3px!important;accent-color:var(--sl-accent);transition:background-color .15s ease,border-color .15s ease,transform .16s cubic-bezier(.23,1,.32,1)}
+ @media(hover:hover) and (pointer:fine){button:not(:disabled):hover,.file-button:hover{background:var(--sl-hover)!important;border-color:var(--sl-accent)!important}}
+ button:not(:disabled):active,.file-button:active{transform:translateY(1px) scale(.97)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--sl-accent);outline-offset:3px}
  .primary{background:var(--sl-button)!important;color:var(--sl-ink)!important}
  small,.muted,#meta,.empty,footer,th,.vehicle-note,.endurance-note,#replay-time{color:var(--sl-muted)!important}
  .eyebrow,a{color:var(--sl-accent)!important}td,th,.replay{border-color:var(--sl-edge)!important}
  .green{color:var(--sl-green)!important}.red{color:var(--sl-red)!important}.blue{color:var(--sl-blue)!important}
- section,.card{animation:sl-enter .23s ease-out}#sl-theme{margin:6px 0;white-space:nowrap}
+ section,.card{animation:sl-enter .23s cubic-bezier(.23,1,.32,1) both}#sl-theme{margin:6px 0;white-space:nowrap}
+ section:nth-of-type(2),.card:nth-of-type(2){animation-delay:40ms}section:nth-of-type(3),.card:nth-of-type(3){animation-delay:80ms}section:nth-of-type(n+4),.card:nth-of-type(n+4){animation-delay:120ms}
  @keyframes sl-enter{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
- @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+ @keyframes sl-fade{from{opacity:.4}to{opacity:1}}
+ @media(prefers-reduced-motion:reduce){section,.card{animation-name:sl-fade;animation-delay:0s!important}button,select,input,textarea,.file-button{transition-property:background-color,border-color}button:not(:disabled):active,.file-button:active{transform:none}}
  `;document.head.append(sheet);
  const theme=window.StintrixTheme={mode,color:key=>palettes[theme.mode][key]};
  function apply(value){

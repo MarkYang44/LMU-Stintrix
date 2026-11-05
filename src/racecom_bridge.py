@@ -11,7 +11,7 @@ from race_model import describe,lap_time,number
 from storage import atomic_json
 from renderer_process import run
 from class_positions import inline_positions
-from lap_validity import game_valid
+from lap_validity import game_valid,finish_lmu
 
 
 def local_start(meta):
@@ -26,6 +26,7 @@ def adapt(model):
     finish_flag=summary.get('finish_flag',0);finish_text={2:'DNF',3:'DQ'}.get(finish_flag,'')
     laps=[]
     for lap in model['laps']:
+        if meta.get('simulator_id','lmu')=='lmu':lap=finish_lmu(dict(lap))
         if not lap['complete'] or number(lap['time']) is None or lap['time']<=0:continue
         item={k:lap.get(k) for k in ('num','time','valid','best','s1','s2','s3')}
         item['game_valid']=game_valid(lap)
@@ -56,8 +57,8 @@ def adapt(model):
             dict(time=(start+timedelta(seconds=e['time']-model['origin'])).strftime('%H:%M:%S') if start else '',
             text=describe(e)) for e in model['events'] if e['event']!='class_position' or start_text]+[
                 dict(time='',text=text) for text in ('缺失字段显示未知；未采集的信息不补造。','出界为边界估算，非官方警告；碰撞合并连续接触。',
-                    '有效性按游戏信号显示；记录不完整、PIT、待确认仅影响统计，不是游戏无效圈。',model.get('note',''))],
-        stintrix_validity_policy=1)
+                    'LMU 待确认按无效圈处理；记录不完整与 PIT 另行排除统计。' if meta.get('simulator_id','lmu')=='lmu' else '有效性按游戏信号显示；记录不完整、PIT、待确认仅影响统计，不是游戏无效圈。',model.get('note',''))],
+        stintrix_validity_policy=1,simulator_id=meta.get('simulator_id','lmu'))
 
 
 def lap_rows(value):

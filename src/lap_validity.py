@@ -17,6 +17,13 @@ def label(lap):
     return '无效' if value is False else '待确认' if value is None else '有效'
 
 
+def finish_lmu(lap):
+    """Apply the LMU-only preference to a derived row, never recorded evidence."""
+    if game_valid(lap) is None:
+        lap.update(valid=False,game_valid=False,validity_source='lmu_pending_as_invalid')
+    return lap
+
+
 def finish_evo(lap):
     legacy=not lap.pop('_invalid') if lap.pop('_known') else None
     explicit=lap.pop('_game_explicit')

@@ -64,6 +64,11 @@ class ControlCenter:
         # Bind to this toplevel only, leaving the HUD's high-rate event loop alone.
         self.root.bind('<MouseWheel>',self.wheel)
         self.root.bind('<Control-f>',self.focus_search)
+        # Ctrl+1–7 follow the numbered rail entries. Keyboard page changes
+        # commit instantly: repeated shortcuts must never wait on motion.
+        from control_motion import keyboard_action
+        for index in range(len(PAGES)):
+            self.root.bind(f'<Control-Key-{index+1}>',lambda _,i=index:(keyboard_action(self.root,lambda:self.request_page(i)),'break')[1])
         self.show_page(0);backdrop(self.root)
         from control_repaint import Presentation
         self.presentation=Presentation(self.root);self.root._stintrix_presentation=self.presentation
@@ -236,13 +241,11 @@ class ControlCenter:
         self.demo_button=self.button(row,'演示模式',lambda:self.start(True),False,110)
         def arrange_tools(event,tools=row):
             if not tools.winfo_exists():return
-            x=y=height=0;gap=px(tools,8)
-            for child in tools.winfo_children():
-                if not child.winfo_exists():continue
-                child.pack_forget();width=min(event.width,child.winfo_reqwidth());h=child.winfo_reqheight()
-                if x and x+width>event.width:y+=height+gap;x=height=0
-                child.place(x=x,y=y,width=width,height=h);x+=width+gap;height=max(height,h)
-            tools.pack_propagate(False);tools.configure(height=y+height)
+            from control_flow import lines,place
+            gap=px(tools,8);children=[child for child in tools.winfo_children() if child.winfo_exists()]
+            for child in children:child.pack_forget()
+            # The compact switch shares a centre line with the taller buttons.
+            tools.pack_propagate(False);tools.configure(height=place(lines(children,event.width,gap),event.width,gap))
         row.bind('<Configure>',arrange_tools)
         policy=self.label(body,self.profile.recording_hint,9,T.MUTED);policy.pack(fill='x');policy.bind('<Configure>',lambda e:policy.configure(wraplength=max(100,e.width)))
         grid=CardGrid(self.content);grid.pack(fill='x')

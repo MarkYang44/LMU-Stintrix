@@ -11,6 +11,15 @@ def flatten(suite):
         else:yield case
 
 
+def annotation(name,output):
+    """Public CI annotations name the failed check even where job logs need sign-in."""
+    import re
+    lines=[line.strip() for line in output.splitlines() if line.strip()]
+    reason=next((line for line in reversed(lines) if re.match(r'^[A-Za-z_.]+(Error|Exception|Iteration|Exit)\b',line) or 'exceeded its' in line),'see job log')
+    message=(name+' - '+reason)[:400].replace('%','%25')
+    return '::error title=Failed check::'+message
+
+
 def case_names(targets):
     raw=[case.id() for target in targets for case in flatten(unittest.defaultTestLoader.loadTestsFromName(target))]
     names=list(dict.fromkeys(raw));return names,len(raw)-len(names)
@@ -49,7 +58,9 @@ def main():
             ok=result.returncode==0;output=result.stdout+result.stderr
         except subprocess.TimeoutExpired:ok=False;output='Selected test exceeded its 180 second limit.'
         print(('PASS' if ok else 'FAIL')+' '+name,flush=True)
-        if not ok:failed.append(name);print(output,flush=True)
+        if not ok:
+            failed.append(name);print(output,flush=True)
+            if os.environ.get('GITHUB_ACTIONS')=='true':print(annotation(name,output),flush=True)
     print(f'{len(names)-len(failed)}/{len(names)} passed');return int(bool(failed))
 
 if __name__=='__main__':raise SystemExit(main())

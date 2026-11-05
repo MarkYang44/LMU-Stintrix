@@ -1,5 +1,5 @@
 """Editorial guide cards, folded review filters, one settings save surface and calmer toolbars."""
-import os,unittest
+import os,time,unittest
 from tests import test_ui_polish69 as helpers
 
 
@@ -55,12 +55,18 @@ class UI(unittest.TestCase):
         app,root,errors=self.app();app.request_page(2);self.settle(app,lambda:'sampling' in getattr(app,'form_panels',{}))
         self.assertFalse([w for w in walk(app.pages.pages[2].frame) if getattr(w,'label',None)=='应用并保存'])
         body=app.form_panels['sampling'];status=body.form_status;forms=app.pages.pages[2].forms['sampling'];bar=app.form_bar
+        def settled(color):
+            # Busy CI runners can stretch or finish the 160 ms fade inside one
+            # update; assert the logical state, then wait for motion to end.
+            self.assertEqual(status.state[1],color);deadline=time.monotonic()+3
+            while status.motion.jobs and time.monotonic()<deadline:app.root.update();time.sleep(.005)
+            self.assertFalse(status.motion.jobs);return status.label.cget('fg')
         self.assertFalse(status.label.winfo_manager());self.assertFalse(bar.packed)
-        forms['fixed_hz'].set('240');self.pump(app,.25)
-        self.assertEqual(status.label.winfo_manager(),'place');self.assertIn('1',status.label.cget('text'));self.assertEqual(status.label.cget('fg'),T.ACCENT)
+        forms['fixed_hz'].set('240');self.pump(app,.05)
+        self.assertEqual(status.label.winfo_manager(),'place');self.assertIn('1',status.label.cget('text'));self.assertEqual(settled(T.ACCENT),T.ACCENT)
         self.assertAlmostEqual(status.label.winfo_rooty()+status.label.winfo_height()/2,body.heading.winfo_rooty()+body.heading.winfo_height()/2,delta=2)
         self.assertTrue(bar.packed);self.assertTrue(bar.save.enabled)
-        forms['min_hz'].set('500');forms['max_hz'].set('300');self.assertFalse(body.form_validate(True));self.pump(app,.25);self.assertEqual(status.label.cget('fg'),T.RED)
+        forms['min_hz'].set('500');forms['max_hz'].set('300');self.assertFalse(body.form_validate(True));self.assertEqual(settled(T.RED),T.RED)
         body.form_reset();self.pump(app,.05);self.assertFalse(status.label.winfo_manager());self.assertFalse(bar.packed);self.assertFalse(errors)
 
     def test_record_tabs_use_selected_state_and_fixed_bar_keeps_frequent_actions(self):

@@ -9,6 +9,7 @@ from control_widgets import Switch
 from control_confirm import register,draft_choice
 from storage import atomic_json
 from i18n import tr
+from control_motion import fade_in
 
 
 def load(path):
@@ -38,7 +39,7 @@ def show(app,entry,done):
         if old is None:old=load(folder/'_archive_note.json')
         if not isinstance(old,dict) or not isinstance(old.get('text',''),str) or not isinstance(old.get('tags',[]),list) or any(not isinstance(tag,str) for tag in old.get('tags',[])):raise ValueError('标记文件无法读取，原文件已保留')
     except ValueError as error:app.status.set(tr(str(error)));return
-    window=tk.Toplevel(app.root);windows[key]=window;window.title(tr('收藏与标签'));window.geometry('720x650');window.minsize(620,570);window.configure(bg=T.BG)
+    window=tk.Toplevel(app.root);fade_in(window);windows[key]=window;window.title(tr('收藏与标签'));window.geometry('720x650');window.minsize(620,570);window.configure(bg=T.BG)
     footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,18))
     body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
     baseline=dict(favorite=bool(old.get('favorite')),traffic=bool(old.get('traffic')),tags=', '.join(old.get('tags',[])),text=old.get('text',''))

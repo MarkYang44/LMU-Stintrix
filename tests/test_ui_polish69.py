@@ -103,7 +103,7 @@ class UI(unittest.TestCase):
     def test_long_prepare_shows_hint_and_close_releases_pending_native_surface(self):
         app,root,errors=self.app();held=[]
         with patch.object(app,'tracks_page',side_effect=lambda:held.append(app.pages.hold())):app.show_page(4,progressive=True)
-        surface=app.shell.surface;self.pump(app,.18);self.assertTrue(surface.hint.winfo_ismapped());app.close();app.close=lambda:None
+        surface=app.shell.surface;self.pump(app,.4);self.assertTrue(surface.hint.winfo_ismapped());app.close();app.close=lambda:None
         self.assertFalse(surface.covering);self.assertIsNone(surface.job);self.assertFalse(errors)
     def test_english_navigation_numbers_never_overlap_full_captions(self):
         from i18n import tr

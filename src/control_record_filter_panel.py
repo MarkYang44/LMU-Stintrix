@@ -14,7 +14,9 @@ class Panel:
         self.sync()
     def toggle(self):
         opened=not bool(self.filters.winfo_manager());self.page.context['filters_open']=opened
-        if opened:self.filters.pack(**self.options,**({'before':self.before} if self.before is not None else {}))
+        if opened:
+            from control_motion import expand
+            expand(self.filters,lambda:self.filters.pack(**self.options,**({'before':self.before} if self.before is not None else {})))
         else:self.filters.pack_forget()
         self.sync()
     def sync(self):

@@ -9,6 +9,7 @@ from control_flow import install
 from race_mode import LABELS,mode
 from race_mode_overrides import load,relative,save
 from track_names import display
+from control_motion import fade_in
 
 
 def show(app,entry,on_saved):
@@ -16,7 +17,7 @@ def show(app,entry,on_saved):
     if old is not None and old.winfo_exists():old.deiconify();old.lift();return old
     entries=list({Path(e['folder']).resolve():dict(e) for e in (entry if isinstance(entry,(list,tuple)) else [entry])}.values())
     folders=list(dict.fromkeys(Path(e['folder']).resolve() for e in entries));keys=[relative(app.data_path,f) for f in folders];batch=len(folders)>1
-    window=tk.Toplevel(app.root);app.participation_editor=window;window.title(tr('更正参赛方式'));window.configure(bg=T.BG);window.geometry('630x420');window.minsize(500,340);window.transient(app.root)
+    window=tk.Toplevel(app.root);fade_in(window);app.participation_editor=window;window.title(tr('更正参赛方式'));window.configure(bg=T.BG);window.geometry('630x420');window.minsize(500,340);window.transient(app.root)
     body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=14)
     def label(text,size=10,color=T.MUTED):
         widget=app.label(body,text,size,color,size==15);widget.pack(fill='x',padx=14,pady=4);widget.bind('<Configure>',lambda e:widget.configure(wraplength=max(100,e.width)));return widget

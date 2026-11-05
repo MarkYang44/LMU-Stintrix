@@ -10,6 +10,7 @@ from control_feedback import StatusFeedback
 from control_image_viewport import ImageViewport
 from report_images import ImageLoader,stamp
 from i18n import tr,Label
+from control_motion import fade_in
 
 NAMES={'圈速单.png':'圈速单','比赛日志.png':'赛事日志'}
 
@@ -47,7 +48,7 @@ def generate(app,folder,force=False):
 class ReportViewer:
     def __init__(self,app,loader):
         self.app=app;self.loader=loader;self.folder=None;self.name=None;self.key=None;self.poll_job=None;self.awaiting=False;self.views=OrderedDict();self.buttons={};self.message_key='';self.detail='';self.open_started=0;self.display_ms=None
-        w=tk.Toplevel(app.root);self.window=w;w.configure(bg=T.BG);w.transient(app.root)
+        w=tk.Toplevel(app.root);fade_in(w);self.window=w;w.configure(bg=T.BG);w.transient(app.root)
         w.geometry(f'{min(px(w,1180),w.winfo_screenwidth()-80)}x{min(px(w,820),w.winfo_screenheight()-100)}');w.minsize(min(px(w,780),w.winfo_screenwidth()-60),min(px(w,560),w.winfo_screenheight()-80))
         self.context=tk.StringVar(w);self.status=tk.StringVar(w);self.percent=tk.StringVar(w,value='100%')
         footer=tk.Frame(w,bg=T.BG);footer.pack(side='bottom',fill='x',padx=18,pady=(6,12));self.feedback=StatusFeedback(footer,self.status);self.feedback.pack(fill='x')

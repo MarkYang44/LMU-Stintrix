@@ -6,6 +6,7 @@ from storage import atomic_json
 from control_theme import T
 from control_widgets import Switch
 from i18n import tr
+from control_motion import fade_in
 
 
 def load(root):
@@ -57,7 +58,7 @@ def install(app,table,key,filters=None,frozen=None):
         import control_confirm
         old=getattr(table,'preferences_window',None)
         if old is not None and old.winfo_exists():old.lift();return old
-        window=tk.Toplevel(app.root);table.preferences_window=window;window.title(tr('列设置'));window.configure(bg=T.BG);window.geometry('600x710');window.minsize(500,420)
+        window=tk.Toplevel(app.root);fade_in(window);table.preferences_window=window;window.title(tr('列设置'));window.configure(bg=T.BG);window.geometry('600x710');window.minsize(500,420)
         from control_video_widgets import ScrollPage
         scroll=ScrollPage(window);scroll.pack(fill='both',expand=True);window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta))
         body=tk.Frame(scroll.body,bg=T.CARD);body.pack(fill='x',padx=16,pady=12)

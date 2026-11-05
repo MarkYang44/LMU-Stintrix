@@ -13,6 +13,7 @@ import layout_actions
 import control_confirm
 from control_validation import Feedback
 from preference_error import PreferenceError
+from control_motion import fade_in
 
 TITLES={'main':'油刹 / 转向','tyres':'轮胎','strategy':'燃油与能量','pit':'进站分析','stint':'Stint 节奏','weather':'天气与赛道'}
 MODES={'normal':'标准面板','curves':'纯净 · 仅曲线','controls':'纯净 · 曲线 + 踏板 / 方向盘'}
@@ -24,7 +25,7 @@ def show(app):
     try:initial=layout_actions.current(app.data_path,app.hud if app.active() else None)
     except (ValueError,OSError) as error:
         messagebox.showerror(tr('布局无法打开'),tr(str(error)),parent=app.root);return
-    window=tk.Toplevel(app.root);app.layout_window=window;window.title(tr('HUD 布局与备份'));window.configure(bg=T.BG);window.geometry('900x820');window.minsize(720,580)
+    window=tk.Toplevel(app.root);fade_in(window);app.layout_window=window;window.title(tr('HUD 布局与备份'));window.configure(bg=T.BG);window.geometry('900x820');window.minsize(720,580)
     from control_video_widgets import ScrollPage
     scroll=ScrollPage(window);scroll.pack(fill='both',expand=True)
     window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta) if not isinstance(e.widget,Select) else None)

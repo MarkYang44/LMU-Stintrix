@@ -59,7 +59,9 @@ class DataBrowser:
         self.picker_open=not self.picker_open;self.app.storage_picker_open=self.picker_open;self.show_picker()
     def toggle_filters(self):
         self.filters_open=not self.filters_open;self.app.data_filters_open=self.filters_open
-        if self.filters_open:self.filters.pack(fill='x',pady=8,before=self.table)
+        if self.filters_open:
+            from control_motion import expand
+            expand(self.filters,lambda:self.filters.pack(fill='x',pady=8,before=self.table))
         else:self.filters.pack_forget()
         self.sync()
     def ready(self,offline=False):

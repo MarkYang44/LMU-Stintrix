@@ -155,7 +155,9 @@ class BestPage(RecordPage):
 
     def toggle_filters(self):
         opened=not bool(self.modes.winfo_manager());self.context['filters_open']=opened
-        if opened:self.modes.pack(fill='x',pady=8,before=self.table)
+        if opened:
+            from control_motion import expand
+            expand(self.modes,lambda:self.modes.pack(fill='x',pady=8,before=self.table))
         else:self.modes.pack_forget()
         self.buttons['filters'].configure(selected=opened)
         self.modes.sync_chips()

@@ -4,10 +4,11 @@ from control_theme import T
 from control_widgets import px
 from control_video_widgets import Action
 from i18n import tr
+from control_motion import fade_in
 
 
 def ask(parent,title,message,choices):
-    owner=parent.winfo_toplevel();window=tk.Toplevel(owner);window.title(tr(title));window.configure(bg=T.BG);window.transient(owner)
+    owner=parent.winfo_toplevel();window=tk.Toplevel(owner);fade_in(window);window.title(tr(title));window.configure(bg=T.BG);window.transient(owner)
     window.resizable(False,False);result=['cancel'];body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=16)
     tk.Label(body,text=tr(message),wraplength=px(window,570),justify='left',anchor='w',bg=T.CARD,fg=T.FG,font=(T.FONT,10)).pack(fill='x',padx=12,pady=16)
     actions=tk.Frame(body,bg=T.CARD);actions.pack(fill='x',padx=8,pady=8);buttons={}

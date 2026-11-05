@@ -6,12 +6,13 @@ from control_theme import T
 from shortcut_keys import LABELS,DEFAULTS,parse,captured
 from i18n import tr
 import control_confirm
+from control_motion import fade_in
 
 
 def show(app):
     old=getattr(app,'shortcut_window',None)
     if old is not None and old.winfo_exists():old.deiconify();old.lift();return old
-    window=tk.Toplevel(app.root);app.shortcut_window=window;window.title(tr('全局快捷键'));window.configure(bg=T.BG);window.geometry('790x615');window.minsize(710,510)
+    window=tk.Toplevel(app.root);fade_in(window);app.shortcut_window=window;window.title(tr('全局快捷键'));window.configure(bg=T.BG);window.geometry('790x615');window.minsize(710,510)
     from control_video_widgets import ScrollPage
     scroll=ScrollPage(window);scroll.pack(fill='both',expand=True);window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta))
     body=tk.Frame(scroll.body,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=16)

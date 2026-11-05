@@ -3,13 +3,14 @@ import tkinter as tk
 from control_fields import Field
 from control_theme import T
 from i18n import tr
+from control_motion import fade_in
 
 
 def show(app,parent,value,apply):
     if app.closing or not parent.winfo_exists():return
     old=getattr(parent,'goal_window',None)
     if old is not None and old.winfo_exists():old.lift();old.focus_set();return old
-    window=tk.Toplevel(parent);parent.goal_window=window;window.title(tr('本场目标圈速'));window.geometry('540x320');window.minsize(450,300);window.configure(bg=T.BG);window.transient(parent)
+    window=tk.Toplevel(parent);fade_in(window);parent.goal_window=window;window.title(tr('本场目标圈速'));window.geometry('540x320');window.minsize(450,300);window.configure(bg=T.BG);window.transient(parent)
     body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
     app.label(body,'本场目标圈速',16,T.FG,True).pack(anchor='w',pady=(12,8),padx=12)
     label=app.label(body,'输入秒数或 分:秒；只统计可用圈，不作条件校正。目标仅保留在本次打开的窗口中。',10,T.MUTED);label.pack(fill='x',padx=12,pady=5);label.bind('<Configure>',lambda e:label.configure(wraplength=max(80,e.width)))

@@ -139,7 +139,7 @@ class Sources(tk.Frame):
         self.heading=self.center.button(row,self.library.tr('来源链接','Sources')+f' · {len(pairs)} ▸',self.toggle,width=120)
         self.panel=tk.Frame(self,bg=T.FIELD)
         self.set_open(self.flag in self.expanded)
-    def set_open(self,opened):
+    def set_open(self,opened,animate=False):
         self.opened=opened
         self.heading.label=self.library.tr('来源链接','Sources')+f' · {len(self.pairs)}'+(' ▾' if opened else ' ▸')
         self.heading.configure(selected=opened)
@@ -149,12 +149,15 @@ class Sources(tk.Frame):
                 for label,url in self.pairs:self.cards.text(content,label+'\n'+url,9,T.MUTED)
                 self.center.button(self.center.row(content),self.library.tr('复制来源链接','Copy sources'),self.copy,width=150)
                 self.built=True
-            self.panel.pack(fill='x',pady=(4,8))
+            from control_motion import expand
+            show=lambda:self.panel.pack(fill='x',pady=(4,8))
+            if animate:expand(self.panel,show)
+            else:show()
             if self.flag not in self.expanded:self.expanded.append(self.flag)
         else:
             self.panel.pack_forget()
             if self.flag in self.expanded:self.expanded.remove(self.flag)
-    def toggle(self):self.set_open(not self.opened)
+    def toggle(self):self.set_open(not self.opened,True)
     def copy(self):
         self.center.root.clipboard_clear();self.center.root.clipboard_append('\n'.join(url for _,url in self.pairs))
         self.center.status.set(self.library.tr('来源链接已复制','Source URLs copied'))
@@ -174,10 +177,13 @@ class Cards:
     def sources(self,parent,values,header=None):
         pairs=[(label,url) for label,url in values if url]
         return Sources(parent,self,pairs,header) if pairs else None
-    def expand(self,body,holder):
+    def expand(self,body,holder,animate=False):
         """Opened details sit above the source panel, below the card's summary."""
+        from control_motion import expand as grow
         sources=next((w for w in body.pack_slaves() if isinstance(w,Sources)),None)
-        holder.pack(fill='x',pady=12,**({'before':sources} if sources is not None and sources is not holder else {}))
+        show=lambda:holder.pack(fill='x',pady=12,**({'before':sources} if sources is not None and sources is not holder else {}))
+        if animate:grow(holder,show)
+        else:show()
     def action_row(self,parent):
         from control_flow import install
         row=self.center.row(parent);install(row);return row
@@ -223,7 +229,7 @@ class Cards:
     def recommendations(self,body,item,header=None):
         from track_names import display
         tr=self.library.tr;recs=item['recommendations'];holder=tk.Frame(body,bg=T.CARD);flag='car:'+item['slug']
-        def toggle():
+        def toggle(animate=True):
             expanded=self.page.state['expanded']
             if holder.winfo_manager():holder.pack_forget();expanded[:]=[v for v in expanded if v!=flag];button.sync(False);return
             if not holder.winfo_children():
@@ -234,10 +240,10 @@ class Cards:
                     self.text(panel,self.library.text(value,'fit'),11);self.review(panel,value)
                     row=self.action_row(panel);self.center.button(row,tr('查看赛道','View circuit'),lambda slug=target['slug']:self.page.jump('tracks',slug),width=130)
                     self.sources(panel,[(tr('来源','Source'),url) for url in value['review']['sources']],row)
-            self.expand(body,holder);button.sync(True)
+            self.expand(body,holder,animate);button.sync(True)
             if flag not in expanded:expanded.append(flag)
         button=self.disclosure(header if header is not None else self.center.row(body),tr('推荐它的赛道','Recommended at'),len(recs),toggle,False)
-        if flag in self.page.state['expanded']:toggle()
+        if flag in self.page.state['expanded']:toggle(False)
         return button
     def track(self,parent,item,recs):
         from track_names import display
@@ -246,14 +252,14 @@ class Cards:
         for key,title in [('character',tr('赛道特性：','Circuit character: ')),('challenge',tr('主要挑战：','Challenge: ')),('advice',tr('驾驶建议：','Driving advice: '))]:self.text(info,title+self.library.text(item,key),11)
         self.practice(info,item);row=self.actions(info,'tracks',item)
         holder=tk.Frame(body,bg=T.CARD);flag='track:'+item['slug']
-        def recommendations():
+        def recommendations(animate=True):
             expanded=self.page.state['expanded']
             if holder.winfo_manager():holder.pack_forget();expanded[:]=[v for v in expanded if v!=flag];button.sync(False);return
             if not holder.winfo_children():
                 for rec in recs:self.car(holder,self.library.data['cars'][rec['car_slug']],rec)
-            self.expand(body,holder);button.sync(True)
+            self.expand(body,holder,animate);button.sync(True)
             if flag not in expanded:expanded.append(flag)
         button=self.disclosure(row,tr('车型建议','Car picks'),len(recs),recommendations,False)
-        if flag in self.page.state['expanded']:recommendations()
+        if flag in self.page.state['expanded']:recommendations(False)
         self.sources(body,[(tr('LMU 官方赛道资料','Official LMU circuit page'),item['source_url']),(item['note']['source_name'],item['note']['source_url'])],row)
         return body

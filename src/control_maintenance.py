@@ -3,9 +3,10 @@ import tkinter as tk
 from control_theme import T
 from control_list import SessionList
 from i18n import tr
+from control_motion import fade_in
 
 def shell(app,title,columns,feedback=False):
-    window=tk.Toplevel(app.root);window.title(tr(title));window.geometry('1050x650');window.configure(bg=T.BG)
+    window=tk.Toplevel(app.root);fade_in(window);window.title(tr(title));window.geometry('1050x650');window.configure(bg=T.BG)
     footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,18))
     body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
     app.label(body,title,18,T.FG,True).pack(anchor='w',pady=10)

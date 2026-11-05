@@ -12,6 +12,7 @@ from control_widgets import px,backdrop
 from record_presentation import number
 from training_goals import goals,evaluate,close
 from i18n import tr,Label
+from control_motion import fade_in
 
 COLUMNS=(('date','时间（UTC）',180),('loss','区间典型损失 / s',160),('gain','相比基准提升 / s',170),('std','波动 / s',110),('count','有效样本',110),('quality','样本与条件',160))
 
@@ -26,7 +27,7 @@ def show(app):
 class GoalWindow:
     def __init__(self,app):
         self.app=app;self.goals={};self.running=None;self.pending=None;self.result=None;self.loading=False;self.finishing=False;self.notice=('',{});self.refresh_selection=None;self.rows={};self.views={};self.displayed=None
-        w=tk.Toplevel(app.root);self.window=w;w.goal_panel=self;w.title(tr('训练目标跟进'));w.configure(bg=T.BG);w.transient(app.root);w.geometry('1100x800');w.minsize(720,540)
+        w=tk.Toplevel(app.root);fade_in(w);self.window=w;w.goal_panel=self;w.title(tr('训练目标跟进'));w.configure(bg=T.BG);w.transient(app.root);w.geometry('1100x800');w.minsize(720,540)
         footer=tk.Frame(w,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,14));self.status=tk.StringVar(w);self.feedback=StatusFeedback(footer,self.status);self.feedback.pack(fill='x',padx=10,pady=6)
         self.actions=tk.Frame(footer,bg=T.CARD);self.actions.pack(fill='x',padx=10,pady=(0,8));install(self.actions);self.buttons={}
         for key,title,command in (('refresh','刷新跟进',self.refresh),('finish','结束当前目标',self.finish)):

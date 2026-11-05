@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from control_theme import T
 from control_video_widgets import Action
-from control_motion import blend
+from control_motion import blend,fade_in
 from i18n import tr
 
 
@@ -17,7 +17,7 @@ class Danger(Action):
 
 
 def confirm(parent,title,summary,details,action='永久删除',warning=''):
-    owner=parent.winfo_toplevel();window=tk.Toplevel(owner);window.title(tr(title));window.configure(bg=T.BG);window.geometry('820x480');window.minsize(620,360);window.transient(owner)
+    owner=parent.winfo_toplevel();window=tk.Toplevel(owner);fade_in(window);window.title(tr(title));window.configure(bg=T.BG);window.geometry('820x480');window.minsize(620,360);window.transient(owner)
     footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=24,pady=(0,18))
     body=tk.Frame(window,bg=T.BG);body.pack(fill='both',expand=True,padx=24,pady=18)
     tk.Label(body,text=tr(summary),bg=T.BG,fg=T.FG,font=(T.FONT,14,'bold'),anchor='w').pack(fill='x',pady=(0,12))

@@ -11,6 +11,7 @@ from control_feedback import StatusFeedback
 from control_validation import Feedback
 from control_widgets import px,backdrop
 from training_zones import validate,save,path
+from control_motion import fade_in
 
 FIELDS=(('name','名称'),('start','起点 / m'),('apex','弯心 / m'),('end','终点 / m'))
 
@@ -34,7 +35,7 @@ class ZoneEditor:
     def __init__(self,app,identity,entry,definitions,on_save):
         self.app=app;self.identity=identity;self.entry=copy.deepcopy(entry);self.callbacks=[on_save];self.items=[(str(i),copy.deepcopy(z)) for i,z in enumerate(definitions)];self.serial=len(self.items);self.selected=None;self.loading=False;self.automatic=False;self.busy=False;self.undo_state=None;self.after_close=None;self.notice=('',{})
         self.original=copy.deepcopy(self.items)
-        w=tk.Toplevel(app.root);self.window=w;w.zone_editor=self;w.configure(bg=T.BG);w.transient(app.root);w.geometry('940x760');w.minsize(680,540)
+        w=tk.Toplevel(app.root);fade_in(w);self.window=w;w.zone_editor=self;w.configure(bg=T.BG);w.transient(app.root);w.geometry('940x760');w.minsize(680,540)
         footer=tk.Frame(w,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,14));self.status=tk.StringVar(w);self.feedback=StatusFeedback(footer,self.status);self.feedback.pack(fill='x',padx=10,pady=6)
         row=tk.Frame(footer,bg=T.CARD);row.pack(fill='x',padx=10,pady=(0,8));self.actions=row;install(row);self.buttons={}
         for key,title,command in (('save','保存并重新分析',self.commit),('undo','撤销上一步',self.undo),('automatic','恢复自动区间',self.reset)):

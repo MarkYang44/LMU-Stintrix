@@ -28,10 +28,15 @@ class Tooltip:
         self.hide();self.key=key;owner=self.widget.winfo_toplevel()
         for sequence in ('<Configure>','<FocusOut>'):
             token=owner.bind(sequence,lambda e,w=owner:self.hide() if e.widget is w else None,add='+');self.bindings.append((owner,sequence,token))
+        warm=time.perf_counter()<_warm_until
         def show():
             self.pending=None
             if not self.widget.winfo_exists() or not self.widget.winfo_ismapped():return
             window=tk.Toplevel(self.widget.winfo_toplevel());self.window=window;window.overrideredirect(True);window.title('Stintrix Tooltip')
+            # The first hint fades in briefly; neighbouring hints answer at once.
+            from control_motion import motion_allowed,Motion
+            fade=not warm and motion_allowed(self.widget)
+            if fade:window.attributes('-alpha',0.)
             from control_widgets import px
             # Same hairline edge as the selector and action-menu popovers.
             tk.Label(window,text=str(text)[:2000],wraplength=px(window,480),justify='left',anchor='w',bg=T.FIELD,fg=T.FG,relief='flat',borderwidth=0,
@@ -40,8 +45,10 @@ class Tooltip:
             from control_layout_preview import monitors
             screens=monitors(self.widget);sx,sy,sw,sh=next((r for r in screens if r[0]<=x<r[0]+r[2] and r[1]<=y<r[1]+r[3]),screens[0])
             width=window.winfo_reqwidth();height=window.winfo_reqheight();left=max(sx,min(x+14,sx+sw-width));top=max(sy,min(y+18,sy+sh-height))
-            if self.window is window and window.winfo_exists():position(window,left,top)
-        self.pending=self.widget.after(WARM_DELAY_MS if time.perf_counter()<_warm_until else DELAY_MS,show)
+            if self.window is window and window.winfo_exists():
+                position(window,left,top)
+                if fade:Motion(window).animate('arrive',lambda t:window.attributes('-alpha',t),120)
+        self.pending=self.widget.after(WARM_DELAY_MS if warm else DELAY_MS,show)
     def hide(self):
         global _warm_until
         if self.window is not None:_warm_until=time.perf_counter()+WARM_S

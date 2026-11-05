@@ -4,6 +4,7 @@ import tkinter as tk
 from control_theme import T
 from i18n import Label,tr
 from video_signal import clock,number,arc_points
+from control_motion import fade_in
 
 NAMES={'throttle':'油门圆弧','brake':'刹车圆弧','anchor':'固定文字','distance_box':'距离读数','timer_box':'圈内计时'}
 
@@ -185,7 +186,7 @@ class VideoGuide:
     def show_help(self):
         if self.help_window is not None and self.help_window.winfo_exists():self.help_window.lift();return
         from control_video_widgets import ScrollPage,Action
-        top=tk.Toplevel(self.window);self.help_window=top;top.title(tr('视频提取 · 操作示意'));top.geometry('760x650');top.minsize(620,480);top.configure(bg=T.BG)
+        top=tk.Toplevel(self.window);fade_in(top);self.help_window=top;top.title(tr('视频提取 · 操作示意'));top.geometry('760x650');top.minsize(620,480);top.configure(bg=T.BG)
         Action(top,'看懂了，返回标定',top.destroy,190,True).pack(side='bottom',pady=12)
         page=ScrollPage(top);page.pack(fill='both',expand=True,padx=18,pady=12)
         top.bind('<MouseWheel>',lambda e:page.wheel(e.delta))

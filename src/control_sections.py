@@ -68,12 +68,16 @@ class Disclosure(tk.Frame):
         self.states=getattr(app,'disclosure_states',{});app.disclosure_states=self.states
         self.button=Action(header if header is not None else self,title,self.toggle,130);self.button.configure(height=px(self,34));self.button.pack(side='left' if header is not None else 'top',anchor='w',padx=(8,0) if header is not None else 0)
         self.body=tk.Frame(self,bg=self.cget('bg'));self.pack(fill='x',pady=0 if header is not None else 3);self.retranslate=self.translate;self.set_open(bool(self.states.get(key)))
-    def set_open(self,value):
+    def set_open(self,value,animate=False):
         self.states[self.key]=value
-        if value:self.body.pack(fill='x',pady=5)
+        if value:
+            from control_motion import expand
+            show=lambda:self.body.pack(fill='x',pady=5)
+            if animate:expand(self.body,show)
+            else:show()
         else:self.body.pack_forget()
         self.translate()
-    def toggle(self):self.set_open(not bool(self.body.winfo_manager()))
+    def toggle(self):self.set_open(not bool(self.body.winfo_manager()),True)
     def translate(self):
         from i18n import tr
         from control_widgets import px

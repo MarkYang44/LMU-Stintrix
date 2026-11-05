@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from control_theme import T
 from control_video_widgets import Action
-from control_motion import keyboard_action
+from control_motion import keyboard_action,fade_in
 from i18n import Label,tr
 
 
@@ -40,7 +40,7 @@ def show(table):
         snapshot=old.cell_snapshot
         if (snapshot['row'],snapshot['column'],snapshot['value'])==cell:old.deiconify();old.lift();snapshot['text'].focus_set();return old
         old.destroy()
-    table.tooltip.hide();window=tk.Toplevel(table.winfo_toplevel());table.cell_details=window;window.configure(bg=T.BG);window.title(tr('单元格详情'));window.geometry('650x430');window.minsize(460,320);window.transient(table.winfo_toplevel())
+    table.tooltip.hide();window=tk.Toplevel(table.winfo_toplevel());fade_in(window);table.cell_details=window;window.configure(bg=T.BG);window.title(tr('单元格详情'));window.geometry('650x430');window.minsize(460,320);window.transient(table.winfo_toplevel())
     body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=(14,8))
     heading=Label(body,text=table.labels[key],bg=T.CARD,fg=T.ACCENT,font=(T.FONT,13,'bold'),anchor='w');heading.pack(fill='x',padx=12,pady=(10,4))
     values=dict(zip(table.columns,table.rows[iid]));context=' · '.join(str(values[k]) for k in ('track','car','vehicle','date') if values.get(k))

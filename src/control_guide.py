@@ -109,7 +109,9 @@ class GuidePage:
 
     def toggle_metadata(self):
         opened=not bool(self.metadata.winfo_manager());self.state['metadata']=opened
-        if opened:self.metadata.pack(fill='x',pady=6)
+        if opened:
+            from control_motion import expand
+            expand(self.metadata,lambda:self.metadata.pack(fill='x',pady=6))
         else:self.metadata.pack_forget()
         self.metadata_button.configure(text=self.tr('资料说明 ▾','About this data ▾') if opened else self.tr('资料说明 ▸','About this data ▸'))
 
@@ -135,11 +137,15 @@ class GuidePage:
         self.state['page']=0;self.state['mode']='browse';self.state.pop('browse_scroll',None)
 
     def toggle_filters(self):
-        self.state['filters_open']=not self.state.get('filters_open',False);self.sync_filters()
+        self.state['filters_open']=not self.state.get('filters_open',False);self.sync_filters(True)
 
-    def sync_filters(self):
+    def sync_filters(self,animate=False):
         opened=bool(self.state.get('filters_open',False));active=[key for key in self.choices if self.state[key]]
-        if opened and not self.filter_fields.winfo_manager():self.filter_fields.pack(fill='x',before=self.filter_tools)
+        if opened and not self.filter_fields.winfo_manager():
+            from control_motion import expand
+            show=lambda:self.filter_fields.pack(fill='x',before=self.filter_tools)
+            if animate:expand(self.filter_fields,show)
+            else:show()
         elif not opened:self.filter_fields.pack_forget()
         title=self.tr('筛选条件','Filters')+(f' · {len(active)}' if active else '')
         self.filter_button.configure(text=title,selected=opened,width=max(px(self.filter_button,110),self.filter_button.font.measure(title)+px(self.filter_button,36)))

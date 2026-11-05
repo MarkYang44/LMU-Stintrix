@@ -8,6 +8,7 @@ from control_widgets import px,Switch
 from control_video_widgets import Action
 from control_theme import T
 import vehiclelab
+from control_motion import fade_in
 
 
 def show(owner,target=None):
@@ -16,7 +17,7 @@ def show(owner,target=None):
         previous.lift()
         if target in previous.profile_fields:previous.profile_focus(target)
         return previous
-    window=tk.Toplevel(owner.root);owner.profile_dialog=window;window.title(tr('Stintrix · 车型轮胎阈值'));window.geometry(f'{px(window,680)}x{px(window,680)}');window.minsize(px(window,620),px(window,650))
+    window=tk.Toplevel(owner.root);fade_in(window);owner.profile_dialog=window;window.title(tr('Stintrix · 车型轮胎阈值'));window.geometry(f'{px(window,680)}x{px(window,680)}');window.minsize(px(window,620),px(window,650))
     window.configure(bg=T.CARD);window.transient(owner.root)
     footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=24,pady=(0,18))
     from control_video_widgets import ScrollPage

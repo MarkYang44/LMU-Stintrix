@@ -6,6 +6,7 @@ from control_list import SessionList
 from i18n import tr
 from control_search import SearchField
 from control_fields import Select
+from control_motion import fade_in
 
 
 def jobs(app):
@@ -68,7 +69,7 @@ class BatchJob:
         self.app=app;self.values=values;self.operation=operation;self.destination=destination;self.on_done=on_done;self.result_mode=bool(result_actions);self.summary_base=''
         self.states=['等待处理']*len(values);self.errors=['']*len(values);self.results={};self.outputs={};self.result_actions=None;self.busy=False;self.stop=threading.Event();self.events=queue.SimpleQueue();self.timer=None
         self.names=names or [Path(str(value)).name for value in values]
-        self.window=w=tk.Toplevel(app.root);w.title(tr(title));w.geometry('1000x640');w.minsize(720,560);w.configure(bg=T.BG)
+        self.window=w=tk.Toplevel(app.root);fade_in(w);w.title(tr(title));w.geometry('1000x640');w.minsize(720,560);w.configure(bg=T.BG)
         footer=tk.Frame(w,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=18)
         body=tk.Frame(w,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=(18,0))
         app.label(body,title,15 if result_actions else 18,T.FG,True).pack(anchor='w',padx=12,pady=(8,3) if result_actions else 12)

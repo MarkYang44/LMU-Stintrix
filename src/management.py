@@ -15,10 +15,11 @@ from sessionlab import analyze_session
 from laps import write_compare,complete_laps,export_selected_laps,finished_metadata
 from paths import ASSETS
 from track_names import display as track_name,search_text as track_search
+from control_motion import fade_in
 
 
 def panel(app,title,width,height):
-    window=tk.Toplevel(app.root);window.title(tr(title));window.geometry(f'{width}x{height}')
+    window=tk.Toplevel(app.root);fade_in(window);window.title(tr(title));window.geometry(f'{width}x{height}')
     window.configure(bg=T.BG);window.attributes('-topmost',True)
     style=ttk.Style(window);style.theme_use('clam')
     style.configure('Scope.Treeview',background=T.CARD,foreground=T.FG,fieldbackground=T.CARD,rowheight=29)

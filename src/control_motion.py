@@ -150,12 +150,101 @@ class SmoothScroll:
         if not motion_allowed(self.widget):self.paint(self.target);self.velocity=0.;self.value=None;return
         now=time.perf_counter();dt=max(0,now-self.last);self.last=now
         current=max(0,min(maximum,self.value if self.value is not None else self.position()))
-        value,self.velocity=spring_step(current,self.velocity,self.target,dt,response=.36)
+        # A slightly tighter spring keeps wheel scrolling smooth but responsive.
+        value,self.velocity=spring_step(current,self.velocity,self.target,dt,response=.3)
         self.value=max(0,min(maximum,value))
         if self.value!=value:self.velocity=0.
         if abs(self.target-self.value)<.3 and abs(self.velocity)<5:
             self.paint(self.target);self.velocity=0.;self.value=None;return
         self.paint(self.value);self.deadline,self.job=schedule_frame(self.widget,self.deadline,self.frame)
+
+
+def fade_in(window,duration=180):
+    """Secondary windows arrive as one native surface once they are mapped.
+
+    Keyboard-opened windows and reduced motion appear at once. A late timer
+    guarantees no window can stay transparent if its first map was missed.
+    """
+    owner=getattr(window,'master',None) or window
+    if not motion_allowed(owner):return None
+    try:window.attributes('-alpha',0.)
+    except tk.TclError:return None
+    driver=Motion(window);started=[False]
+    def start(event=None):
+        if (event is not None and event.widget is not window) or started[0]:return
+        started[0]=True
+        try:
+            # Paint the still-transparent window first: a heavy first paint
+            # would otherwise consume the whole fade in a single frame.
+            window.update_idletasks()
+            driver.animate('arrive',lambda t:window.attributes('-alpha',t),duration)
+        except tk.TclError:pass
+    window.bind('<Map>',start,add='+');window.after(500,start)
+    return driver
+
+
+def _natural_height(frame,manager):
+    """Height a clipped panel would request: pack slaves stack, grid uses its bbox."""
+    if manager=='grid':
+        box=frame.grid_bbox();return box[3] if box else frame.winfo_reqheight()
+    def pixels(value):
+        # Tk reports padding as 4, '4', (4, 0) or Tcl objects; '2m' style
+        # distances are converted by Tk itself.
+        parts=value if isinstance(value,(tuple,list)) else frame.tk.splitlist(str(value))
+        return [frame.winfo_pixels(str(v)) for v in parts] or [0]
+    stacked=side=0
+    for slave in frame.pack_slaves():
+        try:
+            info=slave.pack_info();pady=pixels(info.get('pady',0))
+            height=slave.winfo_reqheight()+(2*pady[0] if len(pady)==1 else pady[0]+pady[1])+2*pixels(info.get('ipady',0))[0]
+        except (tk.TclError,ValueError):continue
+        if str(info.get('side'))in('left','right'):side=max(side,height)
+        else:stacked+=height
+    return stacked+side
+
+
+def _release(frame):
+    propagate=getattr(frame,'_expand_propagate',None)
+    if propagate is not None:
+        frame._expand_propagate=None
+        try:propagate(True);frame.configure(height=0)
+        except tk.TclError:pass
+
+
+def expand(frame,show,duration=170,limit=560):
+    """Open a hidden panel by growing its clip height; its content keeps the final layout.
+
+    Only opening animates: closing stays instant because exits should be
+    faster than entrances. Keyboard actions, reduced motion and panels taller
+    than ``limit`` logical pixels open at once. Closing mid-way restores the
+    panel's natural geometry on the next frame.
+    """
+    motion=getattr(frame,'_expand_motion',None)
+    if motion is not None:motion.cancel('expand')
+    _release(frame)
+    if not motion_allowed(frame):show();return False
+    # A hidden frame computes its requested size here without painting.
+    frame.update_idletasks()
+    natural=frame.winfo_reqheight();scale=max(1,float(frame.winfo_fpixels('1i'))/96)
+    if natural<=2 or natural>limit*scale:show();return False
+    manager='grid' if frame.grid_slaves() and not frame.pack_slaves() else 'pack'
+    propagate=frame.grid_propagate if manager=='grid' else frame.pack_propagate
+    propagate(False);frame.configure(height=1);frame._expand_propagate=propagate
+    show()
+    # Paint the clipped panel once before starting the clock: the first paint
+    # of new controls is the expensive frame and must not eat the animation.
+    frame.update_idletasks()
+    if not frame.winfo_manager():_release(frame);return False
+    if motion is None:motion=Motion(frame);frame._expand_motion=motion
+    def paint(t):
+        if not frame.winfo_manager():_release(frame);motion.cancel('expand');return
+        if t>=1:_release(frame);return
+        # Follow content that settles while opening (wrapped rows, flow rows).
+        try:target=max(natural,_natural_height(frame,manager))
+        except (tk.TclError,ValueError):target=natural
+        frame.configure(height=max(1,round(target*t)))
+    motion.animate('expand',paint,duration)
+    return True
 
 
 def reveal_window(window):

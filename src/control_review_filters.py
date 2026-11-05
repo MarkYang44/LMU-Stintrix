@@ -22,7 +22,9 @@ class ReviewFilters(EventControls):
         self.sync_disclosure()
     def toggle_filters(self):
         opened=not bool(self.winfo_manager());self.app.review_filters_open=opened
-        if opened:self.pack(fill='x',pady=8,before=self.compact_target)
+        if opened:
+            from control_motion import expand
+            expand(self,lambda:self.pack(fill='x',pady=8,before=self.compact_target))
         else:self.pack_forget()
         self.sync_chips();self.sync_disclosure()
     def active_count(self):

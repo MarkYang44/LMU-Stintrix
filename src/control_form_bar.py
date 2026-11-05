@@ -24,7 +24,9 @@ class FormBar:
         if module and not self.current:self.current=module
         if any(changed.values()):
             if not self.packed:
-                self.frame.pack(side='bottom',fill='x',before=self.app.shell.scroll.master,pady=(6,0));self.packed=True
+                # The save bar rises like a drawer instead of popping in.
+                from control_motion import expand
+                expand(self.frame,lambda:self.frame.pack(side='bottom',fill='x',before=self.app.shell.scroll.master,pady=(6,0)));self.packed=True
                 # The save surface arrives with a short accent fade; leaving stays instant.
                 from control_motion import blend
                 self.motion.animate('arrive',lambda t:self.label.configure(fg=blend(T.CARD,T.ACCENT,t)),180)

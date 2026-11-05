@@ -39,7 +39,9 @@ class Surface:
             self.job=None
             if self.covering and token==self.generation:
                 self.hint.configure(text=tr('正在准备页面…'));self.hint.pack(fill='x',padx=px(self.cover,24),pady=px(self.cover,28))
-        self.job=self.cover.after(150,hint);return token
+        # Typical page builds finish well inside this delay; showing the hint
+        # earlier only flashes a loader for a fraction of a second.
+        self.job=self.cover.after(350,hint);return token
     def reveal(self,token=None):
         if token is not None and token!=self.generation:return False
         self.host.update_idletasks()

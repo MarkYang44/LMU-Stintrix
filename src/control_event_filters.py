@@ -59,7 +59,7 @@ class EventControls(tk.Frame):
         self.selection_detail=tk.StringVar(self);self.detail=app.label(self,self.selection_detail,9,T.ACCENT);self.detail.bind('<Configure>',lambda e:self.detail.configure(wraplength=max(100,e.width)))
         self.hint=app.label(self,'天气与车辆条件仅代表已记录有效圈；最快圈页按候选圈条件筛选后再选纪录。比赛时长缺少起终点时不推算。',9,T.MUTED);self.hint.bind('<Configure>',lambda e:self.hint.configure(wraplength=max(100,e.width)))
         self.update_views();self.update_options([]);self.pack(fill='x',pady=8)
-        if self.filter_keys is None and getattr(app,'filter_expansion',{}).get(key):self.toggle()
+        if self.filter_keys is None and getattr(app,'filter_expansion',{}).get(key):self.toggle(False)
     def prune_state(self):
         if self.filter_keys is None:return
         for key,value in DEFAULTS.items():
@@ -80,12 +80,17 @@ class EventControls(tk.Frame):
         cols=max(1,min(4,event.width//px(self,165)))
         for i in range(4):parent.columnconfigure(i,weight=1 if i<cols else 0,uniform='facets' if i<cols else '')
         for i,tile in enumerate(tiles):tile.grid(row=i//cols,column=i%cols,sticky='ew',padx=(0,px(self,10)) if i%cols<cols-1 else 0,pady=(0,px(self,6)))
-    def toggle(self):
+    def toggle(self,animate=True):
         if self.filter_keys is not None:return
         if not hasattr(self.app,'filter_expansion'):self.app.filter_expansion={}
         self.app.filter_expansion[self.key]=not bool(self.advanced.winfo_manager())
         if self.advanced.winfo_manager():self.advanced.pack_forget();self.hint.pack_forget()
-        else:self.advanced.pack(fill='x',after=self.basic);self.hint.pack(fill='x',pady=3)
+        else:
+            from control_motion import expand
+            show=lambda:self.advanced.pack(fill='x',after=self.basic)
+            if animate:expand(self.advanced,show)
+            else:show()
+            self.hint.pack(fill='x',pady=3)
     def update_views(self):
         value=read_json(self.path,{});self.views={**BUILTINS,**value.get('views',{})}
         if self.filter_keys is not None:

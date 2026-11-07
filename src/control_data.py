@@ -23,7 +23,10 @@ def build(app):
             body=app.card('视频提取油刹曲线','三种输入：普通 POV、距离与计时 HUD、视频与同圈遥测；估算结果单独保存')
             from control_video import show as video_analysis
             from control_video_results import show as recent_videos
-            actions=app.row(body);install(actions);app.button(actions,'视频分析与标定',lambda:video_analysis(app,app.data_path),True,190);app.button(actions,'最近提取结果',lambda:recent_videos(app,app.data_path),False,170)
+            actions=app.row(body);install(actions);app.button(actions,'视频分析与标定',lambda:video_analysis(app,app.data_path),True,190);app.button(actions,'全部提取结果',lambda:recent_videos(app,app.data_path),False,170)
+            # The newest results sit on the card; the full list stays one click away.
+            from control_video_recent import RecentVideos
+            app.recent_videos=RecentVideos(app,body)
         app.content=sections.frames['packages'];body=app.card('',compact=True)
         import archive_preferences
         preferences=archive_preferences.load(app.data_path);app.archive_format=tk.StringVar(app.root,value='ZIP' if preferences['format']=='zip' else '7z');app.archive_verify=tk.BooleanVar(app.root,value=preferences['verify'])

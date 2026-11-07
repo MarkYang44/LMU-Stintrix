@@ -2101,5 +2101,10 @@
   "浅色主题": "Light theme",
   "中文界面": "Chinese interface",
   "记录中": "Recording",
-  "距 PB": "to PB"
+  "距 PB": "to PB",
+  "最近提取": "Latest extractions",
+  "全部提取结果": "All video results",
+  "打开报告": "Open report",
+  "还没有提取结果；用「视频分析与标定」开始第一段。": "No results yet; start with Video analysis & calibration.",
+  "读取结果失败，可在「全部提取结果」中重试": "Could not read results; retry in All video results"
 }

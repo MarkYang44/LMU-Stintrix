@@ -78,7 +78,8 @@ class Library(WorkList):
             lambda item:str(Path(item['folder']).resolve()),self.format_entry,filters=dict(all='全部来源',Logs='Logs',ImportedLogs='ImportedLogs',RecoveredLogs='RecoveredLogs',DemoLogs='DemoLogs'),accept=self.matches,detail=self.describe,
             hint='搜索阶段、日期、车手或备注；可多选 1–6 场对比，原始记录保留。' if self.capabilities.reference_laps else 'AC EVO：搜索赛道、布局、车辆或备注；可选择 1–2 场进行圈 A / 圈 B 对比。',searchable=lambda item:search_text(item['track'])+' '+item.get('driver',''),include=lambda item:str(Path(item['folder']).resolve()) in self.targets)
         host.view=self;self.window.library=self;self.window.geometry('1160x730');self.window.minsize(900,650);self.details.configure(height=2)
-        self.search.placeholder='搜索赛道、布局、车辆、日期或备注';self.search.paint()
+        # Only AC EVO lists (and therefore searches) layouts; the hint names what matches.
+        self.search.placeholder='搜索赛道、车辆、日期或备注' if self.capabilities.reference_laps else '搜索赛道、布局、车辆、日期或备注';self.search.paint()
         self.track=tk.StringVar(self.window,value=self.context.get('track',''));self.car=tk.StringVar(self.window,value=self.context.get('car',''))
         self.participation=tk.StringVar(self.window,value=self.context.get('mode',''))
         self.query.set(self.context.get('query',''));self.view.set(self.context.get('source','all'));self.remembered=tuple(self.context.get('selected',()))

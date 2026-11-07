@@ -80,7 +80,8 @@ class UI(unittest.TestCase):
     def test_fixed_guide_actions_stay_visible_and_return_to_search_without_losing_selection(self):
         app,root,errors=self.app();app.request_page(4);self.settle(app);g=app.guide_page
         g.select(next(iter(g.library.recommendations)));chosen=list(g.state['comparison']);buttons=g.fixed_actions;top=buttons['search'].winfo_rooty();app.scroll.yview_moveto(.7);self.pump(app,.08)
-        self.assertEqual(buttons['search'].winfo_rooty(),top);buttons['search'].invoke();self.assertIs(app.root.focus_get(),g.search_entry);self.assertEqual(g.state['comparison'],chosen)
+        # The fixed search is the field itself; Ctrl+F focuses it in place.
+        self.assertEqual(buttons['search'].winfo_rooty(),top);app.focus_search();self.assertIs(app.root.focus_get(),g.search_entry);self.assertEqual(g.state['comparison'],chosen)
         app.install_toolbar();g.turn(1);self.settle(app);self.assertTrue(all(button.winfo_exists() for pair in g.pagers for button in pair));self.assertFalse(errors)
     def test_data_section_handoff_keeps_table_identity_drafts_and_commits_after_restore(self):
         app,root,errors=self.app(True);app.show_page(3);self.pump(app,.25);table=app.tree;table.selection_set((table.get_children()[0],));selected=table.selection();app.data_tasks.select('renderer');app.renderer_path.set('draft renderer.exe')

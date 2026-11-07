@@ -59,11 +59,15 @@ class ControlCenter:
         self.recent=RecentSession(ROOT);shared_shortcuts=getattr(hud,'shortcuts',None);self.owns_shortcuts=shared_shortcuts is None
         self.shortcuts=shared_shortcuts or ShortcutService(ROOT,lambda:self.hud if self.active() else None,self.show,lambda text:self.status.set(tr(text)))
         if shared_shortcuts is not None:self.shortcuts.notify=lambda text:self.status.set(tr(text))
+        from control_palette import Palette
+        self.palette=Palette(self)
         self.build_shell()
         branding.apply(self.root)
         # Bind to this toplevel only, leaving the HUD's high-rate event loop alone.
         self.root.bind('<MouseWheel>',self.wheel)
         self.root.bind('<Control-f>',self.focus_search)
+        # Ctrl+K reaches any page, action, setting or guide entry by typing.
+        for sequence in ('<Control-k>','<Control-K>'):self.root.bind(sequence,self.palette.toggle)
         # Ctrl+1–7 follow the numbered rail entries. Keyboard page changes
         # commit instantly: repeated shortcuts must never wait on motion.
         from control_motion import keyboard_action
@@ -100,7 +104,7 @@ class ControlCenter:
         self.page_titles=PAGES;self.page_subtitles=SUBTITLES
         if self.profile.catalogue=='official':
             self.page_subtitles=(*SUBTITLES[:2],'配置输入采样、HUD 刷新与练习赛记录。','共享赛事选择，管理归档、无损存储和报告重试。','查看赛道布局与官方线路图。','按品牌与车型组别筛选官方图片。','赛道最快圈与纪录履历，保留每一次突破。')
-        self.shell=Shell(self.root,PAGES,self.request_page,self.status,self.toggle_theme,self.toggle_language)
+        self.shell=Shell(self.root,PAGES,self.request_page,self.status,self.toggle_theme,self.toggle_language,self.palette.toggle)
         self.scroll=self.shell.scroll;self.content=self.shell.content;self.content_item=self.shell.item
         self.title=self.shell.title;self.subtitle=self.shell.subtitle
         from control_pages import PageDeck
@@ -191,7 +195,10 @@ class ControlCenter:
     def active(self):
         return self.hud is not None and not self.hud.closing and self.hud.root.winfo_exists()
 
-    def request_page(self,index):self.pages.request(index)
+    def request_page(self,index):
+        palette=getattr(self,'palette',None)
+        if palette is not None:palette.close(False)
+        self.pages.request(index)
 
     def show_page(self,index,progressive=False):
         from control_view_state import show_page
@@ -223,9 +230,11 @@ class ControlCenter:
         self.live_label=self.label(live_row,'等待启动',11,T.ACCENT);self.live_label.pack(side='left')
         self.recording_detail=self.label(body,'',9,T.MUTED)
         self.start_button=self.button(live_row,'▶  启动记录',self.start,True,160);self.stop_button=self.button(live_row,'停止并保存',self.stop_hud,False,140)
-        for button in (self.stop_button,self.start_button):button.pack_forget();button.pack(side='right',padx=(8,0),pady=2)
+        # One primary control: start while idle, stop-and-save while a HUD records.
+        for button in (self.stop_button,self.start_button):button.pack_forget()
+        (self.stop_button if self.active() else self.start_button).pack(side='right',padx=(8,0),pady=2)
         def arrange_primary(event,label=self.live_label,start=self.start_button,stop=self.stop_button):
-            if all(w.winfo_exists() for w in (label,start,stop)):label.configure(wraplength=max(100,event.width-start.winfo_reqwidth()-stop.winfo_reqwidth()-px(label,48)))
+            if all(w.winfo_exists() for w in (label,start,stop)):label.configure(wraplength=max(100,event.width-sum(b.winfo_reqwidth() for b in (start,stop) if b.winfo_manager())-px(label,48)))
         live_row.bind('<Configure>',arrange_primary)
         self.run_layout_summary=self.label(body,'',9,T.MUTED);self.run_layout_summary.pack(fill='x',pady=1)
         self.run_layout_summary.bind('<Configure>',lambda e:self.run_layout_summary.configure(wraplength=max(100,e.width)))
@@ -593,17 +602,15 @@ class ControlCenter:
         yield
         body=self.card('输入采样与 HUD 刷新','完整采样按原始精度保存；有效更新频率由游戏与硬件决定')
         self.settings_anchors.append(('输入采样',body))
-        yield from self.form(body,'sampling',[('fixed_hz','固定采样 / Hz'),('min_hz','动态最低 / Hz'),('max_hz','动态最高 / Hz'),
-            ('change_pct_s','升频变化阈值 / % 每秒'),('hold_s','降频延迟 / 秒'),('brake_pct','刹车升频阈值 / %'),('draw_hz','手动绘制 / Hz')],
-            [('mode','采样模式',['fixed','dynamic']),('draw_mode','绘制模式',['sync','manual'])])
+        from control_settings_search import FORMS,TYRES
+        yield from self.form(body,'sampling',*map(list,FORMS['sampling']))
         body=self.card('轮胎、燃油与能量策略')
         self.settings_anchors.append(('车辆策略',body))
-        yield from self.form(body,'vehicle',[('record_hz','附加遥测记录 / Hz'),('history_laps','耗油统计圈数'),('reserve_l','燃油余量 / L'),('extra_finish_laps','保险圈数'),('target_value','手动赛程数值')],
-            [('target_mode','赛程来源',['auto','laps','time']),('rate_mode','耗油统计',['conservative','median'])])
+        yield from self.form(body,'vehicle',*map(list,FORMS['vehicle']))
         from control_profile import show
         profile_button=self.button(self.row(body),'车型轮胎阈值',lambda:show(self),False,160)
         from control_settings_search import register as search_setting
-        for key,label in [('temp_min','胎面中温下限 / °C'),('temp_max','胎面中温上限 / °C'),('pressure_min','胎压下限 / kPa'),('pressure_max','胎压上限 / kPa'),('wear_min','胎况字段下限 / %')]:
+        for key,label in TYRES:
             search_setting(self,key,label,profile_button,'vehicle',lambda k=key:show(self,target=k))
         def opacity():
             from control_layouts import show as layouts
@@ -612,9 +619,7 @@ class ControlCenter:
         search_setting(self,'opacity','HUD 透明度 / 不透明度',profile_button,'界面布局',opacity)
         body=self.card('进站、Stint 与天气')
         self.settings_anchors.append(('耐力与天气',body))
-        yield from self.form(body,'endurance',[('pit_limit_kmh','进站限速 / km/h（0 关闭）'),('pit_tolerance_kmh','超速容差 / km/h'),('stationary_kmh','静止阈值 / km/h'),
-            ('warmup_laps','暖胎观察圈数'),('pace_window','节奏统计窗口 / 圈'),('weather_window_s','天气趋势窗口 / 秒'),('rain_change','雨强提醒阈值 / 0–1'),
-            ('wetness_change','湿度提醒阈值 / 0–1'),('temp_change_c','温度提醒阈值 / °C'),('alert_cooldown_s','提醒冷却 / 秒')])
+        yield from self.form(body,'endurance',list(FORMS['endurance'][0]))
 
     def data_page(self):
         from control_data import build

@@ -26,8 +26,11 @@ class GuidePage:
 
     def tr(self,zh,en):return self.library.tr(zh,en)
     def focus_search(self):
+        # The search field is fixed above the cards: focusing never moves the reading position.
         if self.state['mode']=='compare':self.state['mode']='browse';self.render(top=True)
-        self.center.root.update_idletasks();self.center.scroll.yview_moveto(0);self.search_entry.focus_set();self.search_entry.selection_range(0,'end');return 'break'
+        entry=self.search_entry
+        if entry is None or not entry.winfo_exists():return 'break'
+        entry.focus_set();entry.selection_range(0,'end');return 'break'
     def dispose(self,event):
         if event.widget is not self.container:return
         self.closed=True;self.cards.page=None
@@ -43,15 +46,10 @@ class GuidePage:
         center=self.center;tr=self.tr
         self.container=tk.Frame(center.content,bg=T.BG);self.container.pack(fill='x')
         self.filter_card=GlassCard(self.container,compact=True);self.filter_card.pack(fill='x',pady=(0,12));body=self.filter_card.body
-        row=center.row(body);query=tk.StringVar(center.root,value=self.state['query']);self.variables['query']=query
-        center.label(row,tr('搜索  ','Search  '),10,T.MUTED).pack(side='left')
-        from control_search import SearchField
-        # Describe only what this view's text search actually matches; the car
-        # filter below narrows circuit recommendations separately.
-        hint=tr('搜索赛道或地区','Search circuit or location') if self.view=='tracks' else tr('搜索车型、品牌或组别','Search car, brand or class')
-        entry=SearchField(row,textvariable=query,command=self.filter_changed,placeholder=hint,font=(T.FONT,11));self.search_field=entry
-        entry.pack(side='left',fill='x',expand=True);self.search_entry=entry.entry
-        self.filter_button=center.button(row,tr('筛选条件','Filters'),self.toggle_filters,width=110)
+        query=tk.StringVar(center.root,value=self.state['query']);self.variables['query']=query
+        # Search and the filter toggle live in the fixed toolbar (install_actions);
+        # this card keeps the filter fields, chips, reset and the result count.
+        self.search_field=self.search_entry=self.filter_button=None
         self.query_trace=query.trace_add('write',lambda *_:self.remember_query())
         class_values={tr('全部组别','All classes'):'','LMGT3':'LMGT3','Hypercar':'Hypercar'}
         car_values={tr('全部车型','All cars'):'',**{item['name']:item['slug'] for item in self.library.data['cars'].values()}}
@@ -74,7 +72,7 @@ class GuidePage:
         self.page_number=tk.StringVar(center.root);self.variables['page_number']=self.page_number
         self.result=center.label(row,'',9,T.ACCENT);self.result.pack(side='left',padx=5)
         from control_guide_chips import Chips
-        self.filter_chips=Chips(body,self.remove_filter,lambda:self.search_entry.focus_set())
+        self.filter_chips=Chips(body,self.remove_filter,self.focus_search)
         self.metadata=tk.Frame(body,bg=T.CARD)
         self.cards.text(self.metadata,f"GTD {self.library.data['content_version']} · {self.library.data['updated']} · "+tr('资料参考：','Reference: ')+self.library.data['game_reference'],9,T.MUTED)
         self.cards.text(self.metadata,tr('实测验证：','Build-validated: ')+f"{self.library.data['validated_recommendations']}/{self.library.data['total_recommendations']} · "+tr('文字来自 GTD；图片来源 Le Mans Ultimate / Studio 397。保留原资料日期和未验证标记。','Content adapted from GTD; artwork credited to Le Mans Ultimate / Studio 397. Original dates and unverified markers retained.'),9,T.MUTED)
@@ -82,7 +80,7 @@ class GuidePage:
             self.metadata.pack(fill='x',pady=6);self.metadata_button.configure(text=tr('资料说明 ▾','About this data ▾'))
         card=GlassCard(self.container,compact=True);self.selection=card.body
         self.selected_label=self.cards.text(self.selection,'',10,T.FG)
-        self.selection_chips=Chips(self.selection,self.select,lambda:self.search_entry.focus_set())
+        self.selection_chips=Chips(self.selection,self.select,self.focus_search)
         row=center.row(self.selection);install(row)
         self.compare_button=center.button(row,tr('查看对比','View comparison'),self.compare,True,width=130)
         center.button(row,tr('清空选择','Clear selection'),self.clear,width=115)
@@ -91,21 +89,35 @@ class GuidePage:
         self.footer=center.row(self.container);install(self.footer);self.pager(self.footer)
         self.page_label=center.label(self.footer,'',9,T.MUTED);self.page_label.pack(side='left',padx=8)
 
-    def pager(self,row):
-        previous=self.center.button(row,self.tr('上一页','Previous'),lambda:self.turn(-1),width=86)
+    def pager(self,row,compact=False):
+        previous=self.center.button(row,'\u2039' if compact else self.tr('上一页','Previous'),lambda:self.turn(-1),width=44 if compact else 86)
         box=Select(row,textvariable=self.page_number,values=[],width=9);box.pack(side='left',padx=4,pady=4);box.bind('<<ComboboxSelected>>',lambda _:self.go_page())
-        following=self.center.button(row,self.tr('下一页','Next'),lambda:self.turn(1),width=86)
+        following=self.center.button(row,'\u203a' if compact else self.tr('下一页','Next'),lambda:self.turn(1),width=44 if compact else 86)
+        if compact:
+            # Arrow-only pager buttons still name themselves on hover.
+            from control_tooltip import Tooltip
+            for button,text in ((previous,self.tr('上一页','Previous')),(following,self.tr('下一页','Next'))):
+                tip=Tooltip(button);button.bind('<Enter>',lambda _,b=button,t=text,h=tip:h.request(t,t,b.winfo_rootx(),b.winfo_rooty()+b.winfo_height()),add='+');button.bind('<Leave>',lambda _,h=tip:h.hide(),add='+')
         self.pagers.append((previous,following));self.page_boxes.append(box)
 
     def install_actions(self,host):
         self.pagers=[pair for pair in self.pagers if all(button.winfo_exists() for button in pair)]
         self.page_boxes=[box for box in self.page_boxes if box.winfo_exists()]
         host.pack(fill='x',before=self.center.shell.scroll.master,pady=(0,8));install(host)
-        self.pager(host)
-        self.fixed_actions={
-            'search':self.center.button(host,self.tr('搜索 / 筛选','Search / filters'),self.focus_search,width=130),
+        from control_search import SearchField
+        # One fixed row: the real search field (no separate "search" button that
+        # only scrolls to it), the filter toggle, a compact pager and comparison.
+        # Describe only what this view's text search actually matches; the car
+        # filter narrows circuit recommendations separately.
+        hint=self.tr('搜索赛道或地区','Search circuit or location') if self.view=='tracks' else self.tr('搜索车型、品牌或组别','Search car, brand or class')
+        field=SearchField(host,textvariable=self.variables['query'],command=self.filter_changed,placeholder=hint,font=(T.FONT,11));field.flow_stretch=True
+        field.configure(width=px(host,260));field.last=self.variables['query'].get()
+        self.search_field=field;self.search_entry=field.entry
+        self.filter_button=self.center.button(host,self.tr('筛选条件','Filters'),self.toggle_filters,width=110)
+        self.pager(host,compact=True)
+        self.fixed_actions={'search':field,'filters':self.filter_button,
             'compare':self.center.button(host,self.tr('查看对比','View comparison'),lambda:self.browse() if self.state['mode']=='compare' else self.compare(),True,width=145)}
-        self.update_selection();self.update_pagers()
+        self.sync_filters();self.update_selection();self.update_pagers()
 
     def toggle_metadata(self):
         opened=not bool(self.metadata.winfo_manager());self.state['metadata']=opened
@@ -148,7 +160,8 @@ class GuidePage:
             else:show()
         elif not opened:self.filter_fields.pack_forget()
         title=self.tr('筛选条件','Filters')+(f' · {len(active)}' if active else '')
-        self.filter_button.configure(text=title,selected=opened,width=max(px(self.filter_button,110),self.filter_button.font.measure(title)+px(self.filter_button,36)))
+        button=self.filter_button
+        if button is not None and button.winfo_exists():button.configure(text=title,selected=opened,width=max(px(button,110),button.font.measure(title)+px(button,36)))
         titles=dict(group=self.tr('组别','Class'),car=self.tr('车型','Car'),favorite=self.tr('收藏','Favorites'))
         self.filter_chips.set([] if opened else [(key,titles[key]+' · '+self.variables[key].get()) for key in active])
         self.reset_button.configure(state='normal' if active or self.state['query'] else 'disabled')
@@ -161,8 +174,11 @@ class GuidePage:
             self.center.root.after_cancel(self.job)
         self.job=None
         if self.closed:return
-        if self.search_field.pending:self.search_field.after_cancel(self.search_field.pending);self.search_field.pending=None
-        self.search_field.last=self.variables['query'].get();self.sync_filters();self.empty_action=None
+        field=self.search_field
+        if field is not None and field.winfo_exists():
+            if field.pending:field.after_cancel(field.pending);field.pending=None
+            field.last=self.variables['query'].get()
+        self.sync_filters();self.empty_action=None
         token=self.center.shell.cover_page() if self.initial_ready is None else None
         self.render_generation+=1;generation=self.render_generation
         if self.card_job:self.center.root.after_cancel(self.card_job);self.card_job=None
@@ -191,7 +207,7 @@ class GuidePage:
             if not self.rows:
                 self.cards.text(self.results,self.tr('没有匹配的资料，试试重置筛选。','No matches. Try resetting filters.'),12,T.MUTED)
                 label=self.tr('清空搜索，保留筛选','Clear search, keep filters') if self.state['query'] else self.tr('重置筛选','Reset filters')
-                self.empty_action=self.center.button(self.results,label,self.search_field.clear if self.state['query'] else self.reset,width=200)
+                self.empty_action=self.center.button(self.results,label,self.clear_query if self.state['query'] else self.reset,width=200)
             self.page_label.configure(text=f"{self.state['page']+1} / {pages} · "+self.tr('每页 3 张完整卡片','3 complete cards per page'))
         self.update_pagers()
         def finish():
@@ -260,6 +276,10 @@ class GuidePage:
     def browse(self):
         if self.state['mode']!='compare':return
         self.state['mode']='browse';self.render(restore=self.state.get('browse_scroll',0))
+    def clear_query(self):
+        field=self.search_field
+        if field is not None and field.winfo_exists():field.clear()
+        else:self.variables['query'].set('');self.filter_changed()
     def reset(self):
         self.state.update(query='',group='',car='',favorite='',page=0,mode='browse')
         self.variables['query'].set('')

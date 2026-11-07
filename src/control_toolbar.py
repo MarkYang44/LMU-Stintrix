@@ -151,6 +151,15 @@ def update(app):
         for name,primary in (('start_button',not active),('stop_button',active)):
             button=getattr(app,name,None)
             if button is not None and button.winfo_exists() and button.primary!=primary:button.primary=primary;button.paint()
+        # Start and stop share one place: only the action that applies now is
+        # shown, and saving keeps the stop control visible as its progress.
+        live=active or pending
+        for name,visible in (('start_button',not live),('stop_button',live)):
+            button=getattr(app,name,None)
+            if button is not None and button.winfo_exists() and bool(button.winfo_manager())!=visible:
+                if visible:button.pack(side='right',padx=(8,0),pady=2)
+                else:button.pack_forget()
+                button.master.event_generate('<Configure>',width=button.master.winfo_width())
         # Swap live HUD controls and the demo in the start row by HUD state.
         row=getattr(app,'run_tools_row',None)
         if row is not None and row.winfo_exists():

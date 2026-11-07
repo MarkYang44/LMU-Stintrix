@@ -38,7 +38,8 @@ def refresh(app):
             if variable.get()!=value:variable.set(value)
         if getattr(app,'evo_hud_vars',None):
             from evo_hud import load
-            values=app.hud.evo_hud_settings if app.active() else load(app.data_path)
+            hud=app.hud if app.active() else None
+            values=hud.evo_hud_settings if hud is not None else load(app.data_path)
             for key,var in app.evo_hud_vars.items():
                 if var.get()!=values[key]:var.set(values[key])
         from control_hud_stop import saving

@@ -23,7 +23,10 @@ def place(rows,available,gap):
     for index,row in enumerate(rows):
         if index:y+=gap
         height=max(h for *_,h in row);x=0
+        # A stretch child (a toolbar search field) takes the line's spare room.
+        spare=max(0,available-sum(width for _,width,_ in row)-gap*(len(row)-1))
         for child,width,h in row:
+            if getattr(child,'flow_stretch',False):width+=spare;spare=0
             child.place(x=x,y=y+(height-h)//2,width=min(available,width),height=h);x+=width+gap
         y+=height
     return y

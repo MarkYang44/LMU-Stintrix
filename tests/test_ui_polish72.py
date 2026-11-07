@@ -76,8 +76,12 @@ class UI(unittest.TestCase):
             try:
                 for kind in ('history','podium','official'):
                     app.personal_record_view=kind;app.show_page(6);self.pump(app,.35);t=app.record_loaders[kind].page.table
-                    if 'class' in t.columns:self.assertGreaterEqual(t.actual['class'],t.font.measure('LMGT3')+24*t.s)
-                    self.assertGreaterEqual(t.widths['date'],170*t.s)
+                    # Compact layouts may hide the class column (v0.3.16); when shown it must fit "LMGT3".
+                    if 'class' in t.actual:self.assertGreaterEqual(t.actual['class'],t.font.measure('LMGT3')+24*t.s)
+                    # Dates are never clipped at 125 %: the column fits its widest cell (and a full
+                    # timestamp when empty); compact history uses a narrower base since v0.3.16.
+                    dates=[t.rows[k][t.columns.index('date')] for k in t.order]+['2026-10-08 12:00:00']
+                    self.assertGreaterEqual(t.widths['date'],max(t.small.measure(d) for d in dates)+24*t.s)
                 w=show(app,root,Mock(),Mock());self.pump(app,.35);self.assertGreaterEqual(w.library.table.widths['date'],165*w.library.table.s);w.destroy();self.assertFalse((root/'table_views.json').exists());self.assertFalse(errors)
             finally:
                 app.close()

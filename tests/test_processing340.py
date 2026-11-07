@@ -80,7 +80,10 @@ with patch.object(ControlCenter,'repair_windows_entry'):
   app.set_theme('light');app.toggle_language();pump(.25);assert button.enabled and button.cget('text')=='Keep selected usable laps'
   w.geometry('800x600');pump(.2)
   assert button.winfo_width()>=button.font.measure(button.cget('text'))
+  # The rhythm chart replaces the table and its action footer; the actions must fit once the table returns.
+  assert not any(b.winfo_ismapped() for b in c['buttons'].values());c['rhythm'].toggle();pump(.2);assert not c['rhythm'].visible
   assert max(b.winfo_rooty()+b.winfo_height() for b in c['buttons'].values() if b.winfo_ismapped())<=w.winfo_rooty()+w.winfo_height()+1
+  c['rhythm'].toggle();pump(.2);assert c['rhythm'].visible
   button.invoke();pump();assert table.selection()==('1',) and c['rhythm'].visible and c['buttons']['curve'].enabled and not c['buttons']['compare'].enabled
   c['rhythm'].toggle();pump();c['kind'].set('other');c['populate']();pump();assert not button.winfo_manager() and not table.selection()
  # A failed refresh clears the contextual control and stale selection.

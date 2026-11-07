@@ -37,21 +37,37 @@ def matches(entries,query):
     return [entry for entry in entries if all(word in (' '.join([entry['key'],entry['label'],tr(entry['label']),entry['section'],tr(entry['section'])])).casefold() for word in words)] if words else []
 
 
+# Searchable preferences that live on other pages, and the parameter forms of
+# the settings page: one catalogue for the page, its search and Ctrl+K.
+ROUTES=(('silent_recording','静默记录 · 隐藏全部 HUD',0,'silent_mode',None),('storage_auto','赛后自动压缩',3,'storage_auto','storage'),('storage_columnar','新赛事使用分块列式存储',3,'storage_columnar','storage'),('cache_limit_mb','可重建缓存上限 / MiB',3,'cache_limit','storage'),('renderer_mode','生成方式',3,'renderer_mode','renderer'))
+FORMS={
+    'sampling':((('fixed_hz','固定采样 / Hz'),('min_hz','动态最低 / Hz'),('max_hz','动态最高 / Hz'),('change_pct_s','升频变化阈值 / % 每秒'),('hold_s','降频延迟 / 秒'),('brake_pct','刹车升频阈值 / %'),('draw_hz','手动绘制 / Hz')),
+        (('mode','采样模式',['fixed','dynamic']),('draw_mode','绘制模式',['sync','manual']))),
+    'vehicle':((('record_hz','附加遥测记录 / Hz'),('history_laps','耗油统计圈数'),('reserve_l','燃油余量 / L'),('extra_finish_laps','保险圈数'),('target_value','手动赛程数值')),
+        (('target_mode','赛程来源',['auto','laps','time']),('rate_mode','耗油统计',['conservative','median']))),
+    'endurance':((('pit_limit_kmh','进站限速 / km/h（0 关闭）'),('pit_tolerance_kmh','超速容差 / km/h'),('stationary_kmh','静止阈值 / km/h'),('warmup_laps','暖胎观察圈数'),('pace_window','节奏统计窗口 / 圈'),
+        ('weather_window_s','天气趋势窗口 / 秒'),('rain_change','雨强提醒阈值 / 0–1'),('wetness_change','湿度提醒阈值 / 0–1'),('temp_change_c','温度提醒阈值 / °C'),('alert_cooldown_s','提醒冷却 / 秒')),())}
+TYRES=(('temp_min','胎面中温下限 / °C'),('temp_max','胎面中温上限 / °C'),('pressure_min','胎压下限 / kPa'),('pressure_max','胎压上限 / kPa'),('wear_min','胎况字段下限 / %'))
+EXTRA=(('practice_recording','记录练习赛','记录策略'),('opacity','HUD 透明度 / 不透明度','界面布局'))
+
+
+def route(app,page,attribute,section=None):
+    app.show_page(page)
+    if section:app.data_tasks.select(section)
+    app.root.update_idletasks();variable=getattr(app,attribute,None)
+    def walk(parent):
+        for widget in parent.winfo_children():
+            if getattr(widget,'variable',None) is variable and variable is not None and widget.winfo_ismapped():return widget
+            found=walk(widget)
+            if found:return found
+    widget=walk(app.content)
+    if widget:
+        y=widget.winfo_rooty()-app.content.winfo_rooty();app.scroll.yview_moveto(max(0,y-36)/max(1,app.content.winfo_height()));widget.focus_set()
+
+
 def register_routes(app,anchor):
-    def route(page,attribute,section=None):
-        app.show_page(page)
-        if section:app.data_tasks.select(section)
-        app.root.update_idletasks();variable=getattr(app,attribute,None)
-        def walk(parent):
-            for widget in parent.winfo_children():
-                if getattr(widget,'variable',None) is variable and variable is not None and widget.winfo_ismapped():return widget
-                found=walk(widget)
-                if found:return found
-        widget=walk(app.content)
-        if widget:
-            y=widget.winfo_rooty()-app.content.winfo_rooty();app.scroll.yview_moveto(max(0,y-36)/max(1,app.content.winfo_height()));widget.focus_set()
-    for key,label,page,attribute,section in [('silent_recording','静默记录 · 隐藏全部 HUD',0,'silent_mode',None),('storage_auto','赛后自动压缩',3,'storage_auto','storage'),('storage_columnar','新赛事使用分块列式存储',3,'storage_columnar','storage'),('cache_limit_mb','可重建缓存上限 / MiB',3,'cache_limit','storage'),('renderer_mode','生成方式',3,'renderer_mode','renderer')]:
-        register(app,key,label,anchor,'运行与数据',lambda p=page,a=attribute,s=section:route(p,a,s))
+    for key,label,page,attribute,section in ROUTES:
+        register(app,key,label,anchor,'运行与数据',lambda p=page,a=attribute,s=section:route(app,p,a,s))
     def shortcuts():
         from control_shortcuts import show
         show(app)

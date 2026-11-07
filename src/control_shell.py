@@ -78,7 +78,7 @@ class Navigation(tk.Canvas):
 
 
 class Shell:
-    def __init__(self,root,names,command,status,on_theme=None,on_language=None):
+    def __init__(self,root,names,command,status,on_theme=None,on_language=None,on_palette=None):
         self.root=root;self.s=s=scale(root);self.compact=False
         self.brand_font=tkfont.Font(root,family='Segoe UI',size=23,weight='bold')
         self.rail_width=max(round(252*s),max(self.brand_font.measure('Stintrix'),*(tkfont.Font(root,family=T.FONT,size=11,weight='bold').measure(tr(name)) for name in names))+round(100*s))
@@ -114,6 +114,11 @@ class Shell:
         import i18n
         self.language_button=Pill(top,'EN / 中文' if i18n.language=='zh' else '中文 / EN',on_language or (lambda:None),115)
         self.language_button.configure(height=round(32*s));self.language_button.pack(side='right',padx=round(8*s))
+        self.palette_button=None
+        if on_palette is not None:
+            # One visible door to the command palette; Ctrl+K opens it anywhere.
+            from control_palette import SearchPill
+            self.palette_button=SearchPill(top,on_palette);self.palette_button.configure(height=round(32*s));self.palette_button.pack(side='right')
         # Title and global toggles share one row; the game switcher lives under
         # the logo, so every page gains a full row of content height.
         self.title=Label(top,font=(T.FONT,25,'bold'),bg=T.BG,fg=T.FG,anchor='w');self.title.pack(side='left',fill='x',expand=True)

@@ -24,7 +24,7 @@ jobs:
           test "$(uname -m)" = arm64
           python tools/audit_publication.py --working-tree
       - name: Install native build dependencies
-        run: python -m pip install --only-binary=:all: -r requirements-build.txt
+        run: 'python -m pip install --only-binary=:all: -r requirements-build.txt'
       - name: Install pinned native 7z
         run: python tools/install_macos_7zip.py
       - name: Plan offline compatibility checks

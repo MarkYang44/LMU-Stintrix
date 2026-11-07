@@ -18,7 +18,7 @@ class GuidePage:
         import i18n
         self.library.language=i18n.language
         self.state=center.guide_state.setdefault(view,{})
-        for key,value in dict(query='',group='',car='',favorite='',page=0,comparison=[],mode='browse').items():self.state.setdefault(key,value)
+        for key,value in dict(query='',group='',car='',favorite='',page=0,comparison=[],mode='browse',layout='cards').items():self.state.setdefault(key,value)
         self.state.setdefault('expanded',[]);self.pagers=[];self.page_boxes=[];self.restoring=False
         self.cards=Cards(self);self.rows=[];self.card_count=0;self.variables={};self.compare_buttons={};self.favorite_buttons={}
         self.initial_ready=center.pages.hold();self.fixed_actions={}
@@ -114,10 +114,63 @@ class GuidePage:
         field.configure(width=px(host,260));field.last=self.variables['query'].get()
         self.search_field=field;self.search_entry=field.entry
         self.filter_button=self.center.button(host,self.tr('筛选条件','Filters'),self.toggle_filters,width=110)
+        # Cards read one entry deeply; the list shows every entry at once.
+        from control_widgets import Segmented
+        self.layout_var=tk.StringVar(host,value=self.state.get('layout','cards'))
+        self.layout_switch=Segmented(host,self.layout_var,['cards','list'],self.set_layout,{'cards':self.tr('卡片','Cards'),'list':self.tr('列表','List')})
+        self.layout_switch.configure(width=px(host,150));self.list_rows=getattr(self,'list_rows',[])
         self.pager(host,compact=True)
         self.fixed_actions={'search':field,'filters':self.filter_button,
             'compare':self.center.button(host,self.tr('查看对比','View comparison'),lambda:self.browse() if self.state['mode']=='compare' else self.compare(),True,width=145)}
         self.sync_filters();self.update_selection();self.update_pagers()
+
+    def set_layout(self):
+        self.state['layout']=self.layout_var.get();self.state['page']=0;self.render(top=True)
+
+    def listing(self,parent):
+        """Overview first: every entry as one row; a row opens its full card in place."""
+        from track_names import display
+        box=tk.Frame(parent,bg=T.BG);box.pack(fill='x');expanded=self.state.setdefault('list_open',[]);gap=px(box,4)
+        if len(self.rows)==1 and self.rows[0][0]['slug'] not in expanded:expanded.append(self.rows[0][0]['slug'])
+        kind='tracks' if self.view=='tracks' else 'cars';rows=[]
+        for item,recs in self.rows:
+            slug=item['slug']
+            if self.view=='tracks':
+                title=display(item['name'],self.library.language)
+                meta=self.library.text(item,'location')+' · '+item['length_km']+' km'+(' · DLC' if item.get('is_dlc') else '')
+                count=self.tr('车型建议 ','Car picks ')+str(len(recs))
+            else:
+                title=item['name'];meta=item.get('car_class','');count=self.tr('推荐赛道 ','Recommended at ')+str(len(item.get('recommendations',[])))
+            favorite=slug in self.library.favorites.get(kind,set())
+            row=tk.Frame(box,bg=T.CARD,cursor='hand2',takefocus=True);row.pack(fill='x',pady=(0,gap))
+            arrow=tk.Label(row,text='▸',bg=T.CARD,fg=T.MUTED,font=(T.FONT,10));arrow.pack(side='left',padx=(px(row,14),px(row,8)),pady=px(row,11))
+            name=tk.Label(row,text=title,bg=T.CARD,fg=T.FG,font=(T.FONT,11,'bold'),anchor='w');name.pack(side='left')
+            info=tk.Label(row,text=meta,bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='w');info.pack(side='left',padx=(px(row,12),0))
+            tail=tk.Label(row,text=('★  ' if favorite else '')+count,bg=T.CARD,fg=T.ACCENT if favorite else T.MUTED,font=(T.FONT,9),anchor='e');tail.pack(side='right',padx=px(row,16))
+            holder=tk.Frame(box,bg=T.BG);parts=(row,arrow,name,info,tail)
+            def paint(on,parts=parts):
+                for widget in parts:widget.configure(bg=T.HOVER if on else T.CARD)
+            def toggle(_=None,slug=slug,item=item,recs=recs,holder=holder,arrow=arrow,row=row):
+                if holder.winfo_manager():
+                    for child in holder.winfo_children():child.destroy()
+                    holder.pack_forget();arrow.configure(text='▸',fg=T.MUTED)
+                    if slug in expanded:expanded.remove(slug)
+                    return 'break'
+                holder.pack(fill='x',after=row,pady=(0,px(box,10)))
+                self.cards.track(holder,item,recs) if self.view=='tracks' else self.cards.car(holder,item)
+                arrow.configure(text='▾',fg=T.ACCENT)
+                if slug not in expanded:expanded.append(slug)
+                return 'break'
+            for widget in parts:
+                widget.bind('<Button-1>',toggle);widget.bind('<Enter>',lambda _,p=paint:p(True));widget.bind('<Leave>',lambda _,p=paint:p(False))
+            for key in ('<Return>','<space>'):row.bind(key,toggle)
+            row.bind('<FocusIn>',lambda _,p=paint:p(True));row.bind('<FocusOut>',lambda _,p=paint:p(False))
+            rows.append(row);row.guide_slug=slug;row.toggle=toggle
+            if slug in expanded:toggle()
+        for index,row in enumerate(rows):
+            row.bind('<Down>',lambda _,i=index:(rows[min(len(rows)-1,i+1)].focus_set(),'break')[1])
+            row.bind('<Up>',lambda _,i=index:(rows[max(0,i-1)].focus_set(),'break')[1])
+        self.list_rows=rows
 
     def toggle_metadata(self):
         opened=not bool(self.metadata.winfo_manager());self.state['metadata']=opened
@@ -128,8 +181,8 @@ class GuidePage:
         self.metadata_button.configure(text=self.tr('资料说明 ▾','About this data ▾') if opened else self.tr('资料说明 ▸','About this data ▸'))
 
     def update_pagers(self):
-        pages=max(1,(len(self.rows)+self.PAGE_SIZE-1)//self.PAGE_SIZE);page=max(0,min(pages-1,self.state['page']));self.state['page']=page;browsing=self.state['mode']=='browse'
-        values=[f'{i+1} / {pages}' for i in range(pages)];self.page_number.set(values[page])
+        pages=max(1,(len(self.rows)+self.PAGE_SIZE-1)//self.PAGE_SIZE);page=max(0,min(pages-1,self.state['page']));self.state['page']=page;browsing=self.state['mode']=='browse' and self.state.get('layout')!='list'
+        values=[f'{i+1} / {pages}' for i in range(pages)];self.page_number.set(values[page] if self.state.get('layout')!='list' else self.tr('全部 ','All ')+str(len(self.rows)))
         for previous,following in self.pagers:
             previous.configure(state='normal' if browsing and page>0 else 'disabled');following.configure(state='normal' if browsing and page<pages-1 else 'disabled')
         for box in self.page_boxes:box.configure(values=values,state='readonly' if browsing and pages>1 else 'disabled')
@@ -202,13 +255,17 @@ class GuidePage:
             self.filter_card.pack(fill='x',pady=(0,12),before=self.selection.master if self.state['comparison'] else self.results);self.footer.pack(fill='x',pady=5)
             pages=max(1,(len(self.rows)+self.PAGE_SIZE-1)//self.PAGE_SIZE)
             self.state['page']=max(0,min(pages-1,self.state['page']));start=self.state['page']*self.PAGE_SIZE
-            for item,recs in self.rows[start:start+self.PAGE_SIZE]:
-                builders.append(lambda item=item,recs=recs:self.cards.track(self.results,item,recs) if self.view=='tracks' else self.cards.car(self.results,item))
+            listing=self.state.get('layout')=='list'
+            if listing and self.rows:
+                self.footer.pack_forget();builders.append(lambda:self.listing(self.results))
+            else:
+                for item,recs in self.rows[start:start+self.PAGE_SIZE]:
+                    builders.append(lambda item=item,recs=recs:self.cards.track(self.results,item,recs) if self.view=='tracks' else self.cards.car(self.results,item))
             if not self.rows:
                 self.cards.text(self.results,self.tr('没有匹配的资料，试试重置筛选。','No matches. Try resetting filters.'),12,T.MUTED)
                 label=self.tr('清空搜索，保留筛选','Clear search, keep filters') if self.state['query'] else self.tr('重置筛选','Reset filters')
                 self.empty_action=self.center.button(self.results,label,self.clear_query if self.state['query'] else self.reset,width=200)
-            self.page_label.configure(text=f"{self.state['page']+1} / {pages} · "+self.tr('每页 3 张完整卡片','3 complete cards per page'))
+            self.page_label.configure(text='' if listing else f"{self.state['page']+1} / {pages} · "+self.tr('每页 3 张完整卡片','3 complete cards per page'))
         self.update_pagers()
         def finish():
             self.card_job=None

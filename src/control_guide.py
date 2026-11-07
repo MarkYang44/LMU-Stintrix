@@ -60,7 +60,13 @@ class GuidePage:
             variable=tk.StringVar(center.root,value=next((name for name,value in values.items() if value==self.state[key]),next(iter(values))))
             self.variables[key]=variable;self.choices[key]=values
             tile=tk.Frame(filters,bg=T.CARD);tiles.append(tile);center.label(tile,title,9,T.MUTED).pack(anchor='w',pady=(2,4))
-            box=Select(tile,textvariable=variable,values=list(values),width=12);box.pack(fill='x');box.bind('<<ComboboxSelected>>',lambda _:self.filter_changed())
+            if len(values)<=3:
+                # A choice of two or three applies in one click, like every small choice.
+                from control_widgets import Segmented
+                names=list(values);short={names[0]:tr('全部','All')}
+                box=Segmented(tile,variable,names,self.filter_changed,short,{names[0]:names[0]});box.pack(fill='x')
+            else:
+                box=Select(tile,textvariable=variable,values=list(values),width=12);box.pack(fill='x');box.bind('<<ComboboxSelected>>',lambda _:self.filter_changed())
         def arrange(event):
             columns=3 if event.width>=px(filters,630) else 2 if event.width>=px(filters,430) else 1
             for i in range(3):filters.columnconfigure(i,weight=1 if i<columns else 0,uniform='guide-filters' if i<columns else '',minsize=0)

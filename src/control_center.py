@@ -689,6 +689,8 @@ class ControlCenter:
         update_recent(self)
         from control_hud_stop import retire,saving
         retire(self);self.update_toolbar()
+        navigation=getattr(getattr(self,'shell',None),'navigation',None);live=self.active()
+        if navigation is not None and navigation.winfo_exists() and getattr(navigation,'live',False)!=live:navigation.live=live;navigation.paint()
         import time
         now=time.monotonic()
         if self.page==0 and now-getattr(self,'run_summary_at',0)>=1:

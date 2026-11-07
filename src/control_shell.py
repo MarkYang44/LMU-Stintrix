@@ -44,7 +44,8 @@ class Navigation(tk.Canvas):
         # A delayed hint teaches each entry's Ctrl+number shortcut; once one
         # is open, neighbouring entries answer at once while scanning.
         if 0<=index<len(self.names):
-            self.tip.request(index,tr(self.names[index])+'  ·  Ctrl+'+str(index+1),self.winfo_rootx()+self.winfo_width(),round(self.winfo_rooty()+index*self.step+self.step/2))
+            text=tr(self.names[index])+'  ·  Ctrl+'+str(index+1)+('  ·  '+tr('记录中') if index==0 and getattr(self,'live',False) else '')
+            self.tip.request(index,text,self.winfo_rootx()+self.winfo_width(),round(self.winfo_rooty()+index*self.step+self.step/2))
         else:self.tip.hide()
     def leave(self,_):self.hovered=-1;self.paint();self.tip.hide()
     def select(self,index):
@@ -57,7 +58,7 @@ class Navigation(tk.Canvas):
     def paint(self):
         import i18n
         s=self.s;w=self.winfo_width();top=self.position*self.step+6*s
-        key=(w,self.step,self.selected,self.hovered,T.mode,i18n.language)
+        key=(w,self.step,self.selected,self.hovered,T.mode,i18n.language,getattr(self,'live',False))
         if self.paint_key==key:
             self.coords(self.highlight,*polygon_points(0,top,w-1,self.step-12*s,8*s))
             self.coords(self.marker,*polygon_points(0,top+17*s,3*s,22*s*self.marker_amount,1*s))
@@ -75,6 +76,9 @@ class Navigation(tk.Canvas):
             symbol(self,kind,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
             self.create_text(57*s,y,text=tr(name),anchor='w',fill=color,font=(T.FONT,11,'bold' if i==self.selected else 'normal'))
             if numbers:self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))
+            if i==0 and getattr(self,'live',False):
+                # A small recording dot on the run entry, readable from any page.
+                self.create_oval(38*s,y-15*s,45*s,y-8*s,fill=T.RED,outline=T.RAIL,width=max(1,1.5*s),tags='live')
 
 
 class Shell:

@@ -4,7 +4,7 @@ macOS is the **offline analysis** edition. Windows keeps live telemetry, recordi
 
 ## Install on Apple Silicon
 
-Requires Apple Silicon (M1 or newer) and macOS 13 or later. Intel Macs are not included in this first build. The `macOS offline analysis` GitHub Actions workflow creates a native arm64 `.app`, a ZIP and a DMG. Download its **LMU-Stintrix-macos-arm64** artifact, extract the artifact ZIP, open the DMG and drag **LMU-Stintrix.app** into **Applications**. You can also unzip the application ZIP and copy the app directly.
+Requires Apple Silicon (M1 or newer) and macOS 13 or later. Intel Macs are not included in this first build. Download the [v0.4.0 DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.0/LMU-Stintrix-v0.4.0-macos-arm64.dmg) or [application ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.0/LMU-Stintrix-v0.4.0-macos-arm64.zip) from the Release. Verify it against the same Release's `SHA256SUMS.txt`, open the DMG and drag **LMU-Stintrix.app** into **Applications**. You can also unzip the application ZIP and copy the app directly. Development builds remain available as **LMU-Stintrix-macos-arm64** Actions artifacts. The version-tag workflow publishes both platforms only after Windows and Mac validation succeed.
 
 The default build is ad-hoc signed and **not notarized**. Gatekeeper may require **System Settings → Privacy & Security → Open Anyway** on first launch. An Apple Developer ID certificate is required for normal signed/notarized public distribution; no certificate or account is embedded in this project. The app does not need Screen Recording, Accessibility or game-memory permissions.
 
@@ -55,3 +55,5 @@ The delivered-app check extracts the actual ZIP into a path with spaces, verifie
 macOS 版仅做离线赛事分析，保留原有工业风、深浅主题和中英界面。先选择 LMU 或 AC EVO，再从赛事复盘的「更多操作」导入比赛包或 Windows 单场赛事文件夹；两款游戏的记录保持隔离。也能读取无损 `.csv.stc`，无需先还原全部 CSV。比赛原文件不改动，导入中发生变化会回滚。
 
 数据默认在 `~/Library/Application Support/LMU-Stintrix`，升级 `.app` 不影响数据。报告图片使用内置原生引擎；Windows 的 RaceCom 版式不在 Mac 上执行，已保存的图片可以直接查看。Apple Silicon 构建流程会输出 `.app`、ZIP、DMG 和 SHA256；默认只有临时签名，首次打开可能需要在系统隐私与安全设置允许。Windows 正常启动仍保留全部实时功能。
+
+For a real MacBook acceptance pass, use the [Codex handoff prompt](MACOS_CODEX_HANDOFF.md).

@@ -4,6 +4,13 @@ from tools.release_notes import render
 
 
 class ReleaseNotes(unittest.TestCase):
+    def test_dual_platform_downloads_and_signing_limit_precede_current_notes_but_old_releases_stay_windows_only(self):
+        body=render('0.4.0','## v0.4.0\nCurrent release detail\n\n## v0.3.68\nOld detail\n')
+        for suffix in ('windows-x64.zip','macos-arm64.zip','macos-arm64.dmg'):
+            self.assertLess(body.index('LMU-Stintrix-v0.4.0-'+suffix),body.index('Current release detail'))
+        self.assertIn('SHA256SUMS.txt',body);self.assertIn('not notarized',body);self.assertNotIn('Old detail',body)
+        self.assertNotIn('macos-arm64',render('0.3.68','## v0.3.68\nPrevious release\n'))
+
     def test_download_precedes_only_requested_version_and_links_to_full_history(self):
         history='Preamble\n## v1.2.4 — New\n\nNewer\n\n## v1.2.3 — Current\n\nCurrent detail\n\n### More\n\nMore detail\n\n## v1.2.2 — Old\n\nOlder\n'
         body=render('1.2.3',history)

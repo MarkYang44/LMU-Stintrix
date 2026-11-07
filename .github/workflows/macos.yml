@@ -2,13 +2,20 @@ name: macOS offline analysis
 on:
   push:
     branches: [main, 'codex/macos-*']
-    tags: ['v*']
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_build:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   apple-silicon:
+    # The version tag validates release commits; avoid repeating the same build
+    # for the accompanying atomic main push.
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') || !startsWith(github.event.head_commit.message, 'Release v')
     runs-on: macos-15
     timeout-minutes: 35
     steps:
@@ -45,6 +52,7 @@ jobs:
             dist/macos-build.json
           if-no-files-found: error
   windows-compatibility:
+    if: ${{ !inputs.release_build && (github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Release v')) }}
     runs-on: windows-latest
     timeout-minutes: 20
     steps:

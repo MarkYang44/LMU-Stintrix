@@ -17,9 +17,20 @@ def render(version,history):
     base=f'https://github.com/{REPOSITORY}'
     asset=f'{base}/releases/download/v{version}/LMU-Stintrix-v{version}-windows-x64.zip'
     source=f'{base}/blob/v{version}'
+    mac=''
+    if tuple(map(int,version.split('.'))) >= (0,4,0):
+        prefix=f'{base}/releases/download/v{version}/LMU-Stintrix-v{version}'
+        mac=(f'**[macOS Apple Silicon · DMG]({prefix}-macos-arm64.dmg)** · '
+            f'[macOS .app ZIP]({prefix}-macos-arm64.zip) · '
+            f'[SHA256]({base}/releases/download/v{version}/SHA256SUMS.txt)\n\n'
+            'Mac：打开 DMG，将 `.app` 拖到 Applications。macOS 13+ / Apple Silicon；'
+            '离线分析版，默认临时签名、未公证，首次运行可能需在“隐私与安全”允许。\n\n'
+            'Mac: drag the app to Applications. Apple Silicon / macOS 13+; offline analysis. '
+            'Ad-hoc signed, not notarized; first launch may need Open Anyway in Privacy & Security. '
+            f'[Mac guide]({source}/docs/MACOS.md)\n\n')
     return (
         '## 下载 / Download\n\n'
-        f'**[Windows x64 便携版 · v{version}]({asset})**\n\n'
+        f'**[Windows x64 便携版 · v{version}]({asset})**\n\n'+mac+
         '完整解压 ZIP，双击 `LMU-Stintrix.exe`；保留同目录的 `_internal`。'
         '升级时保留自己的 `data/` 和 `local_settings.json`。\n\n'
         'Extract the complete ZIP and run `LMU-Stintrix.exe`. '

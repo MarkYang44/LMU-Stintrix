@@ -109,11 +109,22 @@ class Shell:
         top=tk.Frame(head,bg=T.BG);top.pack(fill='x')
         # Retained for compatibility only: the page title now heads this row.
         self.breadcrumb=Label(top,text='STINTRIX  /  CONTROL CENTER',font=('Segoe UI',9,'bold'),bg=T.BG,fg=T.ACCENT,anchor='w')
-        self.theme_button=Pill(top,'◐  浅色主题' if T.mode=='dark' else '◑  深色主题',on_theme or (lambda:None),115)
-        self.theme_button.configure(height=round(32*s));self.theme_button.pack(side='right')
         import i18n
-        self.language_button=Pill(top,'EN / 中文' if i18n.language=='zh' else '中文 / EN',on_language or (lambda:None),115)
-        self.language_button.configure(height=round(32*s));self.language_button.pack(side='right',padx=round(8*s))
+        from control_widgets import Segmented
+        # Theme and language show their current state, not the target of a
+        # click: the other half switches, like every segmented choice.
+        def segmented(variable,values,command,captions,titles):
+            control=Segmented(top,variable,values,command,captions,titles)
+            width=max(control.bold.measure(control.caption(v)) for v in values)*len(values)+round(30*s)*len(values)+round(6*s)
+            control.configure(height=round(32*s),width=width)
+            from control_widgets import release_with
+            release_with(control,variable);return control
+        self.theme_var=tk.StringVar(root,value=T.mode)
+        self.theme_button=segmented(self.theme_var,['dark','light'],on_theme or (lambda:None),{'dark':'深色','light':'浅色'},{'dark':'深色主题','light':'浅色主题'})
+        self.theme_button.pack(side='right')
+        self.language_var=tk.StringVar(root,value=i18n.language)
+        self.language_button=segmented(self.language_var,['zh','en'],on_language or (lambda:None),{'zh':'中文','en':'EN'},{'zh':'中文界面','en':'English interface'})
+        self.language_button.pack(side='right',padx=round(8*s))
         self.palette_button=None
         if on_palette is not None:
             # One visible door to the command palette; Ctrl+K opens it anywhere.

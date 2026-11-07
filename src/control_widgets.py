@@ -9,6 +9,23 @@ from control_motion import Motion,blend,keyboard_action
 
 
 def scale(widget):return max(1,float(widget.winfo_fpixels('1i'))/96)
+
+
+def release(variable):
+    """Unset a Tk variable on the GUI thread.
+
+    Widgets form reference cycles, so their variables may otherwise be
+    finalised by the garbage collector on a worker thread, where Tcl calls
+    stall for a second each before failing.
+    """
+    try:variable.__del__()
+    except (tk.TclError,RuntimeError):pass
+    variable._tk=None
+
+
+def release_with(widget,variable):
+    """Release variable once widget is destroyed (after the widget's own clean-up)."""
+    widget.bind('<Destroy>',lambda e:release(variable) if e.widget is widget else None,add='+')
 def px(widget,value):return round(value*scale(widget))
 
 

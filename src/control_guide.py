@@ -119,6 +119,8 @@ class GuidePage:
         self.layout_var=tk.StringVar(host,value=self.state.get('layout','cards'))
         self.layout_switch=Segmented(host,self.layout_var,['cards','list'],self.set_layout,{'cards':self.tr('卡片','Cards'),'list':self.tr('列表','List')})
         self.layout_switch.configure(width=px(host,150));self.list_rows=getattr(self,'list_rows',[])
+        from control_widgets import release_with
+        release_with(self.layout_switch,self.layout_var)
         self.pager(host,compact=True)
         self.fixed_actions={'search':field,'filters':self.filter_button,
             'compare':self.center.button(host,self.tr('查看对比','View comparison'),lambda:self.browse() if self.state['mode']=='compare' else self.compare(),True,width=145)}

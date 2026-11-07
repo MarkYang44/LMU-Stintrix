@@ -127,7 +127,7 @@ class ControlCenter:
         if selector:selector.close(False)
         control_theme.recolor(self.root,previous)
         self.shell.refresh_brand()
-        self.shell.theme_button.label='◐  浅色主题' if T.mode=='dark' else '◑  深色主题';self.shell.theme_button.paint()
+        self.shell.theme_var.set(T.mode)
         gallery=getattr(self,'evo_gallery',None)
         if gallery is not None and gallery.winfo_exists() and gallery.state.get('detail'):gallery.refresh()
         backdrop(self.root)

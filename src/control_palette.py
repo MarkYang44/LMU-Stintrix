@@ -380,7 +380,8 @@ class Palette:
         self.click=self.resize=None
         try:self.query.trace_remove('write',self.trace)
         except (tk.TclError,AttributeError):pass
-        self.frame=None;self.rows=[]
+        from control_widgets import release
+        release(self.query);self.frame=None;self.rows=[]
 
 
 def tk_measure(widget,font,text):return int(widget.tk.call('font','measure',font,text))

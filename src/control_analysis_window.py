@@ -1,4 +1,5 @@
 """Reusable analysis sessions: latest-request scans, explicit drafts and frozen exports."""
+from platform_runtime import open_path
 import json,os,tkinter as tk
 from copy import deepcopy
 from functools import partial
@@ -120,11 +121,11 @@ class AnalysisWindow:
     def open_last(self):
         path=Path(self.output.get())
         if not self.output.get() or not path.is_file():self.say('保存的报告已移动或删除，请重新导出');return
-        try:os.startfile(str(path));self.say('报告已保存，路径可在下方复制')
+        try:open_path(str(path));self.say('报告已保存，路径可在下方复制')
         except OSError as error:self.say('报告已保存，浏览器未能打开：{error}',error=error)
     def open_folder(self):
         if not self.output.get():return
-        try:os.startfile(str(Path(self.output.get()).parent))
+        try:open_path(str(Path(self.output.get()).parent))
         except OSError as error:self.say('目录打开失败：{error}',error=error)
     def finish(self):
         self.table.viewport.bind('<MouseWheel>',self.table_wheel)

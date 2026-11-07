@@ -43,6 +43,8 @@
 **/_local/
 **/.venv/
 **/local_settings.json
+**/_folder_import_receipt.json
+**/.venv-mac/
 **/settings.json
 **/recording_settings.json
 **/LapComparisons/

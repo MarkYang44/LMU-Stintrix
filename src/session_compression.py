@@ -64,11 +64,11 @@ def compress(folder,columnar=False):
     result=dict(version=3,method='Windows per-file LZX',supported=True,files=[],saved_bytes=0,errors=[],reused_files=0)
     with lock.open('x',encoding='utf-8') as out:json.dump({'pid':os.getpid()},out)
     try:
-        executable=str(Path(os.environ['SystemRoot'])/'System32'/'compact.exe')
+        executable=str(Path(os.environ['SystemRoot'])/'System32'/'compact.exe') if supported else None
         if columnar:
             from column_store import convert,cleanup_pending
             cleanup_pending(folder)
-            result['method']='STX lossless column blocks + Windows LZX reports'
+            result['method']='STX lossless column blocks + Windows LZX reports' if supported else 'STX lossless column blocks'
             for name in ('inputs.csv','vehicle.csv'):
                 if (folder/name).is_file():
                     item=convert(folder/name,replace=True)

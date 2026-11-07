@@ -8,6 +8,8 @@ Copyright (c) 2021 Tony Whitley; Copyright (c) 2025 Xiang. MIT license; full tex
 
 ## Runtime and build dependencies
 
+The macOS edition also uses Apple's system Vision, Foundation and ImageIO frameworks for optional local numeric OCR; it redistributes no Apple framework binaries. Its Swift helper is project code. The full official macOS `7zz` console is distributed under the upstream LGPL/BSD/unRAR terms in the bundled `licenses/7zip-License.txt`, with source available from [7-Zip](https://github.com/ip7z/7zip/tree/26.04). This differs from the reduced public-domain Windows `7zr.exe`. The build pins and verifies the official macOS distribution. macholib (MIT) is a macOS build dependency. Mac report rasterization and achievement cards use Pillow and system fonts; Windows RaceCom binaries and private artwork are not bundled.
+
 | Component | License | Role |
 | --- | --- | --- |
 | [CPython](https://github.com/python/cpython) | PSF / historical Python licenses | Embedded interpreter in portable builds |

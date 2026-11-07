@@ -1,4 +1,5 @@
 """Native lap inventory: no raw samples loaded for filtering or selection."""
+from platform_runtime import open_path
 import tkinter as tk
 from pathlib import Path
 from control_fields import Select
@@ -155,7 +156,7 @@ def show(app,folder):
                     if len(values)>2:
                         from control_evo_compare import remember_multi
                         remember_multi(app,root,result['comparison'],len(values))
-                    os.startfile(result['comparison'])
+                    open_path(result['comparison'])
                     say(tr('第 {number} 圈完整曲线已打开；原始记录保留。').format(number=number) if single else tr('{count} 圈对比已打开；原始记录保留。').format(count=len(values)))
                 except (OSError,ValueError) as issue:say(issue)
             sync()

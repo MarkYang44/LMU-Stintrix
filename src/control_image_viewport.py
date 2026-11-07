@@ -60,7 +60,8 @@ class ImageViewport(tk.Frame):
     def pan(self,dx=0,dy=0):
         self.mode='manual';self.offset[0]+=dx;self.offset[1]+=dy;self.queue(True)
     def wheel(self,event):
-        steps=max(-5,min(5,event.delta/120))
+        from platform_runtime import wheel_steps
+        steps=max(-5,min(5,wheel_steps(event)))
         if event.state&4:self.zoom(1.2**steps,event.x,event.y)
         elif event.state&1:self.pan(dx=steps*px(self,90))
         else:self.pan(dy=steps*px(self,90))

@@ -12,7 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 ROOT_FILES={'.gitignore','.gitattributes','README.md','README.zh-CN.md','LICENSE','THIRD_PARTY_NOTICES.md','VERSION',
     'requirements.txt','requirements-build.txt','requirements-lock.txt','Setup.cmd','Start.cmd','Start Clean.cmd','Start Clean Controls.cmd','Start Demo.cmd','Demo.cmd'}
 PRIVATE_PARTS={'data','logs','demologs','importedlogs','recoveredlogs','selectedlaps','videocurves','diagnostics','_local','_backup','_verification','__pycache__','.venv','vendor','runtime','racecomrenderer','_racecom','_report_history'}
-PRIVATE_NAMES={'recording_settings.json','recording_visibility.json','local_settings.json','settings.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json','session.json','recording_checkpoint.json','vehicle_checkpoint.json',
+PRIVATE_NAMES={'_folder_import_receipt.json','recording_settings.json','recording_visibility.json','local_settings.json','settings.json','reference_settings.json','vehicle_settings.json','endurance_settings.json','last_native_import.json','session.json','recording_checkpoint.json','vehicle_checkpoint.json',
     'race_log.json','race_summary.json','race_images.json','race_events_checkpoint.json','race_images_error.txt','car_calibration.json',
     'renderer_settings.json','image_generate_config.json','interface_settings.json','guide_settings.json','desktop_registration.json','storage_settings.json','storage_compression.json','archive_settings.json','video_preferences.json','video_result_summary.json','cache_tokens.json','_exports.json','_fastest_source.json','_lap_scan.json','hud_layouts.json','hotkey_settings.json','recent_session.json','table_views.json','simulator_settings.json'}
 DENIED_SUFFIXES={'.csv','.duckdb','.db','.log','.gz','.zip','.7z','.exe','.dll','.pyd','.pyc','.pdf','.png','.jpg','.svg'}
@@ -36,7 +36,7 @@ def allowed(name):
     if name in PUBLIC_ASSETS:return True
     if path.suffix.casefold() in DENIED_SUFFIXES or name.endswith('.lap.json'):return False
     if len(path.parts)==1:return name in ROOT_FILES
-    return (path.parts[0]=='src' and path.suffix in ('.py','.js','.html','.css','.json','.txt')) or (path.parts[0]=='tools' and path.suffix in ('.py','.ps1','.cmd')) or (path.parts[0]=='tests' and path.suffix=='.py') or (path.parts[0]=='docs' and path.suffix=='.md') or (path.parts[0]=='.github' and path.suffix in ('.yml','.yaml','.md'))
+    return (path.parts[0]=='src' and path.suffix in ('.py','.js','.html','.css','.json','.txt')) or (path.parts[0]=='tools' and path.suffix in ('.py','.ps1','.cmd','.swift')) or (path.parts[0]=='tests' and path.suffix=='.py') or (path.parts[0]=='docs' and path.suffix=='.md') or (path.parts[0]=='.github' and path.suffix in ('.yml','.yaml','.md'))
 
 def audit(files,read,no_checksums=False):
     failures=[];total=0

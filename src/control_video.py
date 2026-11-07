@@ -1,4 +1,5 @@
 """Independent video wizard; decoder and OCR imports stay off idle HUD paths."""
+from platform_runtime import open_path
 import json
 import os
 from pathlib import Path
@@ -373,7 +374,7 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
 
     def open_result(self):
         if self.result:
-            try:os.startfile(self.result['report'])
+            try:open_path(self.result['report'])
             except OSError as error:self.status.set(str(error))
 
     def compare_history(self):

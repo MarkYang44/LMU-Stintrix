@@ -162,6 +162,8 @@ def setting_catalogue(app):
     """(key, label, section, run) for every searchable preference of this simulator."""
     from control_settings_search import SECTIONS,ROUTES,FORMS,TYRES,EXTRA,route
     from simulator_profiles import profile
+    from platform_runtime import offline_only
+    if offline_only():return []
     found=[]
     if profile(getattr(app,'simulator','lmu')).catalogue!='official':
         for module,(fields,choices) in FORMS.items():
@@ -183,10 +185,12 @@ def commands(app):
     from track_names import display
     found=[]
     add=lambda *args,**kwargs:found.append(Command(*args,**kwargs))
-    for index,name in enumerate(app.page_titles):
-        add(f'page:{index}',name,'页面',lambda i=index:app.request_page(i),app.page_subtitles[index],f'Ctrl+{index+1}')
+    from platform_runtime import offline_only,page_ids
+    for number,index in enumerate(page_ids(),1):
+        name=app.page_titles[index]
+        add(f'page:{index}',name,'页面',lambda i=index:app.request_page(i),app.page_subtitles[index],f'Ctrl+{number}')
     active=app.active();idle=not active and not saving(app) and not busy(app)
-    if idle:
+    if idle and not offline_only():
         add('start','启动记录','操作',app.start,'启动 HUD 并开始记录',words=('start','record','hud'))
         add('demo','演示模式','操作',lambda:app.start(True),'合成数据预览 HUD',words=('demo',))
     if active:
@@ -200,12 +204,13 @@ def commands(app):
         if state.get('review'):add('recent:review','打开刚结束的复盘','操作',lambda:open_report(app,'review'),where,words=('review','last'))
         if state.get('laps'):add('recent:laps','刚结束的圈速单','操作',lambda:open_report(app,'laps'),where,words=('laps',))
         if state.get('note'):add('recent:note','为刚结束的赛事添加备注','操作',lambda:add_note(app),where,words=('note',))
-    from control_layouts import show as layouts
-    from control_shortcuts import show as shortcuts
-    from control_interface import show as interface
-    add('layouts','HUD 布局','操作',lambda:layouts(app),'布局方案、备份与恢复',words=('layout',))
-    add('shortcuts','全局快捷键','操作',lambda:shortcuts(app),'游戏中控制 HUD 的按键',words=('hotkey','keys'))
-    add('interface','检查数据接口','操作',lambda:interface(app),'查看游戏数据接口与插件状态')
+    if not offline_only():
+        from control_layouts import show as layouts
+        from control_shortcuts import show as shortcuts
+        from control_interface import show as interface
+        add('layouts','HUD 布局','操作',lambda:layouts(app),'布局方案、备份与恢复',words=('layout',))
+        add('shortcuts','全局快捷键','操作',lambda:shortcuts(app),'游戏中控制 HUD 的按键',words=('hotkey','keys'))
+        add('interface','检查数据接口','操作',lambda:interface(app),'查看游戏数据接口与插件状态')
     add('library','完整记录管理','操作',lambda:app.library(),'查看与整理全部本地赛事')
     sheet=getattr(app,'shortcut_sheet',None)
     if sheet is not None:add('keys','键盘快捷键一览','操作',sheet.open,'所有界面快捷键','F1',words=('keyboard','shortcuts','help'))
@@ -218,6 +223,11 @@ def commands(app):
         add('track:'+slug,display(name),'赛道指南',lambda q=name:open_guide(app,'tracks',q),location_zh if i18n.language=='zh' else location,words=(name,display(name,'zh'),location,location_zh))
     for slug,name,_,_,car_class in names.get('cars',[]):
         add('car:'+slug,name,'车型图鉴',lambda q=name:open_guide(app,'cars',q),car_class)
+    if offline_only():
+        found=[c for c in found if c.key not in ('layouts','shortcuts','interface')]
+        from control_offline import import_folder
+        add('import-folder','导入 Windows 赛事文件夹','操作',lambda:import_folder(app))
+        add('import-package','导入赛事包','操作',app.import_package)
     return found
 
 

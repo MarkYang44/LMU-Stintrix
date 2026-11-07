@@ -1,4 +1,5 @@
 """Report recovery UI; the existing worker still owns step and backup semantics."""
+from platform_runtime import open_path
 from pathlib import Path
 import os
 from control_worklist import WorkList,existing
@@ -95,13 +96,13 @@ def show(app,initial=()):
         item=view.selected_items()[0];path=Path(item['folder'])/'review.html'
         try:
             if not path.resolve().is_relative_to(Path(app.data_path).resolve()) or not path.is_file():raise ValueError('结果文件不存在或已移动')
-            os.startfile(str(path))
+            open_path(str(path))
         except (OSError,ValueError) as error:view.say(str(error))
     def open_folder():
         folder=Path(view.selected_items()[0]['folder'])
         try:
             if not folder.resolve().is_relative_to(Path(app.data_path).resolve()) or not folder.is_dir():raise ValueError('记录目录不可用或已移动')
-            os.startfile(str(folder))
+            open_path(str(folder))
         except (OSError,ValueError) as error:view.say(str(error))
     def progress():
         from control_batch import show

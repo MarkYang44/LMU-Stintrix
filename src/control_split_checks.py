@@ -1,4 +1,5 @@
 """Manual split review with stable selection and a reversible recent mark."""
+from platform_runtime import open_path
 import os
 from pathlib import Path
 from control_worklist import WorkList,existing
@@ -22,7 +23,7 @@ def show(app):
         item=view.selected_items()[0];folder=Path(item[which]['folder'])
         try:
             if not folder.resolve().is_relative_to(Path(app.data_path).resolve()) or not folder.is_dir():raise ValueError('记录目录不可用或已移动')
-            path=folder/'review.html';os.startfile(str(path if path.is_file() else folder))
+            path=folder/'review.html';open_path(str(path if path.is_file() else folder))
         except (OSError,ValueError) as error:view.say(str(error))
     def checked():
         item=view.selected_items()[0];ids=list(view.table.get_children());index=ids.index(item['id']);remaining=[key for key in ids if key!=item['id']]

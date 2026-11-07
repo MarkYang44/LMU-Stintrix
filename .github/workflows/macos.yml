@@ -1,0 +1,63 @@
+name: macOS offline analysis
+on:
+  push:
+    branches: [main, 'codex/macos-*']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apple-silicon:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+          architecture: arm64
+      - name: Verify native runner and publication boundary
+        run: |
+          test "$(uname -m)" = arm64
+          python tools/audit_publication.py --working-tree
+      - name: Install native build dependencies
+        run: python -m pip install --only-binary=:all: -r requirements-build.txt
+      - name: Install pinned native 7z
+        run: python tools/install_macos_7zip.py
+      - name: Plan offline compatibility checks
+        run: python tools/run_tests.py --tests tests.test_macos_offline --plan
+      - name: Check offline data and desktop behavior
+        run: python tools/run_tests.py --tests tests.test_macos_offline
+      - name: Build native app and disk image
+        run: python tools/build_macos.py
+      - name: Validate delivered app outside checkout
+        run: python tools/check_macos_bundle.py
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: LMU-Stintrix-macos-arm64
+          path: |
+            dist/*-macos-arm64.zip
+            dist/*-macos-arm64.dmg
+            dist/*-macos-arm64.*.sha256
+            dist/macos-build.json
+          if-no-files-found: error
+  windows-compatibility:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+          architecture: x64
+      - run: python tools/install_dependencies.py --build
+      - run: python tools/install_7zip.py
+      - name: Plan shared-code Windows checks
+        run: python tools/run_tests.py --tests tests.test_macos_offline tests.test_modularity.ModularityTests.test_core_and_cli_version_do_not_import_tk tests.test_core.Tests.test_fastest_lap_excludes_partial_invalid_pit_and_gapped_laps tests.test_archives.ArchiveTests.test_roundtrip_preserves_all_bytes_notes_and_complete_lap_features --plan
+      - name: Verify Windows behavior and archive compatibility
+        run: python tools/run_tests.py --tests tests.test_macos_offline tests.test_modularity.ModularityTests.test_core_and_cli_version_do_not_import_tk tests.test_core.Tests.test_fastest_lap_excludes_partial_invalid_pit_and_gapped_laps tests.test_archives.ArchiveTests.test_roundtrip_preserves_all_bytes_notes_and_complete_lap_features

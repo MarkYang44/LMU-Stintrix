@@ -68,8 +68,8 @@ def analyze(config, root, cancel=None, progress=lambda *_:None):
             finally:seed.close()
             signature=anchor_signature(reference,boxes[0])
             if config['mode']=='distance_hud':
-                from video_ocr import WindowsOCR
-                try:ocr=WindowsOCR(cancel)
+                from video_ocr import create
+                try:ocr=create(cancel)
                 except (ValueError,OSError) as error:ocr_failure=str(error)
             rows=[];observations=[];last_ocr=-math.inf;errors={'throttle':[0.,0],'brake':[0.,0]}
             for pts,image in frames(video,start,end,hz,crop,directory,cancel):

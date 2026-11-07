@@ -1,4 +1,5 @@
 """Focused Tk windows, shared by the existing HUD. Local operations only."""
+from platform_runtime import open_path
 from i18n import tr,Label
 import json
 from json_store import load as load_json
@@ -117,10 +118,10 @@ def show_lap_selection(app,root,folder):
         if len(set(numbers))!=len(numbers):status.set(tr('圈 A 和圈 B 必须选择不同圈'));return
         def done(result):
             state['output']=result['folder'];status.set(tr('已提取第 ') + ' / '.join(map(str, numbers)) + tr(' 圈；JSON 与完整 CSV 保存到：\n') + result['folder'])
-            if result['comparison']:os.startfile(result['comparison'])
+            if result['comparison']:open_path(result['comparison'])
         background(lambda:export_selected_laps(folder,numbers,ASSETS/'compare.html' if compare else None),done)
     for key,text,command in [('A','提取圈 A',lambda:export(['A'])),('B','提取圈 B',lambda:export(['B'])),
-            ('compare','提取两圈并对比',lambda:export(['A','B'],True)),('folder','打开提取目录',lambda:os.startfile(state['output']))]:
+            ('compare','提取两圈并对比',lambda:export(['A','B'],True)),('folder','打开提取目录',lambda:open_path(state['output']))]:
         buttons[key]=tk.Button(actions,text=tr(text),command=command,state='disabled');buttons[key].pack(side='left',padx=(0,9),pady=5)
     Label(window,textvariable=status,bg=T.BG,fg='#9dc7e9',anchor='nw',justify='left',wraplength=670).pack(fill='both',expand=True,padx=18,pady=12)
     for box in boxes.values():box.bind('<<ComboboxSelected>>',enable)

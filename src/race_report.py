@@ -99,7 +99,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
                 finally:pending.unlink(missing_ok=True)
                 files[name]=signature(folder/name)
         for name in ('race_log.json','race_log.txt'):files[name]=signature(folder/name)
-        receipt=dict(version=2,status='complete',generator='RaceCom original / light' if config['mode']=='racecom' else 'Stintrix compatibility / Windows GDI+',fingerprint=fingerprint,
+        receipt=dict(version=2,status='complete',generator='RaceCom original / light' if config['mode']=='racecom' else ('Stintrix compatibility / Windows GDI+' if __import__('sys').platform=='win32' else 'Stintrix native / Pillow'),fingerprint=fingerprint,
             files=files,lap_count=len(model['laps']),event_count=len(model['events']),original_files_retained=True,
             car_image='private calibrated artwork' if art else 'unavailable')
         atomic_json(folder/'race_images.json',receipt)

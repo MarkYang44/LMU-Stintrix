@@ -1,4 +1,5 @@
 """Item-boundary cancellation and retry; workers publish data, never touch Tk."""
+from platform_runtime import open_path
 import os,threading,queue,tkinter as tk
 from pathlib import Path
 from control_theme import T
@@ -100,7 +101,7 @@ class BatchJob:
         self.retry_button=app.button(actions,'仅重试失败项',lambda:self.run([i for i,s in enumerate(self.states) if s in ('失败','部分失败')]),False,165)
         self.resume_button=app.button(actions,'继续剩余项',lambda:self.run([i for i,s in enumerate(self.states) if s=='等待处理']),False,150)
         self.copy_button=app.button(actions,'复制全部失败详情',self.copy_errors,False,190)
-        if destination:app.button(actions,'打开输出目录',lambda:os.startfile(destination),False,155)
+        if destination:app.button(actions,'打开输出目录',lambda:open_path(destination),False,155)
         def arrange(event):
             gap=8;x=y=height=0
             for child in actions.winfo_children():

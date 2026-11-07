@@ -48,7 +48,12 @@ def compose(value):
     from paths import ASSETS
     image=Image.new('RGB',(1920,1080),'#f6f7f9');draw=ImageDraw.Draw(image)
     regular=Path('C:/Windows/Fonts/msyh.ttc');bold=Path('C:/Windows/Fonts/msyhbd.ttc')
-    def font(size,strong=False):return ImageFont.truetype(str(bold if strong else regular),size)
+    def font(size,strong=False):
+        import sys
+        if sys.platform!='win32':
+            from pillow_png import font as portable_font
+            return portable_font(size,strong)
+        return ImageFont.truetype(str(bold if strong else regular),size)
     def text(label,xy,size=28,color='#172335',strong=False,width=1750):
         f=font(size,strong);label=str(label)
         if draw.textlength(label,font=f)>width:

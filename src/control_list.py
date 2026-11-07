@@ -179,8 +179,10 @@ class SessionList(tk.Frame):
         return (self.offset/total,min(1,(self.offset+self.viewport.winfo_height())/total))
     def wheel(self,event):
         self.tooltip.hide()
-        if event.state&1:self.xview('scroll',round(-event.delta/120*3),'units')
-        else:self.scroller.add(-event.delta/120*self.rowheight*2.4)
+        from platform_runtime import wheel_steps
+        import sys
+        if event.state&1:self.xview('scroll',round(-wheel_steps(event)*3),'units')
+        else:self.scroller.add(-wheel_steps(event)*self.rowheight*(.5 if sys.platform=='darwin' else 2.4))
         return 'break'
     def at(self,event):
         index=math.floor((event.y+self.offset)/self.rowheight)

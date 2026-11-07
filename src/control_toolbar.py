@@ -56,6 +56,11 @@ def install(app):
             MenuAction('reference','选择实时参考圈',lambda:app.hud_action('select_reference'),'实时参考',app.active,'启动 HUD 后可选择实时参考圈',visible=app.active),
             MenuAction('toggle','开启 / 关闭参考',app.toggle_reference,'实时参考',app.active,'启动 HUD 后可切换参考状态',visible=app.active),
             MenuAction('delete','删除选中赛事',lambda:remove(app),'删除',any_selected,'仅处理已选赛事，执行前仍需确认',True)]
+        from platform_runtime import offline_only
+        if offline_only():
+            from control_offline import import_folder
+            actions[0:0]=[MenuAction('import','导入赛事包',app.import_package,'导入'),
+                MenuAction('import-folder','导入 Windows 赛事文件夹',lambda:import_folder(app),'导入')]
         from control_table_layouts import actions as column_actions
         layouts=column_actions(app.tree)
         for action in layouts:action.group='整理与管理'
@@ -83,6 +88,8 @@ def install(app):
         page=getattr(app,'record_loaders',{}).get('best')
         if page is not None and page.page is not None and page.page.alive():page.page.install_actions(host)
     elif app.page==2:
+        from platform_runtime import offline_only
+        if offline_only():return
         from control_form_bar import FormBar
         app.form_bar=FormBar(app)
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))

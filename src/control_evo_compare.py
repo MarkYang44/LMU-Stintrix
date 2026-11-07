@@ -1,4 +1,5 @@
 """Shared EVO session-best action; snapshot on Tk, bounded work off Tk."""
+from platform_runtime import open_path
 import os
 from pathlib import Path
 from i18n import tr
@@ -32,7 +33,7 @@ def open_multi(app):
     if app.closing:return False
     item=last_multi(app)
     if item is None:app.status.set(tr('上次多圈对比文件已移动或删除，请重新生成。'));return False
-    try:os.startfile(item['page'])
+    try:open_path(item['page'])
     except OSError as error:app.status.set(tr('打开失败：{error}').format(error=str(error)));return False
     app.status.set(tr('已打开上次 {count} 圈对比；使用已有文件，未重新分析。').format(**item));return True
 
@@ -65,7 +66,7 @@ def fastest(app,items,*,notify=None,finished=None):
                 from control_lap_pair import remember_result
                 remember_result(app,root,page)
             else:remember_multi(app,root,page,len(selections))
-            os.startfile(page)
+            open_path(page)
         except (OSError,ValueError) as issue:say(tr('文件已生成，打开失败：')+str(issue))
         else:say(tr('{count} 场最快有效圈对比已打开；原始记录保留。').format(count=len(selections)))
     def work():

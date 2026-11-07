@@ -1,4 +1,5 @@
 """Native selector for comparing a video result with an existing local lap."""
+from platform_runtime import open_path
 from pathlib import Path
 import os,threading,tkinter as tk
 from tkinter import filedialog
@@ -119,7 +120,7 @@ def show(app,root,video_path=None):
         app.run_background(work,done)
     def open_result():
         if state['result']:
-            try:os.startfile(state['result']['report'])
+            try:open_path(state['result']['report'])
             except OSError as error:message(str(error))
     start=Action(footer,'生成历史圈对比',run,180,True);start.pack(side='left',padx=(0,px(window,10)));start.configure(state='disabled')
     browse=Action(footer,'选择 .lap.json',choose,160);browse.pack(side='left',padx=(0,px(window,10)));browse.configure(state='disabled')

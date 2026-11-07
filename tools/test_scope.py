@@ -19,6 +19,7 @@ UI=(
     'tests.test_ui_polish52.PolishUITests.test_home_controls_fit_with_recent_session_in_both_languages',
 )
 GROUPS=(
+    (('platform_runtime','control_offline','session_import','pillow_png','macos','offline_smoke'),('tests.test_macos_offline',)),
     (('control_report_tasks',),('tests.test_processing316.Data.test_report_receipts_use_game_steps_exclude_foreign_data_and_do_not_scan_samples','tests.test_processing316.UI.test_evo_shared_selection_recovery_only_failed_stage_and_cache_view')),
     (('curve_exports',),('tests.test_processing315.Processing.test_curve_reuse_across_views_invalidates_source_assets_and_missing_output',)),
     (('evo_comparison','evo_laps','evo_control','evo_compare'),('tests.test_evo_comparison314',)),

@@ -1,4 +1,5 @@
 """Explicit cache actions; originals stay under the backend's read-only allowlist."""
+from platform_runtime import open_path
 from pathlib import Path
 import os
 from control_worklist import WorkList,existing
@@ -45,7 +46,7 @@ def show(app):
             if not target.resolve().is_relative_to(root):raise ValueError('记录目录不可用或已移动')
             path=target if target.is_dir() else target.parent
             while not path.is_dir() and path!=root:path=path.parent
-            os.startfile(str(path))
+            open_path(str(path))
             if path!=target and not target.exists():view.say('目录尚未创建，已打开最近的父目录。')
         except (OSError,ValueError) as error:view.say(str(error))
     view.action('clean','清理所选缓存',clean,170,enabled=lambda:idle() and bool(view.selected_items()) and all(item['clearable'] for item in view.selected_items()) and any(item['bytes'] for item in view.selected_items()))

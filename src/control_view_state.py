@@ -44,6 +44,8 @@ def rebuild_interface(app):
 
 
 def show_page(app,index,progressive=False):
+    from platform_runtime import offline_only
+    if offline_only() and index==0:index=1
     app.browsing.capture(app)
     if not app.shell.covering:app.shell.cover_page()
     app.clear_toolbar();app.pages.cancel_request()
@@ -51,9 +53,12 @@ def show_page(app,index,progressive=False):
     app.scan_generation+=1;app.tree=None;app.guide_page=None
     app.shell.scroller.cancel()
     app.title.configure(text=app.page_titles[index]);app.subtitle.configure(text=app.page_subtitles[index]);app.scroll.yview_moveto(0)
-    if app.shell.navigation.selected!=index:app.shell.select(index)
+    if app.shell.navigation.selected!=app.shell.page_ids.index(index):app.shell.select(index)
     builder=(app.run_page,app.review_page,app.settings_page,app.data_page,app.tracks_page,app.cars_page,app.records_page)[index]
     if profile(app.simulator).catalogue=='official':
         from evo_control import builder_for
         builder=builder_for(app,index,builder)
+    if offline_only() and index==2:
+        from control_offline import preferences
+        builder=lambda:preferences(app)
     app.pages.mount(index,builder,progressive)

@@ -1,12 +1,20 @@
 """High-resolution, paginated lap-sheet and race-log images."""
 from race_model import describe,elapsed,lap_status,lap_time
-from windows_png import Canvas
+import sys
+if sys.platform=='win32':
+    from windows_png import Canvas
+else:
+    from pillow_png import Canvas
 from class_positions import inline_positions
 from lap_validity import game_valid
 
 WIDTH=1800
 ROWS_PER_PAGE=36
 BG='#0b1320';CARD='#142235';MUTED='#9ab0ca';GREEN='#34e59a';RED='#ff6577';BLUE='#66baff';AMBER='#efc379'
+HEAD='#20344c';BEST='#142d2b';RULE='#26364b'
+if sys.platform=='darwin':
+    BG='#1a1a1c';CARD='#262628';MUTED='#a4a49e';GREEN='#c6ca4c'
+    HEAD='#303032';BEST='#37392a';RULE='#414143'
 
 
 def header(c,model,title,page,total):
@@ -22,7 +30,7 @@ def header(c,model,title,page,total):
 
 
 def footer(c,y,model):
-    c.fill(60,y-13,1680,1,'#26364b')
+    c.fill(60,y-13,1680,1,RULE)
     c.text(model['note'],60,y,1680,42,22,MUTED)
     c.text('所有记录保存在本机 · PNG 仅为摘要，原始 CSV 与完整事件 JSON / TXT 均保留',60,y+43,1680,36,21,MUTED)
 
@@ -36,11 +44,11 @@ def sheet(c,model,rows,page,total):
         c.text(value,x+20,373,365,53,35,GREEN if i==0 else BLUE,bold=True)
     positions=[60,185,410,640,860,1080,1300];widths=[110,210,210,200,200,200,440]
     labels=['LAP','TIME','Δ 最快圈','S1','S2','S3','状态']
-    c.fill(60,476,1680,58,'#20344c')
+    c.fill(60,476,1680,58,HEAD)
     for x,w,label in zip(positions,widths,labels):c.text(label,x+12,485,w-20,41,24,MUTED,bold=True)
     for i,lap in enumerate(rows):
         y=542+i*49;color=GREEN if lap['best'] else RED if game_valid(lap) is False else AMBER if game_valid(lap) is None or lap['partial'] or not lap['complete'] else '#edf3fc'
-        c.fill(60,y,1680,48,'#142d2b' if lap['best'] else CARD if i%2==0 else BG)
+        c.fill(60,y,1680,48,BEST if lap['best'] else CARD if i%2==0 else BG)
         values=[str(lap['num']),lap_time(lap['time']),f"{lap['delta']:+.3f}" if lap['delta'] is not None else '—',
             *[f'{lap[key]:.3f}' if lap[key] else '—' for key in ('s1','s2','s3')],lap_status(lap)]
         for column,(x,w,value) in enumerate(zip(positions,widths,values)):

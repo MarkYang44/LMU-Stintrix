@@ -13,9 +13,11 @@ def hint(app,parent,text):
 
 
 def build(app):
+    from platform_runtime import offline_only
+    offline=offline_only()
     from simulator_profiles import profile
     game=profile(getattr(app,'simulator','lmu'));supported=game.capabilities
-    items=([('video','视频分析')] if supported.video_analysis else [])+[('packages','赛事包'),('storage','报告与存储'),('renderer','外部生成器')]
+    items=([('video','视频分析')] if supported.video_analysis else [])+[('packages','赛事包'),('storage','报告与存储')]+([] if offline else [('renderer','外部生成器')])
     sections=TaskSections(app,items,'data_section');app.data_tasks=sections;outer=app.content
     try:
         if supported.video_analysis:
@@ -34,6 +36,9 @@ def build(app):
             archive_preferences.save(app.data_path,draft['format'].lower(),False)
             return dict(format='ZIP' if archive_preferences.load(app.data_path)['format']=='zip' else '7z')
         row=app.row(body);app.label(row,'导出格式',10,T.MUTED).pack(side='left',padx=(0,8))
+        if offline:
+            from control_offline import import_folder
+            app.button(row,'导入 Windows 赛事文件夹',lambda:import_folder(app),False,230)
         # Two formats: both visible, one click switches and saves.
         box=Segmented(row,app.archive_format,['ZIP','7z'],lambda:app.archive_save.submit());box.configure(width=px(row,150));box.pack(side='left')
         details=Disclosure(body,app,'archive-details','赛事包说明',header=row)
@@ -55,8 +60,11 @@ def build(app):
             atomic_json(path,settings)
             return dict(auto_compress=enabled(app.data_path),columnar=column_enabled(app.data_path),cache_limit_mb=str(limit(app.data_path)))
         app.storage_save=ImmediateSave(app,body,dict(auto_compress=app.storage_auto,columnar=app.storage_columnar,cache_limit_mb=app.cache_limit),save_storage,'storage')
-        Switch(body,'赛后自动压缩',app.storage_auto,app.storage_save.submit).pack(fill='x',pady=3)
-        Switch(body,'新赛事使用分块列式存储',app.storage_columnar,app.storage_save.submit).pack(fill='x',pady=3)
+        if not offline:
+            Switch(body,'赛后自动压缩',app.storage_auto,app.storage_save.submit).pack(fill='x',pady=3)
+            Switch(body,'新赛事使用分块列式存储',app.storage_columnar,app.storage_save.submit).pack(fill='x',pady=3)
+        else:
+            hint(app,body,'使用完整精度的 STX 无损列式存储；macOS 不调用 Windows NTFS 压缩。')
         app.choice(body,'可重建缓存上限 / MiB',app.cache_limit,['128','256','512','1024','2048'],app.storage_save.submit)
         app.storage_buttons={};actions=app.row(body);install(actions)
         for key,title,command in [('compress','压缩选中赛事',app.compress_selected),('columnar','转换选中赛事为列式',lambda:app.storage_operation('columnar')),('restore','恢复选中赛事为 CSV',lambda:app.storage_operation('restore'))]:
@@ -64,9 +72,10 @@ def build(app):
         body=app.card('报告与缓存维护','分步重试失败报告，查看缓存与用户导出文件占用',compact=True)
         from control_maintenance import reports,caches
         actions=app.row(body);install(actions);app.button(actions,'报告任务与分步重试',lambda:reports(app),False,190);app.button(actions,'缓存与导出文件',lambda:caches(app),False,175)
-        app.content=sections.frames['renderer'];body=app.card('RaceCom 原版图像','复用 LMU 已配置的原版引擎；EVO 标识和图片目录独立。' if game.catalogue=='official' else '直接调用你自己的 Image Generate.exe；原版版式、字体、颜色与车辆校准保留')
-        from control_renderer import RendererEditor
-        app.renderer_editor=RendererEditor(app,body)
+        if not offline:
+            app.content=sections.frames['renderer'];body=app.card('RaceCom 原版图像','复用 LMU 已配置的原版引擎；EVO 标识和图片目录独立。' if game.catalogue=='official' else '直接调用你自己的 Image Generate.exe；原版版式、字体、颜色与车辆校准保留')
+            from control_renderer import RendererEditor
+            app.renderer_editor=RendererEditor(app,body)
     finally:app.content=outer
     from control_data_browser import DataBrowser
     browser=DataBrowser(app,outer,packages,storage,summary);app.data_browser=browser;sections.on_select=browser.mount

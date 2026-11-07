@@ -1,4 +1,5 @@
 """Private renderer preferences; third-party software is never bundled."""
+import sys
 from pathlib import Path
 from paths import data_directory
 from race_model import read_json
@@ -16,10 +17,12 @@ def load(root=None):
     mode=value.get('mode','racecom');mode=mode if mode in ('racecom','native') else 'racecom'
     executable=value.get('executable','');executable=executable if isinstance(executable,str) else ''
     if executable and not Path(executable).is_absolute():executable=str((root/executable).resolve())
+    if sys.platform!='win32':return dict(mode='native',executable='')
     return dict(mode=mode,executable=executable)
 
 
 def save(value,root=None):
+    if sys.platform!='win32' and value.get('mode')!='native':raise ValueError('macOS uses the built-in report renderer')
     if value.get('mode') not in ('racecom','native'):raise ValueError('请选择图像生成方式')
     executable=str(value.get('executable','')).strip()
     if value['mode']=='racecom' and (not Path(executable).is_file() or Path(executable).name.casefold()!='image generate.exe'):
@@ -34,6 +37,9 @@ def save(value,root=None):
 
 def resolve(mode=None):
     value=load()
+    if sys.platform!='win32':
+        if mode not in (None,'native'):raise ValueError('macOS uses the built-in report renderer')
+        return dict(mode='native',executable='')
     if mode:
         if mode not in ('racecom','native'):raise ValueError('请选择原版或兼容图像生成方式')
         value['mode']=mode

@@ -1,4 +1,5 @@
 """EVO first-phase UI: shared input HUD and storage, explicit capability limits."""
+from platform_runtime import open_path
 import tkinter as tk
 from pathlib import Path
 from control_theme import T
@@ -125,6 +126,10 @@ def toolbar(app):
         MenuAction('copy-rows','复制选中行',lambda:app.tree.copy_rows(),'复制',chosen,visible=chosen),
         MenuAction('all','全选当前列表',lambda:app.tree.selection_set(app.tree.get_children()),'列表与选项',lambda:bool(app.tree and app.tree.get_children())),
         MenuAction('clear','清除选择',lambda:app.tree.selection_set(()),'列表与选项',chosen,visible=chosen)]
+    from platform_runtime import offline_only
+    if offline_only():
+        from control_offline import import_folder
+        actions.insert(0,MenuAction('import-folder','导入 Windows 赛事文件夹',lambda:import_folder(app),'导入'))
     from control_table_layouts import actions as column_actions
     actions.extend(column_actions(app.tree))
     delete=Danger(host,'删除选中记录',lambda:remove(app),145);delete.pack(side='left',padx=(0,6))
@@ -157,7 +162,7 @@ def open_directory(app,entry):
     folder=Path(entry['folder']).resolve();relative(app.data_path,folder)
     if not folder.is_dir() or not accepts(app.data_path,read_json(folder/'session.json',{})):
         raise ValueError('请选择当前游戏的本机赛事记录')
-    os.startfile(str(folder))
+    open_path(str(folder))
 
 
 class RecordPreview(tk.Frame):

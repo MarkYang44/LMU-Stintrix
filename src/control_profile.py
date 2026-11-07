@@ -25,7 +25,7 @@ def show(owner,target=None):
     window.bind('<MouseWheel>',lambda event:page.wheel(event.delta))
     data_path=getattr(owner,'data_path',ROOT);config=vehiclelab.load_settings(data_path/'vehicle_settings.json');latest=owner.hud.engine.latest if owner.active() else None
     car=tk.StringVar(window,value=latest['vehicle'] if latest else '*');enabled=tk.BooleanVar(window)
-    Label(frame,text='车型阈值',bg=T.CARD,fg=T.FG,font=('Microsoft YaHei UI',16,'bold')).pack(anchor='w')
+    Label(frame,text='车型阈值',bg=T.CARD,fg=T.FG,font=(T.FONT,16,'bold')).pack(anchor='w')
     Label(frame,text='* 为通用默认；报警按车型保存。',bg=T.CARD,fg=T.MUTED).pack(anchor='w',pady=(5,15))
     Label(frame,text='车型',bg=T.CARD,fg=T.MUTED).pack(anchor='w')
     box=Select(frame,textvariable=car,values=list(dict.fromkeys([car.get(),'*',*config['profiles']])),style='Lab.TCombobox');box.pack(fill='x',pady=6)

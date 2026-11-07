@@ -1,4 +1,5 @@
 """Full-record operations retain their original backends and GUI-thread snapshots."""
+from platform_runtime import open_path
 import os,tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -72,7 +73,7 @@ class Actions:
         folder=Path(self.one()['folder']).resolve()
         try:
             if not folder.is_relative_to(self.root) or not folder.is_dir():raise ValueError('文件或目录已移动或删除')
-            os.startfile(str(folder))
+            open_path(str(folder))
         except (OSError,ValueError) as error:self.v.say(tr('打开失败：{error}').format(error=tr(str(error)) or type(error).__name__))
     def reference_owner(self):
         hud=getattr(self.owner,'hud',None)
@@ -91,7 +92,7 @@ class Actions:
         folder=Path(self.one()['folder']).resolve();path=folder/name
         try:
             if not folder.is_relative_to(self.root) or not path.resolve().is_relative_to(folder) or not path.is_file():raise ValueError('结果文件不存在或已移动')
-            os.startfile(str(path))
+            open_path(str(path))
         except (OSError,ValueError) as error:self.v.say(tr(str(error)) or type(error).__name__)
     def open_review(self):return self.open_file('review.html')
     def image(self,name):
@@ -160,7 +161,7 @@ class Actions:
                 if not file:raise ValueError(item['track']+' 没有所选类型的参考圈')
                 records.append(load(Path(item['folder'])/file))
             path=root/'LibraryCompare.html';write_compare(path,ASSETS/'compare.html',records);return path
-        self.background(work,lambda path:os.startfile(str(path)))
+        self.background(work,lambda path:open_path(str(path)))
     def fastest_compare(self):
         if self.capabilities.reference_laps or self.v.working or not self.v.alive():return
         from control_evo_compare import fastest
@@ -194,7 +195,7 @@ class Actions:
         def work():
             from sessionlab import analyze_session
             analyze_session(folder);render(folder);return folder/'review.html'
-        self.background(work,lambda path:(os.startfile(str(path)),self.updated()))
+        self.background(work,lambda path:(open_path(str(path)),self.updated()))
     def compress(self):
         from storage import compress_session
         folder=self.one()['folder'];self.background(lambda:compress_session(folder),lambda value:self.v.say(tr('已校验压缩备份：')+f"{value['compressed_bytes']/1048576:.2f}"+tr(' MB；保留原 CSV')))

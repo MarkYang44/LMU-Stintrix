@@ -6,6 +6,7 @@ from pathlib import Path
 import queue
 import re
 import shutil
+import sys
 import subprocess
 import threading
 
@@ -15,7 +16,7 @@ class Cancelled(Exception):
 
 
 def executable(name, directory=''):
-    candidate=Path(directory)/(name+'.exe') if directory else None
+    candidate=Path(directory)/(name+'.exe' if sys.platform=='win32' else name) if directory else None
     value=str(candidate) if candidate and candidate.is_file() else shutil.which(name)
     if not value:raise ValueError('未找到 '+name+'；请选择同时包含 ffmpeg 和 ffprobe 的文件夹')
     return value

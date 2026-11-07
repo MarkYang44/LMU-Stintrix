@@ -21,6 +21,9 @@ class ShortcutService:
         self.root=Path(root);self.hud=hud;self.show=show;self.notify=notify;self.message='';self.closed=False;self.capture_owner=None;self.conflict_action=None
         try:self.settings=shortcut_keys.load(self.root)
         except ValueError as error:self.settings=shortcut_keys.validate(dict(enabled=False));self.message=str(error)
+        from platform_runtime import offline_only
+        if offline_only():
+            self.native=DisabledService();self.message='离线分析模式';return
         try:
             from native_hotkeys import NativeHotkeys
             self.native=DisabledService() if os.environ.get('LMU_STINTRIX_HOTKEYS')=='0' else NativeHotkeys()

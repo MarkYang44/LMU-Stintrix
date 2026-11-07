@@ -1,4 +1,5 @@
 """Windows Tk HUD and user interaction; telemetry runs in the engine."""
+from platform_runtime import open_path
 import ctypes
 import json
 import math
@@ -348,7 +349,7 @@ class App:
                 button.config(state='normal')
                 if error:status.config(text=error)
                 else:
-                    dialog.destroy();self.reference_match_key=None;os.startfile(folder/'review.html')
+                    dialog.destroy();self.reference_match_key=None;open_path(folder/'review.html')
             self.run_background(run,done)
         button=tk.Button(dialog,text='开始导入',command=begin);button.pack()
 
@@ -446,7 +447,7 @@ class App:
     def open_logs(self):
         path = self.engine.last_folder or self.engine.recorder.output
         path.mkdir(parents=True, exist_ok=True)
-        os.startfile(str(path))
+        open_path(str(path))
 
     def show_library(self,initial=()):
         if not self.capabilities.training:self.open_control_center();return
@@ -469,7 +470,7 @@ class App:
             return path
         def done(result,error):
             if error:messagebox.showerror('最快圈对比',error)
-            else:os.startfile(str(result))
+            else:open_path(str(result))
         self.run_background(prepare,done)
 
     def toggle_demo(self):
@@ -582,7 +583,7 @@ class App:
         if path:
             def done(_,error):
                 if error:messagebox.showerror('无法打开记录',error)
-                else:os.startfile(str(Path(path).parent / 'review.html'))
+                else:open_path(str(Path(path).parent / 'review.html'))
             self.run_background(lambda:make_report(Path(path).parent),done)
 
     def rounded(self, x0, y0, x1, y1, radius=12, **options):

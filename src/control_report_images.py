@@ -1,4 +1,5 @@
 """Immediate local report browsing, independent of the external image viewer."""
+from platform_runtime import open_path
 from collections import OrderedDict
 from pathlib import Path
 import os,tkinter as tk
@@ -145,10 +146,10 @@ class ReportViewer:
         path=self.folder/self.name
         try:
             if not path.is_file():self.say('这张图片尚未生成；无完成圈时请切换赛事日志。');return
-            os.startfile(str(path))
+            open_path(str(path))
         except OSError as error:self.say('系统查看器未能打开图片；可继续使用内置查看器',error)
     def open_folder(self):
-        try:os.startfile(str(self.folder))
+        try:open_path(str(self.folder))
         except OSError as error:self.say('目录打开失败',error)
     def translate(self):
         self.window.title(tr('Stintrix · 报告图片')+' · '+tr(NAMES.get(self.name,'圈速单')));self.say(self.message_key,self.detail)

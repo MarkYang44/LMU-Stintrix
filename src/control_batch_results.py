@@ -1,4 +1,5 @@
 """Completed imports and report retries open their existing, ready local results."""
+from platform_runtime import open_path
 import os,tkinter as tk
 from pathlib import Path
 from control_theme import T
@@ -42,7 +43,7 @@ class BatchResults:
     def open(self,review=False):
         folder=self.selected()
         if folder is None or review and not self.ready(folder):self.sync();return False
-        try:os.startfile(str(folder/'review.html' if review else folder));return True
+        try:open_path(str(folder/'review.html' if review else folder));return True
         except OSError as error:self.app.status.set(tr('打开失败：{error}').format(error=str(error) or type(error).__name__));return False
     def open_folder(self):return self.open()
     def open_review(self):return self.open(True)

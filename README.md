@@ -15,11 +15,14 @@ See your inputs while driving. Compare braking, throttle application, and pace a
 
 [![Release](https://img.shields.io/github/v/release/MarkYang44/LMU-Stintrix?label=release)](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 ![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)
+![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
 **[Download Windows x64 · v0.3.53](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip)** · [Release notes / other versions](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [Quick start](#quick-start) · [Documentation](#documentation)
 
 ## Overview
+
+**macOS offline edition:** Apple Silicon Macs can import Windows Stintrix session folders, ZIP / 7z archives and LMU telemetry, then use the shared analysis, lap comparison, charts, reports and personal records. Its native `.app` keeps the industrial interface and removes capture/HUD/game-connection controls. Data stays outside the application. [Mac installation, compatibility and build guide](docs/MACOS.md) · [macOS build artifacts](https://github.com/MarkYang44/LMU-Stintrix/actions/workflows/macos.yml). Windows retains all live features. Mac builds are ad-hoc signed; Developer ID notarization is a separate distribution step.
 
 Stintrix brings live driving feedback, automatic recording, and post-session analysis into one desktop app. Review complete laps from the same layout, compare your inputs and lap times, then revisit personal records as you practice.
 

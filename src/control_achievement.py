@@ -1,4 +1,5 @@
 """Stable, coalesced achievement previews with recoverable local PNG export."""
+from platform_runtime import open_path
 import os,tkinter as tk
 from pathlib import Path
 import i18n
@@ -99,11 +100,11 @@ def show(app,entry):
         path=state['result']
         if not path:return
         if not Path(path).is_file():say('上次图片已移动或删除；可重新生成，或打开导出目录查找。');return
-        try:os.startfile(path)
+        try:open_path(path)
         except OSError as error:say(tr('图片已保存，打开失败；可重试打开或查看导出目录。')+' '+str(error))
     def open_folder():
         if not folder.is_dir():say('导出目录尚未创建，请先生成图片。');sync();return
-        try:os.startfile(str(folder))
+        try:open_path(str(folder))
         except OSError as error:say(error)
     def generate():
         if state['busy'] or state['image'] is None or state['rendered']!=state['revision']:return

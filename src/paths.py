@@ -22,7 +22,8 @@ def local_settings():
 def base_data_directory():
     from legacy_identity import DATA_ENV
     configured=os.environ.get('LMU_STINTRIX_DATA_DIR') or os.environ.get(DATA_ENV) or local_settings().get('data_directory')
-    path=Path(configured).expanduser() if configured else APP_ROOT/'data'
+    default=Path.home()/'Library'/'Application Support'/'LMU-Stintrix' if sys.platform=='darwin' else APP_ROOT/'data'
+    path=Path(configured).expanduser() if configured else default
     return (path if path.is_absolute() else APP_ROOT/path).resolve()
 
 def data_directory():
@@ -38,6 +39,7 @@ def track_catalog_path(assets=None):
     return private if private.is_file() else Path(assets or ASSETS)/'tracks'/'catalog.json'
 
 def discover_game(simulator='lmu'):
+    if sys.platform!='win32':return None
     from simulators import GAMES,validate
     validate(simulator);settings=local_settings();directories=settings.get('game_directories',{})
     specified=(directories.get(simulator) if isinstance(directories,dict) else None) or (settings.get('game_directory') if simulator=='lmu' else None)

@@ -1,4 +1,5 @@
 """Independent event and verified-lap selectors; scan only chosen sessions."""
+from platform_runtime import open_path
 import os
 import tkinter as tk
 from pathlib import Path
@@ -207,7 +208,7 @@ def show(app,root,initial=(),*,selected=()):
         path=state['result']
         if not path:return
         if not Path(path).is_file():say('上次对比文件已移动或删除，请重新生成。');return
-        try:os.startfile(path)
+        try:open_path(path)
         except OSError as error:say(error)
     bottom_actions=tk.Frame(footer,bg=T.BG);bottom_actions.pack(fill='x')
     button=Action(bottom_actions,'提取两圈并对比',compare,200,True);button.configure(state='disabled');button.pack(side='left')

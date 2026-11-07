@@ -8,17 +8,22 @@ import json
 import sys
 import time
 from app_config import ASSETS, ROOT, COLORS, INPUT_CHANNELS, COLUMNS, EXTRA_COLUMNS, POLL_HZ, DRAW_HZ
-from engine import Engine
-from recorder import Recorder
-from telemetry import SharedReader, decode, extract
-from session_reports import make_report, render_review
-from hud_geometry import WheelDisplay, hud_layout, pedal_fill, rotate_wheel, steering_angle, reduce_trace
-from sampling import (DEFAULTS, PRESETS, AdaptiveSampler, PreciseWait, FrameDeadline, drawing_rate,
-                      load_settings, save_settings, validate_settings)
-from telemetry_import import import_recording
+
+EXPORTS={
+    'engine':('Engine',), 'recorder':('Recorder',),
+    'telemetry':('SharedReader','decode','extract'),
+    'session_reports':('make_report','render_review'),
+    'hud_geometry':('WheelDisplay','hud_layout','pedal_fill','rotate_wheel','steering_angle','reduce_trace'),
+    'sampling':('DEFAULTS','PRESETS','AdaptiveSampler','PreciseWait','FrameDeadline','drawing_rate','load_settings','save_settings','validate_settings'),
+    'telemetry_import':('import_recording',),
+}
 
 
 def __getattr__(name):
+    import importlib
+    for module,names in EXPORTS.items():
+        if name in names:
+            value=getattr(importlib.import_module(module),name);globals()[name]=value;return value
     # Keep core imports and command-line analysis free of Tk until it is needed.
     if name in {'App', 'tk', 'filedialog', 'messagebox'}:
         import hud
@@ -29,6 +34,12 @@ def __getattr__(name):
 
 
 def main():
+    from platform_runtime import offline_only
+    if '--offline' in sys.argv:
+        import os
+        os.environ['STINTRIX_OFFLINE']='1'
+    if offline_only() and any(flag in sys.argv for flag in ('--hud','--demo','--clean','--clean-controls','--register-app','--unregister-app')):
+        raise ValueError('macOS offline analysis does not start capture, HUD or Windows integration')
     if '--analyze-video' in sys.argv:
         from video_cli import main as video_main
         raise SystemExit(video_main(sys.argv[sys.argv.index('--analyze-video')+1:]))
@@ -54,10 +65,28 @@ def main():
     if '--import-duckdb' in sys.argv:
         index=sys.argv.index('--import-duckdb')
         if index+1>=len(sys.argv):raise ValueError('--import-duckdb 后需要已结束的 .duckdb 文件路径')
+        from telemetry_import import import_recording
+        from session_reports import make_report
         folder=import_recording(sys.argv[index+1],ROOT)
         make_report(folder)
         (ROOT/'last_native_import.json').write_text(json.dumps({'folder':str(folder)},ensure_ascii=False),encoding='utf-8')
         return
+    if '--import-session' in sys.argv:
+        from session_import import import_folder
+        index=sys.argv.index('--import-session')
+        if index+1>=len(sys.argv):raise ValueError('Missing Windows session folder')
+        print(json.dumps(import_folder(ROOT,sys.argv[index+1]),ensure_ascii=False));return
+    if '--import-package' in sys.argv:
+        from session_archive import import_session
+        index=sys.argv.index('--import-package')
+        if index+1>=len(sys.argv):raise ValueError('Missing session archive')
+        print(json.dumps(import_session(ROOT,sys.argv[index+1]),ensure_ascii=False));return
+    if '--offline-smoke' in sys.argv:
+        from offline_smoke import run
+        run();return
+    if offline_only():
+        from control_center import ControlCenter
+        ControlCenter().root.mainloop();return
     # Keep the high-rate reader from holding Python's GIL for the default 5 ms
     # timeslice while the GUI is trying to draw a submillisecond frame.
     sys.setswitchinterval(0.0005)

@@ -1,5 +1,6 @@
 """Two industrial palettes; telemetry colours are independent of the theme."""
 from types import SimpleNamespace
+import sys
 
 PALETTES={
     'dark':dict(BG='#1a1a1c',RAIL='#171719',CARD='#262628',FIELD='#303032',EDGE='#414143',
@@ -11,7 +12,7 @@ PALETTES={
 }
 PALETTES['dark'].update(GREEN='#34e59a',RED='#ff596b',BLUE='#52b5ff')
 PALETTES['light'].update(GREEN='#157b4a',RED='#b92f42',BLUE='#216fa5')
-T=SimpleNamespace(**PALETTES['dark'],FONT='Microsoft YaHei UI',mode='dark')
+T=SimpleNamespace(**PALETTES['dark'],FONT='PingFang SC' if sys.platform=='darwin' else 'Microsoft YaHei UI',mode='dark')
 
 
 def set_mode(mode):

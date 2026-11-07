@@ -43,20 +43,22 @@ class ShortcutSheet:
         # Keys keep their natural column; descriptions start right after the widest key.
         body.columnconfigure(0,weight=0);body.columnconfigure(1,weight=1)
         row=0
+        from platform_runtime import offline_only,page_ids
         for group,items in GROUPS:
             tk.Label(body,text=tr(group),bg=T.CARD,fg=T.ACCENT,font=(T.FONT,9,'bold'),anchor='w').grid(row=row,column=0,columnspan=2,sticky='w',pady=(px(root,12),px(root,4)));row+=1
             for keys,text in items:
+                if offline_only() and keys=='Ctrl 1–7':keys='Ctrl 1–'+str(len(page_ids()))
                 cell=tk.Frame(body,bg=T.CARD);cell.grid(row=row,column=0,sticky='w',pady=px(root,3))
                 for key in keys.split(' '):
                     chip=tk.Frame(cell,bg=T.EDGE);chip.pack(side='left',padx=(0,px(root,4)))
                     tk.Label(chip,text=key,bg=T.FIELD,fg=T.FG,font=('Consolas',9),padx=px(root,6),pady=1).pack(padx=1,pady=1)
                 tk.Label(body,text=tr(text),bg=T.CARD,fg=T.FG,font=(T.FONT,10),anchor='w').grid(row=row,column=1,sticky='w',padx=(px(root,10),0));row+=1
         foot=tk.Frame(inner,bg=T.CARD);foot.pack(fill='x',padx=px(root,20),pady=(px(root,14),px(root,16)))
-        tk.Label(foot,text=tr('游戏中控制 HUD 的按键在「全局快捷键」里设置。'),bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='w').pack(side='left')
+        tk.Label(foot,text=tr('macOS 可使用 Command 代替 Control。' if offline_only() else '游戏中控制 HUD 的按键在「全局快捷键」里设置。'),bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='w').pack(side='left')
         def hotkeys():
             from control_shortcuts import show
             self.close(False);show(app)
-        self.hotkeys=app.button(foot,'全局快捷键',hotkeys,False,120);self.hotkeys.pack(side='right')
+        if not offline_only():self.hotkeys=app.button(foot,'全局快捷键',hotkeys,False,120);self.hotkeys.pack(side='right')
         for sequence in ('<Escape>','<F1>'):frame.bind(sequence,lambda _:(self.close(True),'break')[1])
         frame.bind('<Destroy>',self.dispose,add='+')
         self.click=root.bind('<Button-1>',self.outside,add='+')

@@ -4,6 +4,7 @@ Reading runs in the background (the same bounded inventory as the results
 window, three entries). The full list with search, history comparison and
 folders stays one click away in the results window.
 """
+from platform_runtime import open_path
 import os
 import tkinter as tk
 from datetime import datetime
@@ -50,5 +51,5 @@ class RecentVideos(tk.Frame):
             self.entries.append((item,button))
 
     def open(self,file):
-        try:os.startfile(file)
+        try:open_path(file)
         except OSError as error:self.app.status.set(str(error))

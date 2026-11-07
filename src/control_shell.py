@@ -82,7 +82,8 @@ class Navigation(tk.Canvas):
 
 
 class Shell:
-    def __init__(self,root,names,command,status,on_theme=None,on_language=None,on_palette=None):
+    def __init__(self,root,names,command,status,on_theme=None,on_language=None,on_palette=None,page_ids=None):
+        self.page_ids=tuple(page_ids) if page_ids is not None else tuple(range(len(names)))
         self.root=root;self.s=s=scale(root);self.compact=False
         self.brand_font=tkfont.Font(root,family='Segoe UI',size=23,weight='bold')
         self.rail_width=max(round(252*s),max(self.brand_font.measure('Stintrix'),*(tkfont.Font(root,family=T.FONT,size=11,weight='bold').measure(tr(name)) for name in names))+round(100*s))
@@ -101,7 +102,7 @@ class Shell:
                 self.logo_source=artwork.convert('RGBA');image=ImageOps.contain(self.logo_source,(self.rail_width-round(50*s),round(101*s)),Image.Resampling.LANCZOS)
                 self.logo=ImageTk.PhotoImage(image,master=root)
         except (OSError,tk.TclError):pass
-        self.navigation=Navigation(side,names,command);self.navigation.pack(fill='x',padx=round(16*s))
+        self.navigation=Navigation(side,names,lambda index:command(self.page_ids[index]));self.navigation.pack(fill='x',padx=round(16*s))
         foot=tk.Frame(side,bg=T.RAIL);foot.pack(side='bottom',fill='x',padx=round(25*s),pady=round(26*s))
         # The recording policy lives beside the start controls; the rail keeps
         # only the privacy promise, leaving navigation more room in short windows.
@@ -234,6 +235,7 @@ class Shell:
         self.scroll.coords(self.item,0,0)
         return self.surface.reveal(token)
     def select(self,index):
+        index=self.page_ids.index(index)
         self.navigation.select(index);self.breadcrumb.configure(text=f'STINTRIX  / 0{index + 1}')
         self.scroll.coords(self.item,0,0)
         self.title.configure(fg=T.FG)

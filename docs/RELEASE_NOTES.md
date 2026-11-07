@@ -1,3 +1,12 @@
+## v0.4.0 — Apple Silicon 离线分析版
+
+- macOS 默认进入赛事复盘：共享原有赛事管理、双游戏独立资料库、圈速/遥测分析与对比、报告任务、个人纪录和工业风界面；移除实时采集、HUD、游戏连接和全局游戏快捷键入口。Windows 正常启动保留原有功能。
+- 新增完整 Windows 赛事文件夹导入，复用 ZIP / 7z 和 DuckDB 导入。原始字节与元数据不改写，支持无损 STX 列存储，拒绝跨游戏、活动记录、链接和导入期间变化的文件。
+- 系统服务独立为平台边界：Mac 使用 Application Support、Finder、Command 快捷键和原生字体；PNG 圈速单/赛事日志使用共享模型的 Pillow 后端，视频数字 OCR 使用本机 Apple Vision。Windows 保留 RaceCom、GDI+、Win32 和原有 OCR 后端。
+- 增加原生 arm64 `.app` / ZIP / DMG 的自动化构建、签名校验和真实冻结包启动检查；默认仅 ad-hoc 签名，未提供 Apple 凭据时不声明已公证。详见 [macOS 指南](MACOS.md)。
+
+English: Native Apple Silicon offline analysis shares Windows session formats, analysis and reports. Includes safe folder/ZIP/7z imports, a native PNG renderer, Apple Vision video OCR and automated app/DMG packaging. Windows live capture and analysis remain available. Mac builds are ad-hoc signed unless a Developer ID is supplied; notarization requires separate Apple credentials.
+
 ## v0.3.68 — 视频分析卡片直接列出最近提取
 
 - 图像与数据的「视频分析」卡片下方新增「最近提取」：直接列出最新 3 次视频提取的时间、赛道和视频文件名，每条都有「打开报告」按钮（优先打开原始报告，没有时打开 120 Hz 报告），不必先打开结果窗口再选择。完整列表、搜索、历史圈对比和结果目录仍在「全部提取结果」中。读取在后台进行；还没有提取结果时，会提示从「视频分析与标定」开始。

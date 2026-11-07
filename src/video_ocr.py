@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import queue
 import threading
+import sys
 from video_media import Cancelled,process
 
 SCRIPT=r'''
@@ -48,6 +49,7 @@ while ($null -ne ($line=[Console]::ReadLine())) {
 
 
 class WindowsOCR:
+    name='Windows OCR'
     def __init__(self, cancel=None):
         import subprocess
         self.cancel=cancel;self.lines=queue.Queue(maxsize=2)
@@ -72,11 +74,11 @@ class WindowsOCR:
             if self.cancel and self.cancel.is_set():raise Cancelled('已取消')
             try:
                 value=self.lines.get(timeout=.1)
-                if 'error' in value:raise ValueError('Windows OCR: '+value['error'])
+                if 'error' in value:raise ValueError(self.name+': '+value['error'])
                 return value
             except queue.Empty:
                 if self.process.poll() is not None:break
-        raise ValueError('Windows OCR 不可用或超时；请检查系统 OCR 语言包，或使用其他输入模式')
+        raise ValueError(self.name+' 不可用或超时；请检查系统 OCR 语言包，或使用其他输入模式')
 
     def recognize(self, images, scratch):
         from PIL import ImageOps,ImageStat
@@ -102,3 +104,24 @@ class WindowsOCR:
         self.process.wait(timeout=5)
         self.reader.join(2)
         self.process.stdin.close();self.process.stdout.close()
+
+
+class MacOCR(WindowsOCR):
+    name='Apple Vision OCR'
+    def __init__(self,cancel=None):
+        import subprocess
+        from paths import ASSETS,APP_ROOT
+        helper=ASSETS/'tools/vision-ocr'
+        if not helper.is_file():helper=APP_ROOT/'_local/macos-tools/vision-ocr'
+        if not helper.is_file():raise ValueError('Missing native Apple Vision helper; build with tools/build_macos.py')
+        self.cancel=cancel;self.lines=queue.Queue(maxsize=2)
+        self.process=process([str(helper)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,text=True,encoding='utf-8',bufsize=1)
+        self.reader=threading.Thread(target=self._read,daemon=True);self.reader.start()
+        try:
+            if not self._response(25).get('ready'):raise ValueError('Apple Vision OCR could not start')
+        except Exception:self.close();raise
+
+
+def create(cancel=None):
+    return MacOCR(cancel) if sys.platform=='darwin' else WindowsOCR(cancel)

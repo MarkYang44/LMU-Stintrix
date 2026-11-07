@@ -1,4 +1,5 @@
 """Recent video results: accessible without selecting or decoding a video."""
+from platform_runtime import open_path
 import os
 from pathlib import Path
 from datetime import datetime
@@ -56,7 +57,7 @@ def show(app,root):
             history(app,root,file);return
         file=file_in(folder,'curve.json' if kind=='folder' else 'report.html' if kind=='raw' else 'report_120hz.html',root)
         if file is None:status.set(tr('结果文件不存在或已移动'));return
-        try:os.startfile(str(folder if kind=='folder' else file))
+        try:open_path(str(folder if kind=='folder' else file))
         except OSError as error:status.set(str(error))
     for kind,label in [('raw','打开原始报告'),('smooth','打开 120 Hz 报告'),('folder','打开结果目录'),('history','与历史圈对比')]:
         button=Action(footer,label,lambda k=kind:open_result(k),170,kind=='raw');button.pack(side='left',padx=(0,8));button.configure(state='disabled');buttons[kind]=button

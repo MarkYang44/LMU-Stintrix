@@ -17,7 +17,8 @@ def install(app):
     box.compact_labels=dict(SHORT);app.simulator_selector=box;app.shell.attach_context(box)
     from control_tooltip import Tooltip
     tip=Tooltip(box)
-    box.bind('<Enter>',lambda _:tip.request('simulator',tr('切换模拟器；自动停止保存后重新打开控制中心'),box.winfo_rootx(),box.winfo_rooty()+box.winfo_height()),add='+')
+    from platform_runtime import offline_only
+    box.bind('<Enter>',lambda _:tip.request('simulator',tr('切换离线资料库；LMU 与 AC EVO 数据独立' if offline_only() else '切换模拟器；自动停止保存后重新打开控制中心'),box.winfo_rootx(),box.winfo_rooty()+box.winfo_height()),add='+')
     box.bind('<Leave>',lambda _:tip.hide(),add='+')
     box.bind('<Destroy>',lambda _:tip.hide(),add='+')
     def change(_=None):

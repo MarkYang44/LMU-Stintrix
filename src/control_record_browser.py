@@ -1,4 +1,5 @@
 """Page-owned record browsing with shared, navigation-safe background jobs."""
+from platform_runtime import open_path
 import copy,os,tkinter as tk
 from functools import partial
 from pathlib import Path
@@ -93,7 +94,7 @@ class RecordPage:
     def open(self,path):
         try:
             if not Path(path).exists():raise FileNotFoundError(tr('文件或目录已移动或删除'))
-            os.startfile(str(path));return True
+            open_path(str(path));return True
         except OSError as error:self.say('打开失败：{error}',error=error);return False
     def lap_overview(self):
         if self.selected is None or self.app.closing or getattr(self.app,'simulator','lmu')!='ac_evo':return

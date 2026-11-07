@@ -1,4 +1,5 @@
 """Human-readable interface diagnostics and a private JSON evidence export."""
+from platform_runtime import open_path
 import tkinter as tk,os,json
 from pathlib import Path
 from datetime import datetime,timezone
@@ -33,5 +34,5 @@ def show(app):
         if 'value' not in state:return
         from storage import atomic_json
         from uuid import uuid4
-        folder=app.data_path/'Diagnostics';folder.mkdir(parents=True,exist_ok=True);path=folder/('interface-'+uuid4().hex+'.json');atomic_json(path,state['value']);app.status.set(str(path));os.startfile(str(path))
+        folder=app.data_path/'Diagnostics';folder.mkdir(parents=True,exist_ok=True);path=folder/('interface-'+uuid4().hex+'.json');atomic_json(path,state['value']);app.status.set(str(path));open_path(str(path))
     row=app.row(body);app.button(row,'重新检查',scan,True,140);app.button(row,'导出接口诊断',export,False,160);scan();reveal_window(window)

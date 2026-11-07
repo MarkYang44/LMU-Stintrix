@@ -1,4 +1,5 @@
 """Local launchpad: HUD, categorized preferences and direct session actions."""
+from platform_runtime import open_path
 from i18n import tr,Label
 import json
 from json_store import load as load_json
@@ -14,6 +15,7 @@ from background import BackgroundTasks
 from control_widgets import GlassCard,Pill,Switch,CardGrid,LaunchArtwork,segmented_row,backdrop,px
 from control_fields import Select,Field
 from paths import ASSETS
+from platform_runtime import offline_only,page_ids,title as window_title,install_mac_keys,wheel_steps
 from control_shell import Shell
 from control_list import SessionList
 import branding
@@ -44,7 +46,7 @@ class ControlCenter:
         import i18n
         i18n.load(ROOT/'interface_settings.json')
         control_theme.load(ROOT/'interface_settings.json')
-        self.root.title(tr(self.profile.title+' · 控制中心'));self.root.configure(bg=T.BG)
+        self.root.title(tr(window_title(self.profile)));self.root.configure(bg=T.BG)
         self.root.protocol('WM_DELETE_WINDOW',self.hide if self.attached else self.request_close)
         from race_model import read_json
         self.reference_settings=read_json(ROOT/'reference_settings.json',{})
@@ -74,9 +76,11 @@ class ControlCenter:
         # Ctrl+1–7 follow the numbered rail entries. Keyboard page changes
         # commit instantly: repeated shortcuts must never wait on motion.
         from control_motion import keyboard_action
-        for index in range(len(PAGES)):
-            self.root.bind(f'<Control-Key-{index+1}>',lambda _,i=index:(keyboard_action(self.root,lambda:self.request_page(i)),'break')[1])
-        self.show_page(0);backdrop(self.root)
+        self.visible_pages=page_ids()
+        for number,index in enumerate(self.visible_pages,1):
+            self.root.bind(f'<Control-Key-{number}>',lambda _,i=index:(keyboard_action(self.root,lambda:self.request_page(i)),'break')[1])
+        install_mac_keys(self.root,self.request_close,lambda:self.request_page(2))
+        self.show_page(1 if offline_only() else 0);backdrop(self.root)
         from control_repaint import Presentation
         self.presentation=Presentation(self.root);self.root._stintrix_presentation=self.presentation
         self.job=self.root.after(50,self.tick)
@@ -87,7 +91,7 @@ class ControlCenter:
         style.configure('Scope.Treeview',background=T.CARD,fieldbackground=T.CARD,foreground=T.FG)
         style.configure('Scope.Treeview.Heading',background=T.FIELD,foreground=T.MUTED)
         style.map('Scope.Treeview',background=[('selected',T.SELECT)],foreground=[('selected',T.FG)])
-        style.configure('Lab.TCombobox',fieldbackground=T.FIELD,background=T.FIELD,foreground=T.FG,arrowcolor=T.MUTED,padding=7,borderwidth=0,font=('Microsoft YaHei UI',10))
+        style.configure('Lab.TCombobox',fieldbackground=T.FIELD,background=T.FIELD,foreground=T.FG,arrowcolor=T.MUTED,padding=7,borderwidth=0,font=(T.FONT,10))
         style.configure('TCombobox',fieldbackground=T.FIELD,background=T.FIELD,foreground=T.FG,arrowcolor=T.MUTED)
         style.map('TCombobox',fieldbackground=[('readonly',T.FIELD)],foreground=[('readonly',T.FG)],selectbackground=[('readonly',T.SELECT)],selectforeground=[('readonly',T.FG)])
         for kind in ('Entry','Spinbox'):
@@ -107,7 +111,11 @@ class ControlCenter:
         self.page_titles=PAGES;self.page_subtitles=SUBTITLES
         if self.profile.catalogue=='official':
             self.page_subtitles=(*SUBTITLES[:2],'配置输入采样、HUD 刷新与练习赛记录。','共享赛事选择，管理归档、无损存储和报告重试。','查看赛道布局与官方线路图。','按品牌与车型组别筛选官方图片。','赛道最快圈与纪录履历，保留每一次突破。')
-        self.shell=Shell(self.root,PAGES,self.request_page,self.status,self.toggle_theme,self.toggle_language,self.palette.toggle)
+        if offline_only():
+            self.page_titles=(*PAGES[:2],'离线偏好设置',*PAGES[3:])
+            self.page_subtitles=(*self.page_subtitles[:2],'主题、语言与本机资料库；分析数据不会写入应用程序。',*self.page_subtitles[3:])
+        self.visible_pages=page_ids()
+        self.shell=Shell(self.root,[self.page_titles[i] for i in self.visible_pages],self.request_page,self.status,self.toggle_theme,self.toggle_language,self.palette.toggle,page_ids=self.visible_pages)
         self.scroll=self.shell.scroll;self.content=self.shell.content;self.content_item=self.shell.item
         self.title=self.shell.title;self.subtitle=self.shell.subtitle
         from control_pages import PageDeck
@@ -141,7 +149,7 @@ class ControlCenter:
         try:i18n.save(ROOT/'interface_settings.json',target)
         except (OSError,ValueError) as error:self.status.set(tr('语言未保存：')+str(error));return
         self.rebuild_interface()
-        self.root.title(tr(self.profile.title+' · 控制中心'))
+        self.root.title(tr(window_title(self.profile)))
         self.status.set(tr('就绪 · 记录仅保存在本机'))
         i18n.refresh(self.root)
 
@@ -151,7 +159,7 @@ class ControlCenter:
 
     def label(self,parent,text,size=10,color=None,bold=False):
         return Label(parent,text='' if isinstance(text,tk.Variable) else text,textvariable=text if isinstance(text,tk.Variable) else None,
-            bg=parent.cget('bg'),fg=color or T.FG,font=('Microsoft YaHei UI',size,'bold' if bold else 'normal'),anchor='w',justify='left')
+            bg=parent.cget('bg'),fg=color or T.FG,font=(T.FONT,size,'bold' if bold else 'normal'),anchor='w',justify='left')
 
     def card(self,title,subtitle='',parent=None,compact=False):
         card=GlassCard(parent or self.content,compact=compact)
@@ -189,7 +197,8 @@ class ControlCenter:
 
     def wheel(self,event):
         if str(event.widget).startswith(str(self.content)) and not isinstance(event.widget,(ttk.Treeview,ttk.Combobox,Select)):
-            self.shell.scroller.add(-event.delta/120*px(self.root,65))
+            import sys
+            self.shell.scroller.add(-wheel_steps(event)*px(self.root,20 if sys.platform=='darwin' else 65))
             return 'break'
 
     def show(self):
@@ -199,6 +208,7 @@ class ControlCenter:
         return self.hud is not None and not self.hud.closing and self.hud.root.winfo_exists()
 
     def request_page(self,index):
+        if offline_only() and index==0:index=1
         for overlay in (getattr(self,'palette',None),getattr(self,'shortcut_sheet',None)):
             if overlay is not None:overlay.close(False)
         self.pages.request(index)
@@ -338,6 +348,7 @@ class ControlCenter:
         else:self.status.set(tr('快捷方式已更新，但 Windows 尚未列出应用；可稍后再次更新入口'))
 
     def repair_windows_entry(self):
+        if offline_only():return
         from windows_integration import needs_repair,register
         if self.attached or not needs_repair():return
         def done(result,error):
@@ -347,6 +358,7 @@ class ControlCenter:
         self.run_background(lambda:register(verify=True),done)
 
     def start(self,demo=False):
+        if offline_only():return
         from control_run_actions import start
         return start(self,demo)
 
@@ -588,10 +600,10 @@ class ControlCenter:
             if name.endswith('.png'):
                 from control_report_images import show
                 show(self,folder,name)
-            elif path.is_file():os.startfile(path)
+            elif path.is_file():open_path(path)
             else:
                 from session_reports import make_report
-                self.work(lambda:(make_report(folder),str(path))[1],os.startfile)
+                self.work(lambda:(make_report(folder),str(path))[1],open_path)
         self.with_selection(action)
 
     def review_page(self):
@@ -641,7 +653,7 @@ class ControlCenter:
                 return export_pair(ROOT,[(v['folder'],v['lap']) for v in items],ASSETS/'compare.html')['comparison']
             def opened(page):
                 from control_lap_pair import remember_result
-                remember_result(self,ROOT,page);os.startfile(page)
+                remember_result(self,ROOT,page);open_path(page)
             self.work(build,opened)
         self.with_selection(action,2)
 

@@ -15,11 +15,14 @@
 
 [![Release](https://img.shields.io/github/v/release/MarkYang44/LMU-Stintrix?label=release)](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 ![Windows x64](https://img.shields.io/badge/platform-Windows%20x64-0078D4)
+![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
 **[下载 Windows x64 · v0.3.53](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.3.53/LMU-Stintrix-v0.3.53-windows-x64.zip)** · [更新说明 / 其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest) · [快速开始](#快速开始) · [使用文档](#使用文档)
 
 ## 项目简介
+
+**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 构建产物](https://github.com/MarkYang44/LMU-Stintrix/actions/workflows/macos.yml)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
 
 Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌面应用里。查看同一布局的完整圈，比较输入与圈速差异，再结合个人纪录回顾练习效果。
 

@@ -1,4 +1,5 @@
 """Quiet post-session actions; no pop-up over a running race."""
+from platform_runtime import open_path
 import os
 import tkinter as tk
 from control_theme import T
@@ -43,7 +44,7 @@ def open_report(app,kind):
     """Shared by the recent-session row and the command palette."""
     state=app.recent.state()
     if not state[kind]:return
-    if kind=='review':os.startfile(state['folder']/'review.html')
+    if kind=='review':open_path(state['folder']/'review.html')
     else:
         from control_report_images import show
         show(app,state['folder'],'圈速单.png')

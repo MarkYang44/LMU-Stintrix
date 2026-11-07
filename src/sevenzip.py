@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from functools import lru_cache
 import hashlib,json,os,subprocess,tempfile
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from paths import APP_ROOT,ASSETS
@@ -10,10 +11,21 @@ VERSION='26.04'
 SHA256='256feca8e274e5da655e2a284fabafd9f554365eb164862089dacd4e8276d282'
 URL='https://github.com/ip7z/7zip/releases/download/'+VERSION+'/7zr.exe'
 MAX_LIST=32*1024**2
+MAC_SHA256='36ea959367d8f9ac51d47a56dc1f20bfb851f1cd22d6f206e85cb5cbc6ab4577'
 
 @lru_cache(maxsize=4)
 def _trusted(path,mtime,size):return hashlib.sha256(Path(path).read_bytes()).hexdigest()==SHA256
 def executable():
+    if sys.platform=='darwin':
+        for path in (ASSETS/'tools/7zz',APP_ROOT/'_local/dependencies/7zip'/VERSION/'7zz'):
+            if path.is_file() and os.access(path,os.X_OK):
+                # Bundled Mach-O binaries are re-signed during packaging. The
+                # application signature covers them; the developer cache keeps
+                # the exact pinned upstream bytes checked by the installer.
+                if getattr(sys,'frozen',False) and path==ASSETS/'tools/7zz':return str(path)
+                if hashlib.sha256(path.read_bytes()).hexdigest()==MAC_SHA256:return str(path)
+                raise ValueError('macOS 7z checksum mismatch')
+        raise ValueError('Missing native 7zz; run python tools/install_macos_7zip.py')
     for path in (ASSETS/'tools/7zr.exe',APP_ROOT/'_local/dependencies/7zip'/VERSION/'7zr.exe'):
         if path.is_file():
             stat=path.stat()

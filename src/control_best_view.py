@@ -18,6 +18,11 @@ class Layout:
         doc=p.app.pages.active.frame;top=p.table.viewport.winfo_rooty()-doc.winfo_rooty()
         available=p.app.scroll.winfo_height()-top-px(p.host,12)
         rows=max(4,min(8,int(available/p.table.rowheight)))
+        # A short list hugs its rows, so the record details follow on the same
+        # screen instead of below a band of empty rows; an empty list keeps
+        # room for its guidance.
+        count=len(p.table.order)
+        if count:rows=min(rows,max(3,count+1))
         target=round(rows*p.table.rowheight)
         if int(p.table.viewport.cget('height'))!=target:p.table.viewport.configure(height=target)
     def empty(self):

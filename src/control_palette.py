@@ -207,6 +207,8 @@ def commands(app):
     add('shortcuts','全局快捷键','操作',lambda:shortcuts(app),'游戏中控制 HUD 的按键',words=('hotkey','keys'))
     add('interface','检查数据接口','操作',lambda:interface(app),'查看游戏数据接口与插件状态')
     add('library','完整记录管理','操作',lambda:app.library(),'查看与整理全部本地赛事')
+    sheet=getattr(app,'shortcut_sheet',None)
+    if sheet is not None:add('keys','键盘快捷键一览','操作',sheet.open,'所有界面快捷键','F1',words=('keyboard','shortcuts','help'))
     add('theme','切换为浅色主题' if T.mode=='dark' else '切换为深色主题','操作',app.toggle_theme,'',words=('theme','dark','light'))
     add('language','Switch to English' if i18n.language=='zh' else '切换到中文','操作',app.toggle_language,'EN / 中文',words=('language','english','中文'))
     for key,label,section,run in setting_catalogue(app):
@@ -247,6 +249,8 @@ class Palette:
     def open(self):
         app=self.app;root=app.root
         if self.opened:self.entry.focus_set();return
+        sheet=getattr(app,'shortcut_sheet',None)
+        if sheet is not None:sheet.close(False)
         try:self.commands=commands(app)
         except tk.TclError:return
         self.previous=root.focus_get()

@@ -60,7 +60,8 @@ class ControlCenter:
         self.shortcuts=shared_shortcuts or ShortcutService(ROOT,lambda:self.hud if self.active() else None,self.show,lambda text:self.status.set(tr(text)))
         if shared_shortcuts is not None:self.shortcuts.notify=lambda text:self.status.set(tr(text))
         from control_palette import Palette
-        self.palette=Palette(self)
+        from control_shortcut_sheet import ShortcutSheet
+        self.palette=Palette(self);self.shortcut_sheet=ShortcutSheet(self)
         self.build_shell()
         branding.apply(self.root)
         # Bind to this toplevel only, leaving the HUD's high-rate event loop alone.
@@ -68,6 +69,8 @@ class ControlCenter:
         self.root.bind('<Control-f>',self.focus_search)
         # Ctrl+K reaches any page, action, setting or guide entry by typing.
         for sequence in ('<Control-k>','<Control-K>'):self.root.bind(sequence,self.palette.toggle)
+        # F1 lists every in-app shortcut; game hotkeys stay one click away.
+        self.root.bind('<F1>',self.shortcut_sheet.toggle)
         # Ctrl+1–7 follow the numbered rail entries. Keyboard page changes
         # commit instantly: repeated shortcuts must never wait on motion.
         from control_motion import keyboard_action
@@ -196,8 +199,8 @@ class ControlCenter:
         return self.hud is not None and not self.hud.closing and self.hud.root.winfo_exists()
 
     def request_page(self,index):
-        palette=getattr(self,'palette',None)
-        if palette is not None:palette.close(False)
+        for overlay in (getattr(self,'palette',None),getattr(self,'shortcut_sheet',None)):
+            if overlay is not None:overlay.close(False)
         self.pages.request(index)
 
     def show_page(self,index,progressive=False):

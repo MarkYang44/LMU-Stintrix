@@ -73,7 +73,7 @@ def recolor(widget,previous):
                     if widget.type(item)=='text' and current==PALETTES[previous]['FG']==PALETTES[previous]['INK']:color=T.INK if getattr(widget,'primary',False) else T.FG
                     widget.itemconfigure(item,**{key:color})
     for child in widget.winfo_children():recolor(child,previous)
-    if widget.__class__.__name__ in ('Field','SearchField','Select','Switch','Pill','Action','Result','Danger','Navigation','LaunchArtwork','SessionList'):
+    if widget.__class__.__name__ in ('Field','SearchField','Select','Switch','Pill','Action','Result','Danger','Navigation','LaunchArtwork','SessionList','Segmented'):
         widget.paint()
 
 

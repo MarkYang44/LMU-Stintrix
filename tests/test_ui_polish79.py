@@ -40,7 +40,7 @@ class UI(unittest.TestCase):
         app,root,errors=self.app(True);app.request_page(1);self.settle(app,lambda:bool(app.tree and app.tree.get_children()))
         f=app.review_filters;button=f.disclosure;row=app.search_target.master
         self.assertFalse(f.winfo_manager());self.assertEqual(button.label,'筛选条件');self.assertFalse(button.selected)
-        self.assertLess(app.tree.winfo_rooty()-(row.winfo_rooty()+row.winfo_height()),40)
+        line=app.selection_line;self.assertLess(line.winfo_rooty()-(row.winfo_rooty()+row.winfo_height()),40);self.assertLess(app.tree.winfo_rooty()-(line.winfo_rooty()+line.winfo_height()),20)
         f.toggle_filters();self.pump(app,.05);self.assertTrue(f.winfo_ismapped());self.assertTrue(button.selected);self.assertLess(f.winfo_rooty(),app.tree.winfo_rooty())
         track=next(v for v in f.lookup['track'].values() if v);f.state.update(track=track);f.update_options(f.items);f.callback()
         f.toggle_filters();self.pump(app,.05);self.assertEqual(button.label,'筛选条件 · 1');self.assertFalse(button.selected)

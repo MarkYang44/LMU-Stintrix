@@ -117,7 +117,7 @@ with patch.object(ControlCenter,'repair_windows_entry'):
  app.tree.selection_set(app.tree.get_children());app.update_toolbar();app.set_theme('light');app.toggle_language();app.root.minsize(800,650);app.root.geometry('900x760');pump(.4);button=app.review_actions['delete']
  assert button.enabled and button.cget('text')=='Delete selected records' and button.font.measure(button.cget('text'))<button.winfo_width()
  host=app.shell.action_host;assert all(w.winfo_rootx()+w.winfo_width()<=host.winfo_rootx()+host.winfo_width()+1 for w in app.review_actions.values())
- labels=[w for w in host.winfo_children() if w.winfo_class()=='Label'];assert len(labels)==1 and labels[0].winfo_rooty()+labels[0].winfo_height()<=host.winfo_rooty()+host.winfo_height()+1
+ line=app.selection_line;assert not [w for w in host.winfo_children() if w.winfo_class()=='Label'] and any(line.full) and line.winfo_rootx()+line.winfo_width()<=app.root.winfo_rootx()+app.root.winfo_width()+1
  app.show_page(0);pump(.1);app.show_page(1);pump(.4);assert isinstance(app.review_actions['delete'],Danger) and app.review_actions['delete'].enabled
  assert not errors,errors;app.request_close();pump(.1)
 '''

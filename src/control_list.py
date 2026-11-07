@@ -344,7 +344,12 @@ class SessionList(tk.Frame):
                 if x+width>0 and x<w:
                     font=self.small if key in ('date','lap') else self.font
                     fg=T.ACCENT if key=='lap' and iid in self.chosen else (T.MUTED if key=='date' else T.FG)
-                    c.create_text(x+12*s,y+self.rowheight/2+self.arrival,text=self.fit(value,max(0,width-24*s),font),anchor='w',font=font,fill=fg)
+                    text=self.fit(value,max(0,width-24*s),font)
+                    c.create_text(x+12*s,y+self.rowheight/2+self.arrival,text=text,anchor='w',font=font,fill=fg)
+                    if key=='lap' and iid in getattr(self,'marked',()):
+                        # A personal best carries a small tag after its time when the column has room.
+                        tag=x+12*s+font.measure(text)+6*s
+                        if tag+20*s<=x+width:c.create_text(tag,y+self.rowheight/2+self.arrival,text='PB',anchor='w',font=('Consolas',7,'bold'),fill=T.ACCENT)
                     if self.cursor==iid and c.focus_get() is c and key==self.focus_column:c.create_rectangle(x+3*s,y+3*s,x+width-3*s,y+self.rowheight-3*s,outline=T.ACCENT)
             if self.checkboxes:
                 c.create_rectangle(0,y,self.gutter,y+self.rowheight,fill=color,outline='')

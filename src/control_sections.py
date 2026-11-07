@@ -6,10 +6,11 @@ from control_theme import T
 class TaskSections:
     def __init__(self,app,items,key):
         self.app=app;self.key=key;self.current=None;self.positions={};self.on_select=None
-        tabs=app.row(app.content);self.frames={name:tk.Frame(app.content,bg=T.BG) for name,_ in items};self.buttons={}
-        from control_flow import install
-        install(tabs)
-        for name,label in items:self.buttons[name]=app.button(tabs,label,lambda n=name:self.select(n),False,135)
+        from control_video_widgets import TabBar,Tab
+        from control_widgets import px
+        bar=TabBar(app.content);bar.pack(anchor='w',pady=(0,px(app.content,12)));self.bar=bar
+        self.frames={name:tk.Frame(app.content,bg=T.BG) for name,_ in items};self.buttons={}
+        for name,label in items:self.buttons[name]=Tab(bar,label,lambda n=name:self.select(n),120)
     def select(self,name):
         if name not in self.frames:name=next(iter(self.frames))
         if self.current==name:return

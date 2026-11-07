@@ -61,22 +61,16 @@ def install(app):
         for action in layouts:action.group='整理与管理'
         index=next(i for i,a in enumerate(actions) if a.key=='all');actions[index:index]=layouts
         menu=ActionMenu(button,actions,'赛事操作',lambda:app.selected_count.get());app.review_menu=menu
-        label=app.label(host,app.selected_count,9,T.MUTED);label.pack(side='left',padx=4)
         buttons=[*[value for key,value in app.review_actions.items() if key!='delete'],button,delete]
         def layout(event):
-            if event.widget is not host or not all(child.winfo_exists() for child in [*buttons,label]):return
+            if event.widget is not host or not all(child.winfo_exists() for child in buttons):return
             x=y=height=0;gap=px(host,6)
             for child in buttons:
                 child.pack_forget();w=child.winfo_reqwidth();h=child.winfo_reqheight()
                 if x and x+w>event.width:y+=height+gap;x=height=0
                 child.place(x=x,y=y,width=min(event.width,w),height=h);x+=w+gap;height=max(height,h)
-            label.pack_forget();label.place_forget()
-            if event.width-x>=label.winfo_reqwidth():label.place(x=x,y=y+height/2,anchor='w');total=y+height
-            else:
-                label.place(x=0,y=y+height+gap,width=event.width);total=y+height+gap+label.winfo_reqheight()
-            host.pack_propagate(False);host.configure(height=total)
+            host.pack_propagate(False);host.configure(height=y+height)
         app.toolbar_layout_binding=(host,host.bind('<Configure>',layout))
-        label.bind('<Configure>',lambda _:host.event_generate('<Configure>',width=host.winfo_width()))
         from control_list_context import install as context_actions
         context_actions(app.tree,menu,app.update_selection_count)
         update(app)
@@ -94,7 +88,8 @@ def install(app):
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
         from control_settings_search import Search
         app.settings_search=Search(app,host)
-        anchors=tk.Frame(host,bg=T.BG);anchors.pack(fill='x');tabs=[]
+        from control_video_widgets import TabBar,Tab
+        anchors=TabBar(host);anchors.pack(anchor='w',pady=(px(host,2),0));tabs=[]
         for label,target in getattr(app,'settings_anchors',[]):
             def jump(body=target):
                 module=getattr(body,'form_module',None)
@@ -104,11 +99,11 @@ def install(app):
                 app.root.update_idletasks();y=body.winfo_rooty()-app.content.winfo_rooty()-20
                 app.scroll.yview_moveto(max(0,y)/max(1,app.content.winfo_height()))
                 app.settings_spy.show(body)
-            tabs.append((app.button(anchors,label,jump,False,110),target))
+            tabs.append((Tab(anchors,label,jump,110),target))
         # The section buttons double as tabs that follow the reading position.
         from control_feedback import TabIndicator
         from control_sections import ScrollSpy
-        indicator=TabIndicator(host);indicator.pack(fill='x')
+        indicator=TabIndicator(host)  # the selected segment carries the mark
         app.settings_spy=ScrollSpy(app,tabs,indicator,anchors)
         def step(index):
             if 0<=index<len(tabs):

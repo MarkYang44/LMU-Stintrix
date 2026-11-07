@@ -1,8 +1,7 @@
 """Compact archive/storage tasks share one browser and reliable immediate preferences."""
 import tkinter as tk
 from control_theme import T
-from control_fields import Select
-from control_widgets import Switch
+from control_widgets import Switch,Segmented,px
 from control_flow import install
 from control_sections import TaskSections,Disclosure
 from control_immediate_save import ImmediateSave
@@ -32,9 +31,10 @@ def build(app):
             archive_preferences.save(app.data_path,draft['format'].lower(),False)
             return dict(format='ZIP' if archive_preferences.load(app.data_path)['format']=='zip' else '7z')
         row=app.row(body);app.label(row,'导出格式',10,T.MUTED).pack(side='left',padx=(0,8))
-        box=Select(row,textvariable=app.archive_format,values=['ZIP','7z'],width=9);box.pack(side='left')
+        # Two formats: both visible, one click switches and saves.
+        box=Segmented(row,app.archive_format,['ZIP','7z'],lambda:app.archive_save.submit());box.configure(width=px(row,150));box.pack(side='left')
         details=Disclosure(body,app,'archive-details','赛事包说明',header=row)
-        app.archive_save=ImmediateSave(app,body,dict(format=app.archive_format),save_archive,'archive');box.bind('<<ComboboxSelected>>',lambda _:app.archive_save.submit())
+        app.archive_save=ImmediateSave(app,body,dict(format=app.archive_format),save_archive,'archive')
         hint(app,details.body,'每场一个包；相同版本重复导出复用已有文件，不执行内容校验')
         hint(app,details.body,'不计算文件哈希、不在导出后重读整个包；保留正常解压与安全路径处理。')
         packages=tk.Frame(body,bg=T.CARD);packages.pack(fill='x')

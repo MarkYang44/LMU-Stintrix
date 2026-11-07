@@ -157,6 +157,125 @@ class Switch(tk.Canvas):
         self.itemconfigure(self.thumb,fill=blend(T.MUTED,T.ACCENT,self.value) if self.enabled else T.EDGE)
 
 
+class Segmented(tk.Canvas):
+    """Every option of a small choice visible at once, the current one marked.
+
+    One click replaces open-scan-pick of a dropdown. Clicks slide the marker
+    briefly (ease-out); keyboard changes and reduced motion apply at once.
+    The variable keeps stored option values; captions are display only. A
+    caption shortened on purpose (titles) or clipped by width names its full
+    text on hover.
+    """
+    def __init__(self,parent,variable,values,command=None,captions=None,titles=None):
+        self.s=scale(parent);self.variable=variable;self.values=list(values);self.command=command;self.captions=dict(captions or {});self.titles=dict(titles or {});self.clipped=set()
+        self.font=tkfont.Font(parent,family=T.FONT,size=10);self.bold=tkfont.Font(parent,family=T.FONT,size=10,weight='bold')
+        super().__init__(parent,height=px(parent,40),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
+        self.hovered=-1;self.focused=False;self.enabled=True;self.spans=[];self.position=float(self.index());self.motion=Motion(self);self.setting=False
+        self.trace=variable.trace_add('write',self.changed)
+        from control_tooltip import Tooltip
+        self.tip=Tooltip(self)
+        self.bind('<Configure>',lambda _:self.paint());self.bind('<Motion>',self.hover);self.bind('<Leave>',self.leave);self.bind('<Button-1>',self.click)
+        for key,step in (('<Left>',-1),('<Right>',1)):self.bind(key,lambda _,d=step:(keyboard_action(self,lambda:self.select(self.index()+d)),'break')[1])
+        self.bind('<Home>',lambda _:(keyboard_action(self,lambda:self.select(0)),'break')[1]);self.bind('<End>',lambda _:(keyboard_action(self,lambda:self.select(len(self.values)-1)),'break')[1])
+        self.bind('<FocusIn>',lambda _:self.focus(True));self.bind('<FocusOut>',lambda _:self.focus(False));self.bind('<Destroy>',self.dispose,add='+')
+    def dispose(self,event):
+        if event.widget is not self:return
+        self.tip.hide()
+        try:self.variable.trace_remove('write',self.trace)
+        except tk.TclError:pass
+        for font in (self.font,self.bold):font.__del__();font.delete_font=False
+    def index(self):
+        try:return self.values.index(self.variable.get())
+        except ValueError:return 0
+    def caption(self,value):return tr(self.captions.get(value,value))
+    def focus(self,value):self.focused=value;self.paint()
+    def set_enabled(self,value):
+        self.enabled=bool(value);self.configure(cursor='hand2' if value else '',takefocus=bool(value));self.paint()
+    def changed(self,*_):
+        # Values restored from files or other controls redraw at once.
+        if self.setting:return
+        self.motion.cancel('select');self.position=float(self.index());self.paint()
+    def select(self,index):
+        if not self.enabled or not self.values:return
+        index=max(0,min(len(self.values)-1,index));value=self.values[index]
+        if value==self.variable.get():return
+        start=self.position;self.setting=True
+        try:self.variable.set(value)
+        finally:self.setting=False
+        def frame(t):self.position=start+(index-start)*t;self.paint()
+        self.motion.animate('select',frame,160)
+        if self.command:self.command()
+    def segment(self,x):
+        return next((i for i,(left,right) in enumerate(self.spans) if left<=x<right),-1)
+    def click(self,event):
+        if not self.enabled:return
+        self.focus_set();self.tip.hide();self.select(self.segment(event.x))
+    def hover(self,event):
+        index=self.segment(event.x)
+        if index!=self.hovered:self.hovered=index;self.paint()
+        if 0<=index<len(self.values):
+            value=self.values[index];full=tr(self.titles[value]) if value in self.titles else self.caption(value) if index in self.clipped else None
+            if full and full!=self.caption(value) or index in self.clipped:self.tip.request(value,full,self.winfo_rootx()+event.x,self.winfo_rooty()+self.winfo_height())
+            else:self.tip.hide()
+    def leave(self,_):self.hovered=-1;self.tip.hide();self.paint()
+    def layout(self,width):
+        """Equal segments when every caption fits, otherwise widths follow the captions."""
+        s=self.s;inner=max(1,width-6*s);count=max(1,len(self.values))
+        natural=[self.bold.measure(self.caption(v))+30*s for v in self.values]
+        if max(natural)*count<=inner:sizes=[inner/count]*count
+        else:
+            spare=inner-sum(natural);sizes=[n+spare/count for n in natural] if spare>=0 else [n*inner/sum(natural) for n in natural]
+        x=3*s;self.spans=[]
+        for size in sizes:self.spans.append((x,x+size));x+=size
+    def clip(self,font,text,room):
+        if font.measure(text)<=room:return text
+        while text and font.measure(text+'…')>room:text=text[:-1]
+        return text+'…'
+    def paint(self):
+        s=self.s;w=self.winfo_width();h=self.winfo_height()
+        if w<=1:return
+        self.delete('all');self.layout(w)
+        rounded(self,0,0,w-1,h-1,7*s,fill=T.FIELD,outline=T.ACCENT if self.focused else T.EDGE)
+        if not self.spans:return
+        # The marker interpolates between neighbouring segments while it slides.
+        low=max(0,min(len(self.spans)-1,int(self.position)));high=min(len(self.spans)-1,low+1);t=self.position-low
+        left=self.spans[low][0]+(self.spans[high][0]-self.spans[low][0])*t;right=self.spans[low][1]+(self.spans[high][1]-self.spans[low][1])*t
+        selected=self.index()
+        for i,(x0,x1) in enumerate(self.spans):
+            if i==self.hovered and i!=selected and self.enabled:rounded(self,x0+2*s,4*s,x1-x0-4*s,h-9*s,5*s,fill=T.HOVER,outline='')
+            if 0<i and selected not in (i-1,i):self.create_line(x0,11*s,x0,h-12*s,fill=T.EDGE)
+        rounded(self,left+2*s,4*s,right-left-4*s,h-9*s,5*s,fill=T.SELECT,outline=T.MARK)
+        self.create_rectangle(left+(right-left)/2-9*s,h-8*s,left+(right-left)/2+9*s,h-6*s,fill=T.ACCENT if self.enabled else T.MUTED,outline='')
+        self.clipped=set()
+        for i,((x0,x1),value) in enumerate(zip(self.spans,self.values)):
+            font=self.bold if i==selected else self.font
+            color=(T.FG if i in (selected,self.hovered) else T.MUTED) if self.enabled else T.MUTED
+            text=self.clip(font,self.caption(value),x1-x0-16*s)
+            if text!=self.caption(value):self.clipped.add(i)
+            self.create_text((x0+x1)/2,h/2-2*s,text=text,font=font,fill=color)
+    def retranslate(self):self.paint()
+
+
+def segmented_row(parent,caption,variable,values,command=None,captions=None,titles=None):
+    """Caption and segments share a row; they stack only when the row is too narrow."""
+    from i18n import Label
+    background=parent.cget('bg');row=tk.Frame(parent,bg=background);row.pack(fill='x',pady=px(parent,3))
+    label=Label(row,text=caption,bg=background,fg=T.MUTED,font=(T.FONT,10),anchor='w')
+    control=Segmented(row,variable,values,command,captions,titles)
+    width=max(control.bold.measure(control.caption(v)) for v in values)*len(values)+px(row,34)*len(values)+px(row,6)
+    control.configure(width=max(px(row,180),width));row.stacked=None
+    def arrange(event=None):
+        available=event.width if event is not None else row.winfo_width()
+        stacked=available>1 and available<label.winfo_reqwidth()+int(control.cget('width'))+px(row,24)
+        if stacked==row.stacked:return
+        row.stacked=stacked;label.pack_forget();control.pack_forget()
+        if stacked:label.pack(anchor='w',pady=(0,px(row,5)));control.pack(fill='x')
+        else:label.pack(side='left');control.pack(side='right',padx=px(row,4))
+    row.bind('<Configure>',arrange);arrange()
+    row.segmented=control;row.caption=label
+    return control
+
+
 class CardGrid(tk.Frame):
     """Two balanced columns on wide displays; stack before forms become cramped."""
     def __init__(self,parent):

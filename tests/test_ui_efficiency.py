@@ -72,8 +72,9 @@ class EfficiencyTests(unittest.TestCase):
         app.show_page(2);self.pump(app)
         def walk(w):
             for child in w.winfo_children():yield child;yield from walk(child)
-        select=next(w for w in walk(app.pages.active.frame) if isinstance(w,Select) and w.labels.get('fixed')=='固定频率')
-        self.assertEqual(select.display('fixed'),'固定频率');select.variable.set('dynamic');self.assertEqual(select.variable.get(),'dynamic');self.assertFalse(errors)
+        from control_widgets import Segmented
+        control=next(w for w in walk(app.pages.active.frame) if isinstance(w,Segmented) and w.captions.get('fixed')=='固定频率')
+        self.assertEqual(control.caption('fixed'),'固定频率');control.variable.set('dynamic');self.assertEqual(control.variable.get(),'dynamic');self.assertEqual(control.position,1.);self.assertFalse(errors)
     def test_video_options_restore_without_skipping_geometry_checks(self):
         from control_video import show
         app,root,errors=self.app();w=show(app,root).video_wizard

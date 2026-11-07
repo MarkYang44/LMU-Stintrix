@@ -11,7 +11,7 @@ from control_theme import T
 from tkinter import ttk,filedialog,messagebox
 from app_config import ROOT, SIMULATOR
 from background import BackgroundTasks
-from control_widgets import GlassCard,Pill,Switch,CardGrid,LaunchArtwork,backdrop,px
+from control_widgets import GlassCard,Pill,Switch,CardGrid,LaunchArtwork,segmented_row,backdrop,px
 from control_fields import Select,Field
 from paths import ASSETS
 from control_shell import Shell
@@ -267,11 +267,14 @@ class ControlCenter:
         self.mode=tk.StringVar(self.root,value=initial['mode'])
         modes={'标准面板':'normal','纯净 · 仅曲线':'curves','纯净 · 曲线 + 踏板 / 方向盘':'controls'}
         self.mode_label=tk.StringVar(self.root,value=next(k for k,v in modes.items() if v==self.mode.get()))
-        self.choice(body,'显示模式',self.mode_label,list(modes),lambda:self.set_hud('mode',modes[self.mode_label.get()]))
         current=sampling.load_settings(ROOT/'settings.json');self.channel=tk.StringVar(self.root,value='游戏过滤后' if current['input_channel']=='filtered' else '原始输入')
-        self.choice(body,'输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'),labels=dict(zip(('原始输入','游戏过滤后'),self.profile.input_labels)))
         self.window=tk.StringVar(self.root,value=initial['window'])
-        self.choice(body,'波形窗口 / 秒',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()))
+        # Small, frequent HUD choices: every option visible, one click applies.
+        segmented=lambda label,variable,values,command,captions,titles=None:segmented_row(body,label,variable,values,command,captions,titles)
+        self.run_choices={
+            'mode':segmented('显示模式',self.mode_label,list(modes),lambda:self.set_hud('mode',modes[self.mode_label.get()]),{'标准面板':'标准','纯净 · 仅曲线':'仅曲线','纯净 · 曲线 + 踏板 / 方向盘':'曲线 + 踏板'},{name:name for name in modes}),
+            'channel':segmented('输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'),dict(zip(('原始输入','游戏过滤后'),self.profile.input_labels))),
+            'window':segmented('波形窗口',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()),{'5':'5 秒','10':'10 秒','20':'20 秒'})}
         body=self.card('EVO 驾驶信息' if self.capabilities.driving_instruments else '附加遥测面板','按需开启，让比赛视野保持清爽',grid)
         if self.capabilities.driving_instruments:
             import evo_hud
@@ -386,6 +389,9 @@ class ControlCenter:
         from control_table_preferences import install as table_preferences
         table_preferences(self,self.tree,'review',self.review_filters)
         self.tree.pack(fill='x',pady=(6,2))
+        # What is selected reads directly above the rows, at a constant height.
+        from control_selection import SelectionLine
+        self.selection_line=SelectionLine(body);self.selection_line.pack(fill='x',pady=(8,0),before=self.tree)
         if filters is not None:self.review_filters.attach(filters,self.tree)
         self.tree.bind('<Double-1>',lambda _:self.report('review.html'))
         self.tree.bind('<Return>',lambda _:self.report('review.html'))
@@ -400,8 +406,8 @@ class ControlCenter:
             self.button(actions,'收藏与标签',lambda:self.with_selection(lambda v:edit_note(self,v[0],self.refresh)),False,135)
             from control_split_checks import show as split_checks
             self.button(actions,'检查疑似拆分',lambda:split_checks(self),False,155)
-        self.event_detail=tk.StringVar(self.root);detail_label=self.label(body,self.event_detail,9,T.MUTED);detail_label.pack(fill='x',pady=6)
-        detail_label.bind('<Configure>',lambda e:detail_label.configure(wraplength=max(100,e.width)))
+        # Trust, completeness and lap counts join the selection line above the list.
+        self.event_detail=tk.StringVar(self.root)
         self.tree.bind('<<TreeviewSelect>>',lambda _:self.describe_selection(),add='+')
         self.refresh()
 
@@ -423,7 +429,7 @@ class ControlCenter:
         if not ids:
             self.event_detail.set('');preview=getattr(self,'evo_preview',None)
             if preview is not None and preview.winfo_exists():preview.clear()
-            return
+            self.show_selection_line();return
         preview=getattr(self,'evo_preview',None)
         if preview is not None and preview.winfo_exists():preview.select(self.items[int(ids[0])])
         from event_catalog import normalize
@@ -433,7 +439,13 @@ class ControlCenter:
         if f.get('valid_laps') is not None:value+=' · '+tr('有效圈')+' '+str(f['valid_laps'])
         if f.get('gap_count') is not None:value+=' · '+tr('采样缺口')+' '+str(f['gap_count'])
         if f.get('trust')=='observed':value+=' · '+tr('末次观测排名不是确认完赛成绩')
-        self.event_detail.set(value)
+        self.event_detail.set(value);self.show_selection_line()
+
+    def show_selection_line(self):
+        line=getattr(self,'selection_line',None)
+        if line is None or not line.winfo_exists():return
+        from control_selection import facts
+        line.set(*facts(self))
 
     def selection_buttons(self,body):
         row=self.row(body)
@@ -487,6 +499,7 @@ class ControlCenter:
             f=normalize(value)
             from event_result_label import label as result_label
             rows.append((str(i),(value['date'][:19].replace('T',' '),session_type(value['session_type']),result_label(f),tr(__import__('race_mode').LABELS[value.get('race_mode','unknown')]),display(value['track']),value['vehicle'],lap,layout(f['track'],f['layout'],f.get('length_m')),f.get('vehicle_class',''),tr(TRUST.get(f.get('trust'),'未知')),tr(QUALITY.get(f.get('quality'),'完整性未知')))))
+        self.tree.marked=self.personal_bests()
         from control_event_filters import replace_rows
         replace_rows(self.tree,rows,selected)
         if located is not None:locator.reveal(located)
@@ -495,6 +508,16 @@ class ControlCenter:
         if hasattr(self,'review_filters') and self.review_filters.winfo_exists():self.review_filters.count.set(len(rows))
         self.update_selection_count()
         self.describe_selection()
+
+    def personal_bests(self):
+        """Row ids holding the best lap for a circuit layout and car driven more than once."""
+        from event_catalog import normalize
+        groups={}
+        for index,value in enumerate(self.items):
+            time=value.get('time_s')
+            if not time or value.get('status') in ('recording','write_error'):continue
+            f=normalize(value);groups.setdefault((f.get('track') or value.get('track'),f.get('layout'),value.get('vehicle')),[]).append((time,index))
+        return {str(min(entries)[1]) for entries in groups.values() if len(entries)>1}
 
     def selection(self,count=1):
         chosen=[self.items[int(i)] for i in self.tree.selection()] if self.tree else []

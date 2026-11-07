@@ -91,6 +91,48 @@ def capture(deck,previous=None):
     return drafts
 
 
+def segmented(center,tile,label,variable,options,labels=None):
+    """A mode with two or three options reads and switches in one click."""
+    from control_widgets import segmented_row
+    return segmented_row(tile,label,variable,options,None,labels or {})
+
+
+class FormGrid:
+    """Two balanced columns once a card is wide enough, one column before that.
+
+    Each label stays next to its value instead of a page width away. Modes
+    share the first row; every condition group starts a new row, so showing
+    or hiding its note never moves a field into the other column. Tiles and
+    notes stay children of the card body and are only placed in this frame.
+    """
+    def __init__(self,body):
+        self.frame=tk.Frame(body,bg=T.CARD);self.frame.pack(fill='x');self.items=[];self.columns=1
+        for column in (0,1):self.frame.columnconfigure(column,weight=1,uniform='form')
+        self.frame.bind('<Configure>',lambda e:self.arrange() if self.wanted(e.width)!=self.columns else None,add='+')
+    def wanted(self,width):
+        from control_widgets import px
+        return 2 if width>=px(self.frame,760) else 1
+    def add(self,tile,group=None):self.items.append(('tile',tile,group));self.arrange()
+    def note(self,note,group):note.visible=False;self.items.append(('note',note,group))
+    def show(self,note,visible):
+        if getattr(note,'visible',False)!=visible:note.visible=visible;self.arrange()
+    def arrange(self):
+        from control_widgets import px
+        self.columns=columns=self.wanted(self.frame.winfo_width());gap=px(self.frame,9);row=column=0;previous=object()
+        for kind,widget,group in self.items:
+            if not widget.winfo_exists():continue
+            if group!=previous and column:row+=1;column=0
+            previous=group
+            if kind=='note':
+                if widget.visible:widget.grid(in_=self.frame,row=row,column=0,columnspan=2,sticky='ew',pady=(4,0));row+=1
+                else:widget.grid_forget()
+                continue
+            wide=columns==2
+            widget.grid(in_=self.frame,row=row,column=column if wide else 0,columnspan=1 if wide else 2,sticky='new',padx=((0,gap) if column==0 else (gap,0)) if wide else 0)
+            column+=1
+            if column>=columns:row+=1;column=0
+
+
 def build(center,body,module,specs,choices=()):
     import sampling,vehiclelab,endurance
     path=center.data_path/FILES[module]
@@ -103,6 +145,7 @@ def build(center,body,module,specs,choices=()):
     # A quiet header status replaces the old status line and per-card save
     # button: the fixed form bar (and Ctrl+S) is the single save surface.
     badge=Status(body,center);body.form_status=badge;complete=False;conditions={}
+    grid=FormGrid(body);body.form_grid=grid
     def dirty(*_):
         changed=sum(not equal(v.get(),baseline[k]) for k,v in variables.items())
         badge.show('● '+tr('已修改 {count} 项').format(count=changed) if changed else '',T.ACCENT)
@@ -115,10 +158,10 @@ def build(center,body,module,specs,choices=()):
                 label.configure(fg=T.FG if active else T.MUTED)
                 # Keep fields editable: an invalid retained value can always be repaired.
                 field.entry.configure(fg=T.FG if active else T.MUTED)
-            if active:note.pack_forget();continue
+            if active:grid.show(note,False);continue
             single,several=NOTES[group]
             note.configure(text=tr(single) if len(members)==1 else tr(several).format(count=len(members)))
-            if not note.winfo_manager():note.pack(fill='x',before=anchor,pady=(4,0))
+            grid.show(note,True)
     def refresh():
         current=load(path)
         for key,var in variables.items():
@@ -143,17 +186,18 @@ def build(center,body,module,specs,choices=()):
             badge.show(tr('请修正标记的设置'),T.RED);return False
     # Modes come first: they decide which of the following values apply.
     for key,label,options in choices:
-        tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');field=center.choice(tile,label,variable(key),options,labels=LABELS.get(key))
+        tile=tk.Frame(body,bg=T.CARD);grid.add(tile,'modes');field=segmented(center,tile,label,variable(key),options,LABELS.get(key))
         feedback.add(key,field,label,center.label(tile,'',9,T.RED));register(center,key,label,field,module)
         variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k));yield
     for key,label in specs:
-        tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');row=center.row(tile);caption=center.label(row,label,10,T.MUTED);caption.pack(side='left')
-        field=Field(row,textvariable=variable(key),width=15,font=('Segoe UI',11));field.pack(side='right',padx=4)
         group=CONDITIONS.get(key) if module=='sampling' else None
-        if group:
-            # One unpacked caption per group, shown above it only while inactive.
-            if group not in conditions:conditions[group]=(center.label(body,'',9,T.MUTED),tile,[])
-            conditions[group][2].append((field,caption))
+        tile=tk.Frame(body,bg=T.CARD)
+        if group and group not in conditions:
+            # One caption per group, placed above it only while the group is inactive.
+            note=center.label(body,'',9,T.MUTED);grid.note(note,group);conditions[group]=(note,tile,[])
+        grid.add(tile,group);row=center.row(tile);caption=center.label(row,label,10,T.MUTED);caption.pack(side='left')
+        field=Field(row,textvariable=variable(key),width=15,font=('Segoe UI',11));field.pack(side='right',padx=4)
+        if group:conditions[group][2].append((field,caption))
         error_hint=center.label(tile,'',9,T.RED);feedback.add(key,field,label,error_hint);register(center,key,label,field,module)
         field.entry.bind('<FocusOut>',lambda _:validation() if complete else None,add='+')
         variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k))

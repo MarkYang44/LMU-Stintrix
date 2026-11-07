@@ -1,7 +1,8 @@
 """Video task surfaces using the application's existing native motion tokens."""
 import tkinter as tk
+from tkinter import font as tkfont
 from control_theme import T
-from control_widgets import Pill,px
+from control_widgets import Pill,px,polygon_points
 from control_motion import Motion,blend,SmoothScroll,keyboard_action
 from control_feedback import TabIndicator
 from i18n import tr
@@ -46,14 +47,72 @@ class Action(Pill):
             self.itemconfigure(self.caption,fill=T.ACCENT)
 
 
+class TabBar(tk.Canvas):
+    """View switches share one segmented bar, so they never read as action buttons.
+
+    Records views, data tasks, settings sections and small choice strips use
+    the same bar as the segmented controls: one field-coloured surface, the
+    current segment filled and marked. The bar keeps its natural width unless
+    stretch asks it to fill the row with equal segments.
+    """
+    def __init__(self,parent,stretch=False):
+        self.s=s=max(1,float(parent.winfo_fpixels('1i'))/96);self.stretch=stretch;self.inset=round(4*s)
+        super().__init__(parent,bg=parent.cget('bg'),highlightthickness=0,height=round(46*s))
+        self.inner=tk.Frame(self,bg=T.FIELD);self.item=self.create_window(self.inset,self.inset,anchor='nw',window=self.inner)
+        self.surface=None;self.bind('<Configure>',self.layout);self.inner.bind('<Configure>',self.fit)
+    def add(self,tab):
+        tab.pack(side='left',fill='both',expand=self.stretch);return tab
+    def fit(self,_=None):
+        width=self.inner.winfo_reqwidth()+2*self.inset;height=self.inner.winfo_reqheight()+2*self.inset
+        if int(self.cget('height'))!=height:self.configure(height=height)
+        if not self.stretch and int(self.cget('width'))!=width:self.configure(width=width)
+        self.layout()
+    def layout(self,_=None):
+        from control_widgets import polygon_points
+        w=self.winfo_width();h=self.winfo_height();s=self.s
+        if w<=1:return
+        if self.stretch:self.itemconfigure(self.item,width=max(1,w-2*self.inset))
+        points=polygon_points(0,0,w-1,h-1,7*s)
+        if self.surface is None:self.surface=self.create_polygon(*points,fill=T.FIELD,outline=T.EDGE);self.tag_lower(self.surface)
+        else:self.coords(self.surface,*points)
+        self.itemconfigure(self.surface,fill=T.FIELD,outline=T.EDGE);self.inner.configure(bg=T.FIELD)
+    def paint(self):self.layout()
+
+
+class Tab(Action):
+    """One segment of a TabBar: quiet until hovered, filled and marked when current."""
+    def __init__(self,bar,text,command,width=110):
+        super().__init__(bar.inner,text,command,width)
+        self.regular=tkfont.Font(self,family=T.FONT,size=10)
+        self.configure(height=round(38*self.s));tk.Canvas.configure(self,bg=T.FIELD)
+        bar.add(self)
+    def dispose(self,event):
+        if event.widget is self:
+            for font in (self.font,self.regular):font.__del__();font.delete_font=False
+    def paint(self):
+        s=self.s;w=self.winfo_width();h=self.winfo_height()
+        if not hasattr(self,'caption'):
+            self.surface=self.create_polygon(0,0,0,0,0,0,fill=T.SELECT,outline=T.MARK)
+            self.accent=self.create_rectangle(0,0,0,0,fill=T.ACCENT,outline='')
+            self.caption=self.create_text(0,0,font=self.font)
+        if w<=1:return
+        tk.Canvas.configure(self,bg=T.FIELD)
+        current=self.selected and self.enabled;hover=self.amount if self.enabled else 0;shift=self.press_amount*s
+        fill=T.SELECT if current else blend(T.FIELD,T.HOVER,hover)
+        self.coords(self.surface,*polygon_points(2*s,2*s+shift,w-4*s,h-5*s,5*s))
+        self.itemconfigure(self.surface,fill=fill,outline=T.MARK if current else T.ACCENT if self.focused else fill,state='normal' if current or hover>.02 or self.focused else 'hidden')
+        self.coords(self.accent,w/2-9*s,h-6*s+shift,w/2+9*s,h-4*s+shift);self.itemconfigure(self.accent,fill=T.ACCENT,state='normal' if current else 'hidden')
+        color=T.FG if current or hover>.5 else T.MUTED if self.enabled else blend(T.MUTED,T.FIELD,.45)
+        self.coords(self.caption,w/2,h/2-s+shift);self.itemconfigure(self.caption,text=tr(self.label),fill=color,font=self.font if current else self.regular)
+
+
 class ChoiceStrip(tk.Frame):
     def __init__(self,parent,variable,choices,command):
         super().__init__(parent,bg=parent.cget('bg'));self.variable=variable;self.choices=choices;self.command=command;self.buttons={}
-        row=tk.Frame(self,bg=self.cget('bg'));row.pack(fill='x')
-        for title,value in choices:
-            button=Action(row,title,lambda v=value:self.choose(v),width=100)
-            button.pack(side='left',fill='x',expand=True,padx=(0,px(self,5)));self.buttons[value]=button
-        self.indicator=TabIndicator(self);self.indicator.pack(fill='x')
+        # One segmented bar; the selected segment carries the mark itself.
+        bar=TabBar(self,stretch=True);bar.pack(fill='x')
+        for title,value in choices:self.buttons[value]=Tab(bar,title,lambda v=value:self.choose(v),width=100)
+        self.indicator=TabIndicator(self)
         self.trace=variable.trace_add('write',lambda *_:self.refresh());self.bind('<Destroy>',self.dispose,add='+')
         self.refresh(False)
         for i,button in enumerate(self.buttons.values()):

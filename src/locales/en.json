@@ -2059,5 +2059,17 @@
   "在车型图鉴中搜索": "Search the car catalog for",
   "上一场": "Last session",
   "报告生成中": "Reports building",
-  "部分报告待完成": "Some reports pending"
+  "部分报告待完成": "Some reports pending",
+  "标准": "Standard",
+  "仅曲线": "Waveforms only",
+  "曲线 + 踏板": "Waveforms + pedals",
+  "5 秒": "5 s",
+  "10 秒": "10 s",
+  "20 秒": "20 s",
+  "波形窗口": "Waveform window",
+  "列表 {total} 场 · 单击查看要点，双击或 Enter 打开复盘": "{total} sessions · click to see the key facts, double-click or Enter to open the review",
+  "选 2 场可对比两场最快圈": "Select 2 sessions to compare their best laps",
+  "可对比两场最快圈或圈 A / 圈 B": "Compare both best laps or lap A / lap B",
+  "已选 {count} 场": "{count} selected",
+  "列表 {total} 场": "{total} in list"
 }

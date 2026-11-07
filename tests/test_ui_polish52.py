@@ -94,12 +94,12 @@ class PolishUITests(unittest.TestCase):
         preview.zoom_at(2,*pointer);self.assertAlmostEqual(preview.ratio,old*2);ox,oy=preview.origin;self.assertAlmostEqual(ox+world[0]*preview.ratio,pointer[0]);self.assertAlmostEqual(oy+world[1]*preview.ratio,pointer[1])
         preview.start_pan(SimpleNamespace(x=20,y=30));preview.move_pan(SimpleNamespace(x=80,y=90));preview.end_drag();self.assertNotEqual(preview.pan,[0,0]);preview.fit_selected();self.assertIsNotNone(preview.focus_rect);preview.fit_all();self.assertIsNone(preview.focus_rect);self.assertEqual(preview.zoom,1);self.assertFalse(window.layout_dirty());self.assertFalse((root/'hud_layouts.json').exists());self.assertFalse(errors)
     def test_home_controls_fit_with_recent_session_in_both_languages(self):
-        from control_fields import Select
+        from control_widgets import Segmented
         app,root,errors=self.app(True);app.show_page(1);self.pump(app,.5);app.show_page(0);self.pump(app,.2)
         def walk(parent):
             for widget in parent.winfo_children():yield widget;yield from walk(widget)
         for _ in range(2):
-            bottom=app.scroll.winfo_rooty()+app.scroll.winfo_height();controls=[w for w in walk(app.content) if isinstance(w,Select) and w.variable in (app.mode_label,app.channel,app.window)]
+            bottom=app.scroll.winfo_rooty()+app.scroll.winfo_height();controls=[w for w in walk(app.content) if isinstance(w,Segmented) and w.variable in (app.mode_label,app.channel,app.window)]
             self.assertEqual(len(controls),3)
             for widget in controls:self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),bottom)
             self.assertTrue(app.recent_widgets[0].recent_full);app.toggle_language();self.pump(app,.3)

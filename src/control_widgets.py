@@ -73,10 +73,18 @@ class GlassCard(tk.Canvas):
         self.s=scale(parent);self.margin=round((14 if compact else 22)*self.s);self.vertical=26 if compact else 42
         super().__init__(parent,bg=parent.cget('bg'),highlightthickness=0,height=100)
         self.body=tk.Frame(self,bg=T.CARD);self.item=self.create_window(self.margin,round((12 if compact else 20)*self.s),anchor='nw',window=self.body)
+        self.floor=0;self.on_natural=None
         self.bind('<Configure>',self.layout);self.body.bind('<Configure>',self.resize)
-    def resize(self,_):
-        h=self.body.winfo_reqheight()+round(self.vertical*self.s)
+    def natural(self):return self.body.winfo_reqheight()+round(self.vertical*self.s)
+    def resize(self,_=None):
+        natural=self.natural();h=max(natural,self.floor)
+        # A card stretched to its row hands the extra room to its body, so an
+        # expanding child (a preview) fills it instead of leaving a gap.
+        self.itemconfigure(self.item,height=h-round(self.vertical*self.s) if self.floor>natural else 0)
         if int(self.cget('height'))!=h:self.configure(height=h)
+        if self.on_natural:self.on_natural()
+    def stretch(self,height):
+        if self.floor!=height:self.floor=height;self.resize()
     def layout(self,_):
         s=self.s;w=self.winfo_width();h=self.winfo_height();self.itemconfigure(self.item,width=max(30,w-2*self.margin))
         self.delete('glass')
@@ -279,9 +287,21 @@ def segmented_row(parent,caption,variable,values,command=None,captions=None,titl
 class CardGrid(tk.Frame):
     """Two balanced columns on wide displays; stack before forms become cramped."""
     def __init__(self,parent):
-        super().__init__(parent,bg=T.BG);self.cards=[];self.wide=None;self.bind('<Configure>',self.layout)
+        super().__init__(parent,bg=T.BG);self.cards=[];self.wide=None;self.balancing=False;self.bind('<Configure>',self.layout)
         self.columnconfigure(0,weight=1,uniform='cards');self.columnconfigure(1,weight=1,uniform='cards')
-    def add(self,card):self.cards.append(card);self.layout()
+    def add(self,card):
+        self.cards.append(card)
+        if hasattr(card,'stretch'):card.on_natural=self.balance
+        self.layout()
+    def balance(self):
+        """Side-by-side cards end on one line; stacked cards keep their own height."""
+        if self.balancing:return
+        self.balancing=True
+        try:
+            cards=[card for card in self.cards if hasattr(card,'stretch') and card.winfo_exists()]
+            target=max((card.natural() for card in cards),default=0) if self.wide and len(cards)>1 else 0
+            for card in cards:card.stretch(target)
+        finally:self.balancing=False
     def layout(self,_=None):
         wide=self.winfo_width()>=px(self,900)
         if self.wide==wide and all(c.winfo_manager() for c in self.cards):return
@@ -289,6 +309,7 @@ class CardGrid(tk.Frame):
         for i,card in enumerate(self.cards):
             card.grid(row=0 if wide else i,column=i if wide else 0,columnspan=1 if wide else 2,
                 sticky='new',padx=(0,px(self,9)) if wide and i==0 else ((px(self,9),0) if wide else 0),pady=(0,px(self,18)))
+        self.balance()
 
 
 class LaunchArtwork(tk.Canvas):

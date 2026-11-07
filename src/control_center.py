@@ -278,6 +278,11 @@ class ControlCenter:
             'mode':segmented('显示模式',self.mode_label,list(modes),lambda:self.set_hud('mode',modes[self.mode_label.get()]),{'标准面板':'标准','纯净 · 仅曲线':'仅曲线','纯净 · 曲线 + 踏板 / 方向盘':'曲线 + 踏板'},{name:name for name in modes}),
             'channel':segmented('输入通道',self.channel,['原始输入','游戏过滤后'],lambda:self.set_hud('channel','filtered' if self.channel.get()=='游戏过滤后' else 'raw'),dict(zip(('原始输入','游戏过滤后'),self.profile.input_labels))),
             'window':segmented('波形窗口',self.window,['5','10','20'],lambda:self.set_hud('window',self.window.get()),{'5':'5 秒','10':'10 秒','20':'20 秒'})}
+        # The card's spare height shows what these choices draw; it grows to
+        # match the panel card beside it, so both columns end on one line.
+        from control_hud_preview import HudPreview
+        from control_layouts import show as open_layouts
+        self.hud_preview=HudPreview(body,self.mode_label,self.window,modes,lambda:open_layouts(self));self.hud_preview.pack(fill='both',expand=True,pady=(px(body,10),px(body,2)))
         body=self.card('EVO 驾驶信息' if self.capabilities.driving_instruments else '附加遥测面板','按需开启，让比赛视野保持清爽',grid)
         if self.capabilities.driving_instruments:
             import evo_hud
@@ -412,6 +417,11 @@ class ControlCenter:
         # Trust, completeness and lap counts join the selection line above the list.
         self.event_detail=tk.StringVar(self.root)
         self.tree.bind('<<TreeviewSelect>>',lambda _:self.describe_selection(),add='+')
+        tree=self.tree
+        def refresh_key(_=None):
+            if tree.winfo_exists() and tree.winfo_ismapped():self.refresh();return 'break'
+        token=self.root.bind('<F5>',refresh_key,add='+')
+        tree.bind('<Destroy>',lambda e:self.root.unbind('<F5>',token) if e.widget is tree else None,add='+')
         self.refresh()
 
     def focus_search(self,_=None):

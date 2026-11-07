@@ -2091,5 +2091,8 @@
   "保存当前参数模块": "Save the current settings module",
   "游戏中控制 HUD 的按键在「全局快捷键」里设置。": "In-game HUD keys are set under Global shortcuts.",
   "键盘快捷键一览": "Keyboard shortcuts",
-  "所有界面快捷键": "Every in-app shortcut"
+  "所有界面快捷键": "Every in-app shortcut",
+  "画面预览": "HUD preview",
+  "打开 HUD 布局，调整位置、尺寸与透明度": "Open HUD layouts to adjust position, size and opacity",
+  "刷新赛事与纪录列表": "Refresh session and record lists"
 }

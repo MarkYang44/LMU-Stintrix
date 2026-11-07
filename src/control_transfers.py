@@ -27,7 +27,7 @@ def storage_operation(self,kind):
 
 def compress_selected(self):
     if not available(self):return
-    from session_compression import compress
+    from storage_actions import compress_local as compress
     self.with_selection(lambda items:start(self,'无损压缩任务',[item['folder'] for item in items],compress),None)
 
 

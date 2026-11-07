@@ -48,10 +48,12 @@ def main():
     run('xcrun','swiftc','-O','-target','arm64-apple-macos13.0',ROOT/'tools/macos_ocr.swift',
         '-framework','Vision','-framework','Foundation','-framework','ImageIO','-o',helper)
     asset=work/'build-version.json';asset.write_text(json.dumps(dict(version=version,platform='macos-arm64',offline=True)))
+    identity=os.environ.get('STINTRIX_MAC_SIGN_IDENTITY','-')
     command=[sys.executable,'-m','PyInstaller','--noconfirm','--clean','--onedir','--windowed','--noupx',
         '--name','LMU-Stintrix','--paths',str(ROOT/'src'),'--target-arch','arm64',
         '--osx-bundle-identifier','io.github.MarkYang44.LMU-Stintrix','--icon',str(brand/'stintrix.icns'),
         '--workpath',str(work/'work'),'--specpath',str(work),'--distpath',str(stage),'--collect-all','duckdb']
+    if identity!='-':command+=['--codesign-identity',identity]
     # macOS never imports/loads live adapters, Win32 integration or the external
     # Windows renderer. The Windows build and its hidden imports are unchanged.
     for name in ('hud','engine','recorder','telemetry','acevo','native_hotkeys','windows_integration','windows_png',
@@ -90,8 +92,9 @@ def main():
     audit_app(app)
     # Ad-hoc signing is sufficient for local builds, and needs no private key.
     # A Developer ID installed in the runner keychain may be selected for release.
-    identity=os.environ.get('STINTRIX_MAC_SIGN_IDENTITY','-')
-    run('codesign','--force','--deep','--sign',identity,app)
+    signing=['codesign','--force','--deep','--sign',identity]
+    if identity!='-':signing+=['--options','runtime']
+    run(*signing,app)
     run('codesign','--verify','--deep','--strict','--verbose=2',app)
     archive=dist/f'LMU-Stintrix-v{version}-macos-arm64.zip'
     run('ditto','-c','-k','--sequesterRsrc','--keepParent',app,archive)

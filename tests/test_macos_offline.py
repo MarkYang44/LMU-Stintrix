@@ -13,6 +13,18 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
 
 
 class Data(unittest.TestCase):
+    def test_explicit_mac_compression_is_lossless_and_windows_keeps_its_backend(self):
+        from offline_smoke import fixture
+        from storage_actions import compress_local
+        from telemetry_file import Path as ReadPath
+        with tempfile.TemporaryDirectory(dir=ROOT) as work:
+            source=fixture(Path(work)/'session');raw=(source/'inputs.csv').read_bytes();meta=(source/'session.json').read_bytes()
+            with patch('sys.platform','darwin'),patch('session_compression.ntfs',return_value=False):result=compress_local(source)
+            self.assertTrue(result['supported']);self.assertFalse(result['errors']);self.assertTrue((source/'inputs.csv.stc').is_file())
+            self.assertEqual(ReadPath(source/'inputs.csv').read_bytes(),raw);self.assertEqual((source/'session.json').read_bytes(),meta)
+            with patch('sys.platform','win32'),patch('session_compression.compress') as original:compress_local(source)
+            original.assert_called_once_with(source)
+
     def test_folder_import_preserves_precision_sources_and_simulator_isolation(self):
         from session_import import import_folder
         from offline_smoke import fixture

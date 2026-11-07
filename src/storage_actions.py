@@ -1,7 +1,14 @@
 """Explicit CSV / standalone HTML exports and selected-session column storage."""
 import shutil
+import sys
 from pathlib import Path
 from uuid import uuid4
+
+
+def compress_local(folder):
+    """An explicit UI compression request uses lossless STX on macOS."""
+    from session_compression import compress
+    return compress(folder,columnar=True) if sys.platform=='darwin' else compress(folder)
 
 
 def columnar(folder):

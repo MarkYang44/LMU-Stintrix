@@ -381,7 +381,7 @@ class ControlCenter:
                 if done:done(result)
         self.run_background(work,finish)
 
-    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False,height=9,filter_toggle=True):
+    def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False,height=9,filter_toggle=True,fill=False):
         from control_search import SearchField
         row=self.row(body);self.label(row,'搜索',10,T.MUTED).pack(side='left',padx=(0,8));self.search=tk.StringVar(self.root);entry=SearchField(row,textvariable=self.search,command=self.populate)
         self.search_target=entry;entry.pack(side='left',fill='x',expand=True)
@@ -417,6 +417,7 @@ class ControlCenter:
         # Trust, completeness and lap counts join the selection line above the list.
         self.event_detail=tk.StringVar(self.root)
         self.tree.bind('<<TreeviewSelect>>',lambda _:self.describe_selection(),add='+')
+        if fill:self.fill_list(self.tree)
         tree=self.tree
         def refresh_key(_=None):
             if tree.winfo_exists() and tree.winfo_ismapped():self.refresh();return 'break'
@@ -521,6 +522,8 @@ class ControlCenter:
         if hasattr(self,'review_filters') and self.review_filters.winfo_exists():self.review_filters.count.set(len(rows))
         self.update_selection_count()
         self.describe_selection()
+        fit=getattr(self.tree,'fill_list',None)
+        if fit:fit()
 
     def personal_bests(self):
         """Row ids holding the best lap for a circuit layout and car driven more than once."""
@@ -531,6 +534,31 @@ class ControlCenter:
             if not time or value.get('status') in ('recording','write_error'):continue
             f=normalize(value);groups.setdefault((f.get('track') or value.get('track'),f.get('layout'),value.get('vehicle')),[]).append((time,index))
         return {str(min(entries)[1]) for entries in groups.values() if len(entries)>1}
+
+    def fill_list(self,table):
+        """A long list uses the window's height instead of stopping above an empty band.
+
+        Short lists hug their rows (plus one, at least four); the height
+        follows window resizes and every search or filter result.
+        """
+        state={'job':None}
+        def resize():
+            state['job']=None
+            if not table.winfo_exists() or not table.winfo_ismapped():return
+            self.root.update_idletasks()
+            top=table.viewport.winfo_rooty()-self.scroll.winfo_rooty()+self.scroll.canvasy(0)
+            available=self.scroll.winfo_height()-top-px(self.root,40)
+            count=len(table.order)
+            # A long list ends exactly at the window edge (a partly shown row
+            # says there is more); a short one hugs its rows.
+            if count and count+1<=available/table.rowheight:target=round(max(4,count+1)*table.rowheight)
+            else:target=round(max(4*table.rowheight,available))
+            if int(table.viewport.cget('height'))!=target:table.viewport.configure(height=target)
+        def schedule(_=None):
+            if state['job'] is None and table.winfo_exists():state['job']=table.after_idle(resize)
+        token=self.scroll.bind('<Configure>',schedule,add='+')
+        table.bind('<Destroy>',lambda e:self.scroll.unbind('<Configure>',token) if e.widget is table else None,add='+')
+        table.fill_list=schedule;schedule()
 
     def selection(self,count=1):
         chosen=[self.items[int(i)] for i in self.tree.selection()] if self.tree else []
@@ -559,7 +587,7 @@ class ControlCenter:
         body=self.card('')
         from control_session_location import SessionLocation
         self.session_locator=SessionLocation(self,body)
-        self.sessions(body,True,True,False,compact_actions=True)
+        self.sessions(body,True,True,False,compact_actions=True,fill=True)
 
     def clear_toolbar(self):
         if not hasattr(self,'shell'):return

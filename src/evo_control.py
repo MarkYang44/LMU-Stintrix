@@ -26,7 +26,7 @@ def unavailable(app):
 
 def review_page(app):
     body=app.card('AC EVO 赛事记录','这里只显示 AC EVO 数据；布局与圈速独立保存，双击打开记录概览。',compact=True)
-    app.sessions(body,True,True,False,compact_actions=True)
+    app.sessions(body,True,True,False,compact_actions=True,fill=True)
     preview=app.card('赛道与车辆','官方图片保存在本机；选中赛事即可预览对应赛道和车型。',compact=True)
     app.evo_preview=RecordPreview(preview,app)
 

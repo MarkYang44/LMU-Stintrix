@@ -392,7 +392,7 @@ class ControlCenter:
         self.search.set(self.browsing.query(self.page))
         self.tree=SessionList(body,columns=('date','type','result','mode','track','car','lap','layout','class','trust','quality'),height=height,selectmode='extended' if multiple else 'browse',checkboxes=checkboxes)
         self.tree.simulator=self.simulator
-        for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('result','完赛名次',90),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',92),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:
+        for key,title,width in [('date','时间（UTC）',180),('type','阶段',76),('result','完赛名次',90),('mode','参赛方式',90),('track','赛道',200),('car','车辆',175),('lap','最快圈',132),('layout','具体布局',180),('class','组别',85),('trust','成绩依据',110),('quality','数据质量',135)]:
             self.tree.heading(key,text=title);self.tree.column(key,width=px(self.root,width),minwidth=px(self.root,60),stretch=key in ('track','car'))
         from control_table_preferences import install as table_preferences
         table_preferences(self,self.tree,'review',self.review_filters)
@@ -513,7 +513,7 @@ class ControlCenter:
             f=normalize(value)
             from event_result_label import label as result_label
             rows.append((str(i),(value['date'][:19].replace('T',' '),session_type(value['session_type']),result_label(f),tr(__import__('race_mode').LABELS[value.get('race_mode','unknown')]),display(value['track']),value['vehicle'],lap,layout(f['track'],f['layout'],f.get('length_m')),f.get('vehicle_class',''),tr(TRUST.get(f.get('trust'),'未知')),tr(QUALITY.get(f.get('quality'),'完整性未知')))))
-        self.tree.marked=self.personal_bests()
+        self.tree.marked,self.tree.gaps=self.personal_bests(gaps=True)
         from control_event_filters import replace_rows
         replace_rows(self.tree,rows,selected)
         if located is not None:locator.reveal(located)
@@ -525,15 +525,26 @@ class ControlCenter:
         fit=getattr(self.tree,'fill_list',None)
         if fit:fit()
 
-    def personal_bests(self):
-        """Row ids holding the best lap for a circuit layout and car driven more than once."""
+    def personal_bests(self,gaps=False):
+        """Row ids holding the best lap for a circuit layout and car driven more than once.
+
+        With gaps, also each other session's distance to that best, in seconds.
+        """
         from event_catalog import normalize
         groups={}
         for index,value in enumerate(self.items):
             time=value.get('time_s')
             if not time or value.get('status') in ('recording','write_error'):continue
             f=normalize(value);groups.setdefault((f.get('track') or value.get('track'),f.get('layout'),value.get('vehicle')),[]).append((time,index))
-        return {str(min(entries)[1]) for entries in groups.values() if len(entries)>1}
+        groups=[entries for entries in groups.values() if len(entries)>1]
+        marked={str(min(entries)[1]) for entries in groups}
+        if not gaps:return marked
+        distance={}
+        for entries in groups:
+            best=min(entries)[0]
+            for time,index in entries:
+                if str(index) not in marked:distance[str(index)]=time-best
+        return marked,distance
 
     def fill_list(self,table):
         """A long list uses the window's height instead of stopping above an empty band.

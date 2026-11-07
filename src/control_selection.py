@@ -52,7 +52,8 @@ def facts(app):
         value=str(values.get(key) or '').strip()
         return '' if value in ('','—','-') else value
     stage=' '.join(v for v in (pick('type'),pick('result')) if v)
-    best=tr('最快圈')+' '+pick('lap')+(' PB' if ids[0] in getattr(table,'marked',()) else '') if pick('lap') else ''
+    gap=getattr(table,'gaps',{}).get(ids[0])
+    best=tr('最快圈')+' '+pick('lap')+(' PB' if ids[0] in getattr(table,'marked',()) else (' · '+tr('距 PB')+' +'+format(gap,'.3f') if gap is not None else '')) if pick('lap') else ''
     lead=' · '.join(v for v in (pick('track'),stage,best) if v)
     detail=app.event_detail.get() if getattr(app,'event_detail',None) is not None else ''
     layout=pick('layout')

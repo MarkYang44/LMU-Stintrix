@@ -10,7 +10,7 @@ def compact(table,defaults):
     if not required<=set(table.columns):return defaults
     evo=getattr(table,'simulator','lmu')=='ac_evo'
     keys=['date','track','layout','lap','car','type'] if evo else ['date','track','lap','car','type','result']
-    widths={**defaults['widths'],'date':140,'track':160 if evo else 180,'layout':185,'lap':92,'car':165,'type':76,'result':90}
+    widths={**defaults['widths'],'date':140,'track':160 if evo else 180,'layout':185,'lap':132,'car':165,'type':76,'result':90}
     return dict(visible=[k for k in keys if k in table.columns],frozen=['date','track'],widths=widths)
 
 

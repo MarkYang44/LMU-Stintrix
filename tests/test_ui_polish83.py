@@ -109,5 +109,6 @@ class UI(unittest.TestCase):
         self.assertEqual(sorted(times[i] for i in t.marked),['1:42.100','2:26.100'])
         best=next(i for i in t.marked if times[i]=='2:26.100');other=next(i for i in t.get_children() if times[i]=='2:26.400')
         t.selection_set((best,));self.pump(app,.05);self.assertTrue(app.selection_line.full[0].endswith('2:26.100 PB'))
-        t.selection_set((other,));self.pump(app,.05);self.assertNotIn('PB',app.selection_line.full[0])
+        # v0.3.67: other sessions are not tagged PB but show their distance to it.
+        t.selection_set((other,));self.pump(app,.05);lead=app.selection_line.full[0];self.assertFalse(lead.endswith(' PB'));self.assertIn('距 PB +0.300',lead)
         self.assertIn('PB',[t.viewport.itemcget(i,'text') for i in t.viewport.find_all() if t.viewport.type(i)=='text']);self.assertFalse(errors)

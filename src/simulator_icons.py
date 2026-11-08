@@ -54,12 +54,20 @@ def pixels(game,size,path,stamp):
                 with Image.open(path) as image:return ImageOps.contain(image.convert('RGBA'),(size,size),Image.Resampling.LANCZOS)
             return executable_icon(path,size)
         except (OSError,ValueError,AttributeError):pass
-    image=Image.new('RGBA',(size,size));draw=ImageDraw.Draw(image)
-    draw.rounded_rectangle((0,0,size-1,size-1),radius=max(1,size//8),fill='#292929',outline='#c8ce42')
-    try:font=ImageFont.truetype('segoeuib.ttf',max(8,size//3))
-    except OSError:font=ImageFont.load_default(size=max(8,size//3))
-    draw.text((size/2,size/2),'EVO' if game=='ac_evo' else 'LMU',anchor='mm',fill='#f0f0e8',font=font)
-    return image
+    # No installed game (always the case on Mac): draw a mark, never bundle artwork.
+    big=size*4;image=Image.new('RGBA',(big,big));draw=ImageDraw.Draw(image)
+    draw.rounded_rectangle((0,0,big-1,big-1),radius=max(1,big//8),fill='#292929',outline='#c8ce42',width=4)
+    if game=='lmu':
+        from lmu_mark import SHAPES
+        width=big*.72;factor=width/71;x=(big-width)/2;y=(big-35*factor)/2
+        for shape in SHAPES:draw.polygon([(x+a*factor,y+b*factor) for a,b in shape],fill='#FF1D43')
+    else:
+        try:font=ImageFont.truetype('segoeuib.ttf',max(8,big//3))
+        except OSError:
+            from pillow_png import font as system_font
+            font=system_font(max(8,big//3),bold=True)
+        draw.text((big/2,big/2),'EVO',anchor='mm',fill='#f0f0e8',font=font)
+    return image.resize((size,size),Image.Resampling.LANCZOS)
 
 
 def load(master,size):

@@ -15,12 +15,14 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
 class Data(unittest.TestCase):
     def test_frozen_mac_switch_uses_launch_services_with_scoped_data(self):
         from simulators import launch
-        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch('sys.frozen',True,create=True),patch('sys.executable','/Applications/LMU-Stintrix.app/Contents/MacOS/LMU-Stintrix'):
+        # Built with the host's path flavour, so the Windows compatibility job runs it too.
+        executable=str(Path('/Applications/LMU-Stintrix.app/Contents/MacOS/LMU-Stintrix'))
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch('sys.frozen',True,create=True),patch('sys.executable',executable):
             with patch('sys.platform','darwin'),patch('subprocess.Popen') as child:
                 child.return_value.wait.return_value=0
                 launch(work,'ac_evo')
                 command=child.call_args.args[0]
-                self.assertEqual(command[:4],['/usr/bin/open','-n','-a','/Applications/LMU-Stintrix.app'])
+                self.assertEqual(command[:4],['/usr/bin/open','-n','-a',str(Path(executable).parents[2])])
                 self.assertIn('STINTRIX_SIMULATOR=ac_evo',command)
                 self.assertIn('LMU_STINTRIX_DATA_DIR='+str(Path(work).resolve()),command)
                 self.assertIn('PYINSTALLER_RESET_ENVIRONMENT=1',command)
@@ -35,6 +37,26 @@ class Data(unittest.TestCase):
             child.return_value.wait.return_value=1
             with self.assertRaises(OSError):launch(work,'ac_evo')
             self.assertEqual(path.read_bytes(),before)
+
+    def test_frozen_mac_app_keeps_its_bundle_dock_icon(self):
+        import branding
+        root=Mock()
+        with patch('sys.platform','darwin'),patch('sys.frozen',True,create=True):branding.apply(root)
+        # Tk's iconphoto would replace the rounded .icns Dock icon with square 128 px PNGs.
+        root.iconphoto.assert_not_called();root.iconbitmap.assert_not_called()
+        root=Mock()
+        with patch('sys.platform','win32'),patch('sys.frozen',True,create=True),patch('tkinter.PhotoImage'):branding.apply(root)
+        root.iconphoto.assert_called_once()
+
+    def test_game_marks_without_installed_games_use_the_lmu_vector_and_a_real_font(self):
+        import simulator_icons
+        from PIL import ImageFont
+        with patch.object(ImageFont,'load_default',side_effect=AssertionError('PIL fallback font')):
+            lmu=simulator_icons.pixels('lmu',64,None,None);evo=simulator_icons.pixels('ac_evo',64,None,None)
+        self.assertEqual((lmu.size,evo.size),((64,64),(64,64)))
+        # The official LMU website mark (lmu_mark.py), not a text placeholder.
+        red=sum(1 for r,g,b,a in lmu.getdata() if a>200 and r>200 and g<90 and b<120)
+        self.assertGreater(red,300)
 
     @unittest.skipUnless(os.name=='posix','POSIX stand-in for the Vision helper')
     def test_first_mac_ocr_request_allows_model_preparation_then_uses_normal_timeout(self):

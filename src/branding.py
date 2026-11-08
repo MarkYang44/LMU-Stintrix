@@ -9,7 +9,11 @@ def directory():
 
 
 def apply(root):
+    import sys
     import tkinter as tk
+    # A Mac bundle's rounded .icns is its Dock icon; iconphoto would swap in the
+    # square 128 px Windows images as a second-looking, blurry Dock tile.
+    if sys.platform=='darwin' and getattr(sys,'frozen',False):return
     folder=directory()
     try:
         images=[tk.PhotoImage(master=root,file=str(folder/f'stintrix-{n}.png')) for n in (32,48,64,128)]

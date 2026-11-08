@@ -3,8 +3,43 @@ from functools import lru_cache
 from pathlib import Path
 
 
+ICON_TYPES='请选择 PNG、ICO、ICNS、JPG 或 WebP 图片'
+
+
+def custom_path(game):
+    from paths import base_data_directory
+    return base_data_directory()/'assets'/'simulators'/(game+'.png')
+
+
+def custom_icon(game):
+    """The user's own icon (e.g. evo.ico copied from their Windows install), kept in private data."""
+    path=custom_path(game)
+    return path if path.is_file() and not path.is_symlink() else None
+
+
+def import_icon(game,file):
+    import os
+    from PIL import Image,ImageOps
+    from simulators import validate
+    game=validate(game);file=Path(file)
+    if not file.is_file() or file.stat().st_size>16*1024*1024:raise ValueError(ICON_TYPES)
+    try:
+        with Image.open(file) as image:icon=ImageOps.contain(image.convert('RGBA'),(256,256),Image.Resampling.LANCZOS)
+    except (OSError,ValueError,Image.DecompressionBombError):raise ValueError(ICON_TYPES) from None
+    target=custom_path(game);target.parent.mkdir(parents=True,exist_ok=True)
+    temporary=target.with_name(target.name+'.tmp');icon.save(temporary,'PNG');os.replace(temporary,target)
+    source.cache_clear();return target
+
+
+def reset_icon(game):
+    from simulators import validate
+    custom_path(validate(game)).unlink(missing_ok=True);source.cache_clear()
+
+
 @lru_cache(maxsize=2)
 def source(game):
+    custom=custom_icon(game)
+    if custom is not None:return custom
     from paths import discover_game
     folder=discover_game(game)
     if folder is None:return None
@@ -50,7 +85,7 @@ def pixels(game,size,path,stamp):
     from PIL import Image,ImageDraw,ImageFont,ImageOps
     if path:
         try:
-            if Path(path).suffix.lower()=='.ico':
+            if Path(path).suffix.lower() in ('.ico','.png'):
                 with Image.open(path) as image:return ImageOps.contain(image.convert('RGBA'),(size,size),Image.Resampling.LANCZOS)
             return executable_icon(path,size)
         except (OSError,ValueError,AttributeError):pass

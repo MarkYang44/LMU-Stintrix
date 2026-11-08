@@ -5,6 +5,15 @@ from simulators import GAMES,SHORT,launch
 from i18n import tr
 
 
+def refresh_icons(app):
+    """Re-read both game marks after the user changes an icon; the selector keeps its size."""
+    from simulator_icons import load
+    from control_widgets import px
+    box=getattr(app,'simulator_selector',None)
+    if box is None:return
+    box.images.update(load(app.root,px(app.root,26)));box.paint()
+
+
 def install(app):
     app.simulator_choice=tk.StringVar(app.root,value=app.simulator)
     from simulator_icons import load

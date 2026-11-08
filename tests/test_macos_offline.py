@@ -58,6 +58,26 @@ class Data(unittest.TestCase):
         red=sum(1 for r,g,b,a in lmu.getdata() if a>200 and r>200 and g<90 and b<120)
         self.assertGreater(red,300)
 
+    def test_user_game_icon_is_kept_privately_validated_and_resettable(self):
+        import simulator_icons
+        from PIL import Image
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch.dict(os.environ,{'LMU_STINTRIX_DATA_DIR':work}):
+            base=Path(work).resolve();original=base/'evo.ico'
+            Image.new('RGBA',(64,64),(0,90,255,255)).save(original,sizes=[(64,64),(32,32)]);before=original.read_bytes()
+            simulator_icons.source.cache_clear()
+            try:
+                target=simulator_icons.import_icon('ac_evo',original)
+                self.assertEqual(target,base/'assets'/'simulators'/'ac_evo.png');self.assertEqual(original.read_bytes(),before)
+                self.assertEqual(simulator_icons.source('ac_evo'),target)
+                image=simulator_icons.pixels('ac_evo',32,str(target),(target.stat().st_size,target.stat().st_mtime_ns))
+                self.assertEqual(image.getpixel((16,16))[:3],(0,90,255))
+                (base/'notes.txt').write_text('not an image')
+                with self.assertRaises(ValueError):simulator_icons.import_icon('ac_evo',base/'notes.txt')
+                self.assertEqual(simulator_icons.source('ac_evo'),target)
+                simulator_icons.reset_icon('ac_evo')
+                self.assertFalse(target.exists());self.assertIsNone(simulator_icons.custom_icon('ac_evo'))
+            finally:simulator_icons.source.cache_clear()
+
     @unittest.skipUnless(os.name=='posix','POSIX stand-in for the Vision helper')
     def test_first_mac_ocr_request_allows_model_preparation_then_uses_normal_timeout(self):
         import paths,video_ocr
@@ -184,6 +204,26 @@ class Data(unittest.TestCase):
 
 
 class UI(unittest.TestCase):
+    def test_offline_preferences_import_and_reset_a_game_icon_in_the_selector(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch.dict(os.environ,{'STINTRIX_OFFLINE':'1','LMU_STINTRIX_DATA_DIR':work,'STINTRIX_SIMULATOR':'lmu'}):
+            import control_center as cc,control_offline,simulator_icons
+            from PIL import Image
+            icon=Path(work)/'evo.png';Image.new('RGBA',(40,40),(0,90,255,255)).save(icon)
+            simulator_icons.source.cache_clear()
+            with patch.object(cc,'ROOT',Path(work)),patch.object(cc,'SIMULATOR','lmu'):
+                app=cc.ControlCenter();errors=[];app.root.report_callback_exception=lambda *e:errors.append(str(e[1]))
+                try:
+                    app.show_page(2);app.root.update()
+                    default=app.simulator_selector.images['ac_evo']
+                    with patch.object(control_offline.filedialog,'askopenfilename',return_value=str(icon)):control_offline.choose_icon(app,'ac_evo')
+                    chosen=app.simulator_selector.images['ac_evo']
+                    self.assertIsNot(chosen,default);self.assertEqual((chosen.width(),chosen.height()),(default.width(),default.height()))
+                    self.assertEqual(simulator_icons.source('ac_evo'),Path(work).resolve()/'assets'/'simulators'/'ac_evo.png')
+                    control_offline.reset_icons(app)
+                    self.assertIsNone(simulator_icons.custom_icon('ac_evo'));self.assertIsNot(app.simulator_selector.images['ac_evo'],chosen)
+                    self.assertFalse(errors,errors)
+                finally:app.close();simulator_icons.source.cache_clear()
+
     def test_wheel_units_follow_the_tk_aqua_convention_and_scroll_pages_match_the_main_view(self):
         import tkinter as tk
         from platform_runtime import wheel_steps

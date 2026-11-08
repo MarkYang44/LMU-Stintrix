@@ -2124,5 +2124,15 @@
   "主题、语言与本机资料库；分析数据不会写入应用程序。": "Theme, language and local library; analysis data stays outside the application.",
   "切换离线资料库；LMU 与 AC EVO 数据独立": "Switch offline libraries; LMU and AC EVO data stay separate",
   "macOS 可使用 Command 代替 Control。": "Use Command in place of Control on macOS.",
-  "使用完整精度的 STX 无损列式存储；macOS 不调用 Windows NTFS 压缩。": "Full-precision STX lossless column storage; macOS does not use Windows NTFS compression."
+  "使用完整精度的 STX 无损列式存储；macOS 不调用 Windows NTFS 压缩。": "Full-precision STX lossless column storage; macOS does not use Windows NTFS compression.",
+  "游戏图标": "Game icons",
+  "Mac 不安装游戏，程序也不分发游戏图片；可以选择你自己的图标文件。": "Games are not installed on a Mac and no game artwork ships with Stintrix; you can choose your own icon files.",
+  "例如从 Windows 游戏目录复制的 evo.ico；图标只保存在本机资料库。": "For example, evo.ico copied from your Windows game folder. Icons stay in this computer’s library.",
+  "选择 LMU 图标": "Choose LMU icon",
+  "选择 AC EVO 图标": "Choose AC EVO icon",
+  "恢复默认图标": "Restore default icons",
+  "图片": "Images",
+  "已更新游戏图标": "Game icon updated",
+  "已恢复默认游戏图标": "Default game icons restored",
+  "请选择 PNG、ICO、ICNS、JPG 或 WebP 图片": "Choose a PNG, ICO, ICNS, JPG or WebP image"
 }

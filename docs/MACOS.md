@@ -24,7 +24,7 @@ Keep related sessions in their own folders. A bare CSV without `session.json` ca
 
 The navigation contains session review, images & data, personal records, track guide, car catalogue and offline preferences. Capture, HUD, live sampling, game-interface diagnostics and global game hotkeys are absent. Search, filtering, batch tasks, deletion safeguards, notes, charts, lap comparison, training analysis and exports keep their shared workflows. Analysis availability still depends on the game and the channels actually saved by Windows.
 
-Data lives in `~/Library/Application Support/LMU-Stintrix`; EVO uses its `Simulators/ac_evo` subfolder. Updating or moving the `.app` leaves this data in place. To use an external drive, set `LMU_STINTRIX_DATA_DIR` when launching the executable. Never put data inside the signed `.app`. The offline preferences page opens the active data folder in Finder.
+Data lives in `~/Library/Application Support/LMU-Stintrix`; EVO uses its `Simulators/ac_evo` subfolder. Updating or moving the `.app` leaves this data in place. To use an external drive, set `LMU_STINTRIX_DATA_DIR` when launching the executable. Never put data inside the signed `.app`. The offline preferences page opens the active data folder in Finder. Windows reads game icons from the installed games; on Mac the selector shows the LMU vector mark and an EVO badge, or your own icon files (for example `evo.ico` copied from the Windows game folder) chosen under **Offline preferences → Game icons**. They stay in the local library; no game artwork ships with Stintrix.
 
 Command+K opens quick navigation; Command+F searches; Command+1–6 select the visible pages. Control shortcuts also remain available. F1 lists keyboard actions. Standard macOS text editing uses Command.
 
@@ -56,6 +56,6 @@ The delivered-app check extracts the actual ZIP into a path with spaces, verifie
 
 macOS 版仅做离线赛事分析，保留原有工业风、深浅主题和中英界面。先选择 LMU 或 AC EVO，再从赛事复盘的「更多操作」导入比赛包或 Windows 单场赛事文件夹；两款游戏的记录保持隔离。也能读取无损 `.csv.stc`，无需先还原全部 CSV。比赛原文件不改动，导入中发生变化会回滚。
 
-数据默认在 `~/Library/Application Support/LMU-Stintrix`，升级 `.app` 不影响数据。报告图片使用内置原生引擎；Windows 的 RaceCom 版式不在 Mac 上执行，已保存的图片可以直接查看。Apple Silicon 构建流程会输出 `.app`、ZIP、DMG 和 SHA256；默认只有临时签名，首次打开可能需要在系统隐私与安全设置允许。Windows 正常启动仍保留全部实时功能。
+数据默认在 `~/Library/Application Support/LMU-Stintrix`，升级 `.app` 不影响数据。游戏图标在 Windows 上取自已安装的游戏；Mac 可在「离线偏好设置 → 游戏图标」选择你自己的图标文件（如从 Windows 游戏目录复制的 `evo.ico`），只保存在本机资料库，程序不分发游戏图片。报告图片使用内置原生引擎；Windows 的 RaceCom 版式不在 Mac 上执行，已保存的图片可以直接查看。Apple Silicon 构建流程会输出 `.app`、ZIP、DMG 和 SHA256；默认只有临时签名，首次打开可能需要在系统隐私与安全设置允许。Windows 正常启动仍保留全部实时功能。
 
 For a real MacBook acceptance pass, use the [Codex handoff prompt](MACOS_CODEX_HANDOFF.md).

@@ -50,6 +50,9 @@ while ($null -ne ($line=[Console]::ReadLine())) {
 
 class WindowsOCR:
     name='Windows OCR'
+    # Windows creates its OCR engine before reporting ready.
+    first_recognition_timeout=recognition_timeout=15
+    recognized=False
     def __init__(self, cancel=None):
         import subprocess
         self.cancel=cancel;self.lines=queue.Queue(maxsize=2)
@@ -97,7 +100,8 @@ class WindowsOCR:
             ImageOps.expand(patch,border=25,fill='white').convert('RGB').save(path)
             paths.append(str(path.resolve()))
         self.process.stdin.write(json.dumps(paths)+'\n');self.process.stdin.flush()
-        return self._response()['texts']
+        texts=self._response(self.recognition_timeout if self.recognized else self.first_recognition_timeout)['texts']
+        self.recognized=True;return texts
 
     def close(self):
         if self.process.poll() is None:self.process.kill()
@@ -108,6 +112,9 @@ class WindowsOCR:
 
 class MacOCR(WindowsOCR):
     name='Apple Vision OCR'
+    # The helper is ready at once, but Vision prepares its text models on the
+    # first request: >15 s on a cold M5. Cancellation is still polled every 100 ms.
+    first_recognition_timeout=90
     def __init__(self,cancel=None):
         import subprocess
         from paths import ASSETS,APP_ROOT

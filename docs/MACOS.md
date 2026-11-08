@@ -44,6 +44,8 @@ python3.13 -m venv .venv-mac
 .venv-mac/bin/python tools/check_macos_bundle.py
 ```
 
+Release builds use the GitHub Actions CPython 3.13 (python.org framework with Tk 8.6). Homebrew's `python@3.13` bundles Tk 9, which is supported (trackpad `TouchpadScroll`, 120-per-notch wheels) but draws text larger, so treat Homebrew builds as local verification builds rather than release equivalents.
+
 For source development use `.venv-mac/bin/python src/inputscope.py`. On Windows, `--offline` is an explicit preview mode; the normal Windows entry retains all live features. Mac source video OCR requires compiling `tools/macos_ocr.swift` to `_local/macos-tools/vision-ocr`; the build command does this automatically.
 
 The build verifies the official 7-Zip macOS archive and executable using pinned SHA256 values, compiles the Apple Vision worker, excludes live adapters/EXEs/private data, ad-hoc signs the app and creates the DMG. `STINTRIX_MAC_SIGN_IDENTITY` may select an already-installed Developer ID instead of ad-hoc signing. Submit the final app with Apple's `notarytool` and staple the ticket before creating public ZIP/DMG assets when distributing a notarized edition; the workflow does not claim notarization without credentials.

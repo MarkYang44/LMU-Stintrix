@@ -87,9 +87,21 @@ def launch(base,simulator):
     environment.pop('LMU_STINTRIX_REPORT_WORKER',None)
     command=[sys.executable]
     if not getattr(sys,'frozen',False):command.append(str(Path(__file__).with_name('inputscope.py')))
+    elif sys.platform=='darwin':
+        # Relaunch the bundle through Launch Services so the new GUI process
+        # owns a normal Dock/window lifecycle after its parent exits.
+        app=Path(sys.executable).parents[2]
+        command=['/usr/bin/open','-n','-a',str(app)]
+        for key,value in (('STINTRIX_SIMULATOR',simulator),('LMU_STINTRIX_DATA_DIR',str(base)),('PYINSTALLER_RESET_ENVIRONMENT','1')):
+            command+=['--env',key+'='+value]
     options={}
     if os.name=='nt':options['creationflags']=subprocess.CREATE_NO_WINDOW
-    try:return subprocess.Popen(command,env=environment,**options)
+    try:
+        child=subprocess.Popen(command,env=environment,**options)
+        # Wait for the short-lived launcher, never for the new application.
+        if sys.platform=='darwin' and getattr(sys,'frozen',False) and child.wait()!=0:
+            raise OSError('Launch Services could not open the simulator workspace')
+        return child
     except OSError:
         if previous is None:path.unlink(missing_ok=True)
         else:path.write_bytes(previous)

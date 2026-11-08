@@ -185,10 +185,10 @@ def commands(app):
     from track_names import display
     found=[]
     add=lambda *args,**kwargs:found.append(Command(*args,**kwargs))
-    from platform_runtime import offline_only,page_ids
+    from platform_runtime import offline_only,page_ids,shortcut_hint
     for number,index in enumerate(page_ids(),1):
         name=app.page_titles[index]
-        add(f'page:{index}',name,'页面',lambda i=index:app.request_page(i),app.page_subtitles[index],f'Ctrl+{number}')
+        add(f'page:{index}',name,'页面',lambda i=index:app.request_page(i),app.page_subtitles[index],shortcut_hint(f'Ctrl+{number}'))
     active=app.active();idle=not active and not saving(app) and not busy(app)
     if idle and not offline_only():
         add('start','启动记录','操作',app.start,'启动 HUD 并开始记录',words=('start','record','hud'))
@@ -407,7 +407,9 @@ class SearchPill(Pill):
     """Header entry to the palette: a drawn magnifier, its label and the shortcut."""
     def __init__(self,parent,command):
         super().__init__(parent,'搜索',command,150)
-        keys=tk_measure(self,('Consolas',8),'Ctrl K');self.configure(width=max(int(self.cget('width')),round(self.font.measure(tr('搜索'))+keys+64*self.s)))
+        from platform_runtime import shortcut_hint
+        self.shortcut=shortcut_hint('Ctrl K')
+        keys=tk_measure(self,('Consolas',8),self.shortcut);self.configure(width=max(int(self.cget('width')),round(self.font.measure(tr('搜索'))+keys+64*self.s)))
     def paint(self):
         super().paint()
         s=self.s;w=self.winfo_width();h=self.winfo_height();shift=self.press_amount*s;middle=h/2-s+shift
@@ -417,4 +419,4 @@ class SearchPill(Pill):
         self.coords(self.glass,cx-r,cy-r,cx+r,cy+r);self.coords(self.handle,cx+r*.75,cy+r*.75,cx+r*1.7,cy+r*1.7)
         self.itemconfigure(self.glass,outline=T.FG,width=max(1,1.4*s));self.itemconfigure(self.handle,fill=T.FG,width=max(1,1.4*s))
         self.coords(self.caption,33*s,middle);self.itemconfigure(self.caption,anchor='w')
-        self.coords(self.keys,w-16*s,middle);self.itemconfigure(self.keys,text='Ctrl K',fill=T.MUTED)
+        self.coords(self.keys,w-16*s,middle);self.itemconfigure(self.keys,text=self.shortcut,fill=T.MUTED)

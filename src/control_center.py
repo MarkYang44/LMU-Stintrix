@@ -15,7 +15,7 @@ from background import BackgroundTasks
 from control_widgets import GlassCard,Pill,Switch,CardGrid,LaunchArtwork,segmented_row,backdrop,px
 from control_fields import Select,Field
 from paths import ASSETS
-from platform_runtime import offline_only,page_ids,title as window_title,install_mac_keys,wheel_steps
+from platform_runtime import offline_only,page_ids,title as window_title,install_mac_keys,install_touchpad,wheel_steps
 from control_shell import Shell
 from control_list import SessionList
 import branding
@@ -77,9 +77,11 @@ class ControlCenter:
         # commit instantly: repeated shortcuts must never wait on motion.
         from control_motion import keyboard_action
         self.visible_pages=page_ids()
+        page_actions={}
         for number,index in enumerate(self.visible_pages,1):
-            self.root.bind(f'<Control-Key-{number}>',lambda _,i=index:(keyboard_action(self.root,lambda:self.request_page(i)),'break')[1])
-        install_mac_keys(self.root,self.request_close,lambda:self.request_page(2))
+            action=lambda _,i=index:(keyboard_action(self.root,lambda:self.request_page(i)),'break')[1]
+            self.root.bind(f'<Control-Key-{number}>',action);page_actions[str(number)]=action
+        install_mac_keys(self.root,self.request_close,lambda:self.request_page(2),pages=page_actions);install_touchpad(self.root)
         self.show_page(1 if offline_only() else 0);backdrop(self.root)
         from control_repaint import Presentation
         self.presentation=Presentation(self.root);self.root._stintrix_presentation=self.presentation

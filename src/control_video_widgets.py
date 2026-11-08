@@ -64,8 +64,8 @@ class TabBar(tk.Canvas):
         tab.pack(side='left',fill='both',expand=self.stretch);return tab
     def fit(self,_=None):
         width=self.inner.winfo_reqwidth()+2*self.inset;height=self.inner.winfo_reqheight()+2*self.inset
-        if int(self.cget('height'))!=height:self.configure(height=height)
-        if not self.stretch and int(self.cget('width'))!=width:self.configure(width=width)
+        if self.winfo_pixels(self.cget('height'))!=height:self.configure(height=height)
+        if not self.stretch and self.winfo_pixels(self.cget('width'))!=width:self.configure(width=width)
         self.layout()
     def layout(self,_=None):
         from control_widgets import polygon_points
@@ -213,7 +213,11 @@ class ScrollPage(tk.Frame):
     def limit(self):return max(0,self.body.winfo_reqheight()-self.canvas.winfo_height())
     def paint(self,value):self.canvas.yview_moveto(value/max(1,self.body.winfo_reqheight()))
     def scroll_to(self,*args):self.scroller.cancel();self.canvas.yview(*args)
-    def wheel(self,delta):self.scroller.add(-delta/120*px(self,68))
+    def wheel(self,delta):
+        import sys
+        from platform_runtime import wheel_steps
+        # Same per-line distance as the main view on Mac; Windows keeps 68 px per notch.
+        self.scroller.add(-wheel_steps(delta)*px(self,20 if sys.platform=='darwin' else 68))
     def resize(self,event):
         self.scroller.cancel();self.canvas.itemconfigure(self.item,width=max(1,event.width-px(self,4)))
     def content_changed(self,_):self.canvas.configure(scrollregion=self.canvas.bbox('all'))

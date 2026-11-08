@@ -13,6 +13,60 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
 
 
 class Data(unittest.TestCase):
+    def test_frozen_mac_switch_uses_launch_services_with_scoped_data(self):
+        from simulators import launch
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch('sys.frozen',True,create=True),patch('sys.executable','/Applications/LMU-Stintrix.app/Contents/MacOS/LMU-Stintrix'):
+            with patch('sys.platform','darwin'),patch('subprocess.Popen') as child:
+                child.return_value.wait.return_value=0
+                launch(work,'ac_evo')
+                command=child.call_args.args[0]
+                self.assertEqual(command[:4],['/usr/bin/open','-n','-a','/Applications/LMU-Stintrix.app'])
+                self.assertIn('STINTRIX_SIMULATOR=ac_evo',command)
+                self.assertIn('LMU_STINTRIX_DATA_DIR='+str(Path(work).resolve()),command)
+                self.assertIn('PYINSTALLER_RESET_ENVIRONMENT=1',command)
+            with patch('sys.platform','win32'),patch('subprocess.Popen') as child:
+                launch(work,'lmu')
+                self.assertEqual(child.call_args.args[0],[sys.executable])
+
+    def test_failed_mac_launch_services_restores_selection(self):
+        from simulators import launch
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch('sys.frozen',True,create=True),patch('sys.executable','/Applications/LMU-Stintrix.app/Contents/MacOS/LMU-Stintrix'),patch('sys.platform','darwin'),patch('subprocess.Popen') as child:
+            path=Path(work)/'simulator_settings.json';before=b'{"simulator":"lmu"}';path.write_bytes(before)
+            child.return_value.wait.return_value=1
+            with self.assertRaises(OSError):launch(work,'ac_evo')
+            self.assertEqual(path.read_bytes(),before)
+
+    @unittest.skipUnless(os.name=='posix','POSIX stand-in for the Vision helper')
+    def test_first_mac_ocr_request_allows_model_preparation_then_uses_normal_timeout(self):
+        import paths,video_ocr
+        from PIL import Image
+        with tempfile.TemporaryDirectory(dir=ROOT) as work:
+            helper=Path(work)/'tools'/'vision-ocr';helper.parent.mkdir()
+            # Like Vision: ready at once; every recognition then takes 0.6 s here.
+            helper.write_text('#!/bin/sh\necho \'{"ready":true}\'\nwhile IFS= read -r line; do sleep 0.6; echo \'{"texts":["42"]}\'; done\n')
+            helper.chmod(0o755)
+            with patch.object(paths,'ASSETS',Path(work)),patch.object(video_ocr.MacOCR,'first_recognition_timeout',3,create=True),\
+                    patch.object(video_ocr.MacOCR,'recognition_timeout',.3,create=True):
+                ocr=video_ocr.MacOCR()
+                try:
+                    with Image.new('RGB',(40,20),'white') as image:
+                        self.assertEqual(ocr.recognize([image],work),['42'])
+                        with self.assertRaisesRegex(ValueError,'超时'):ocr.recognize([image],work)
+                finally:ocr.close()
+        # Measured cold Vision preparation exceeded 15 s on an M5; Windows timing stays unchanged.
+        self.assertGreaterEqual(video_ocr.MacOCR.first_recognition_timeout,60)
+        self.assertEqual((video_ocr.WindowsOCR.first_recognition_timeout,video_ocr.WindowsOCR.recognition_timeout),(15,15))
+
+    def test_relative_data_directory_stays_outside_the_signed_mac_bundle(self):
+        import paths
+        with tempfile.TemporaryDirectory(dir=ROOT) as work:
+            work=Path(work).resolve();bundle=work/'LMU-Stintrix.app'/'Contents'/'MacOS';previous=os.getcwd();os.chdir(work)
+            try:
+                with patch.object(paths,'APP_ROOT',bundle),patch('sys.frozen',True,create=True),patch.dict(os.environ,{'LMU_STINTRIX_DATA_DIR':'Stintrix data'}):
+                    with patch('sys.platform','darwin'):self.assertEqual(paths.base_data_directory(),work/'Stintrix data')
+                    with patch('sys.platform','win32'):self.assertEqual(paths.base_data_directory(),bundle/'Stintrix data')
+            finally:os.chdir(previous)
+
     def test_explicit_mac_compression_is_lossless_and_windows_keeps_its_backend(self):
         from offline_smoke import fixture
         from storage_actions import compress_local
@@ -67,7 +121,8 @@ class Data(unittest.TestCase):
         with patch.dict(os.environ,{'HOME':str(home),'USERPROFILE':str(home)},clear=True),patch.object(paths.sys,'platform','darwin'),patch.object(paths,'local_settings',return_value={}):
             self.assertEqual(paths.base_data_directory(),(Path.home()/'Library/Application Support/LMU-Stintrix').resolve())
             self.assertTrue(platform_runtime.offline_only());self.assertNotIn(0,platform_runtime.page_ids())
-            self.assertEqual(platform_runtime.wheel_steps(Mock(delta=1)),1)
+            import tkinter
+            with patch.object(tkinter,'TkVersion',8.6):self.assertEqual(platform_runtime.wheel_steps(Mock(delta=1)),1)
             self.assertEqual(renderer_config.resolve(),dict(mode='native',executable=''))
             with self.assertRaises(ValueError):renderer_config.resolve('racecom')
             with patch('platform_runtime.subprocess.Popen') as launch:platform_runtime.open_path(ROOT/'README.md')
@@ -107,6 +162,70 @@ class Data(unittest.TestCase):
 
 
 class UI(unittest.TestCase):
+    def test_wheel_units_follow_the_tk_aqua_convention_and_scroll_pages_match_the_main_view(self):
+        import tkinter as tk
+        from platform_runtime import wheel_steps
+        from control_video_widgets import ScrollPage
+        from control_widgets import px
+        root=tk.Tk();root.withdraw()
+        try:
+            page=ScrollPage(root);moves=[]
+            with patch.object(page.scroller,'add',moves.append):
+                # Tk 8.6 Aqua reports line deltas; Windows and Tk 9 report 120 per notch.
+                with patch('sys.platform','darwin'),patch.object(tk,'TkVersion',8.6):
+                    self.assertEqual(wheel_steps(Mock(delta=2)),2);page.wheel(1)
+                with patch('sys.platform','darwin'),patch.object(tk,'TkVersion',9.0):
+                    self.assertEqual(wheel_steps(Mock(delta=240)),2);page.wheel(120)
+                with patch('sys.platform','win32'),patch.object(tk,'TkVersion',8.6):
+                    self.assertEqual(wheel_steps(Mock(delta=240)),2);page.wheel(120)
+            self.assertEqual(moves,[-px(page,20),-px(page,20),-px(page,68)])
+        finally:root.destroy()
+
+    @unittest.skipUnless(sys.platform=='darwin','Tk Aqua trackpad events')
+    def test_tk9_trackpad_scroll_replays_through_existing_wheel_bindings(self):
+        import tkinter as tk
+        if tk.TkVersion<9:self.skipTest('Tk 8.6 reports trackpads as MouseWheel')
+        from platform_runtime import install_touchpad
+        root=tk.Tk();root.geometry('240x160+40+40')
+        try:
+            canvas=tk.Canvas(root,width=120,height=80);canvas.pack();text=tk.Text(root,height=2);text.pack();root.update()
+            wheels=[];root.bind_all('<MouseWheel>',lambda e:wheels.append((e.widget,e.delta,e.state&1)))
+            install_touchpad(root)
+            for widget in (canvas,text):
+                widget.event_generate('<TouchpadScroll>',delta=((3&0xFFFF)<<16)|(-5&0xFFFF),x=5,y=5,when='now')
+            root.update()
+            # Pixel-precise deltas become 20 px/line wheel steps; native widgets keep Tk's own handling.
+            self.assertEqual(wheels,[(canvas,-30,0),(canvas,18,1)])
+        finally:root.destroy()
+
+    def test_offline_navigation_draws_a_distinct_icon_for_every_page(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch.dict(os.environ,{'STINTRIX_OFFLINE':'1','LMU_STINTRIX_DATA_DIR':work,'STINTRIX_SIMULATOR':'lmu'}):
+            import control_center as cc,control_shell
+            with patch.object(cc,'ROOT',Path(work)),patch.object(cc,'SIMULATOR','lmu'):
+                app=cc.ControlCenter()
+                try:
+                    navigation=app.shell.navigation;kinds=[]
+                    with patch.object(control_shell,'symbol',lambda canvas,kind,*rest:kinds.append(kind)):
+                        navigation.paint_key=None;navigation.paint()
+                    self.assertEqual(len(kinds),len(navigation.names))
+                    # Preferences reuse the settings glyph of the Windows page they replace.
+                    self.assertEqual(len(set(kinds)),len(kinds),list(zip(navigation.names,kinds)))
+                finally:app.close()
+
+    @unittest.skipUnless(sys.platform=='darwin','Native Command bindings')
+    def test_command_number_switches_pages_with_toplevel_focus(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as work,patch.dict(os.environ,{'LMU_STINTRIX_DATA_DIR':work,'STINTRIX_SIMULATOR':'lmu'}):
+            import control_center as cc
+            with patch.object(cc,'ROOT',Path(work)),patch.object(cc,'SIMULATOR','lmu'):
+                app=cc.ControlCenter()
+                try:
+                    app.root.update();app.root.focus_force();app.root.update()
+                    app.root.event_generate('<Command-Key-3>')
+                    until=time.monotonic()+2
+                    while app.page!=6 and time.monotonic()<until:app.root.update();time.sleep(.01)
+                    self.assertEqual(app.page,6)
+                finally:app.close()
+
     def test_offline_pages_palette_and_preferences_in_both_games(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as work,patch.dict(os.environ,{'STINTRIX_OFFLINE':'1','LMU_STINTRIX_DATA_DIR':work,'STINTRIX_SIMULATOR':'lmu'}):
             import control_center as cc
@@ -128,6 +247,8 @@ class UI(unittest.TestCase):
                         ids={item.key for item in commands(app)}
                         self.assertFalse({'start','demo','layouts','shortcuts','interface','page:0'} & ids)
                         self.assertTrue({'import-folder','import-package','page:6'}<=ids)
+                        self.assertEqual(next(item.shortcut for item in commands(app) if item.key=='page:1'),
+                            'Cmd+1' if sys.platform=='darwin' else 'Ctrl+1')
                         app.shortcut_sheet.open();app.root.update();app.shortcut_sheet.close()
                         app.set_theme('light');app.toggle_language();app.root.update()
                         self.assertFalse(errors,errors)

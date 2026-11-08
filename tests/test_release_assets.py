@@ -5,6 +5,7 @@ from pathlib import Path
 import plistlib
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 from tools.release_assets import verify
 
@@ -35,6 +36,18 @@ class Assets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'checksum'):verify(folder,'0.4.0')
             dmg.unlink()
             with self.assertRaisesRegex(ValueError,'Both platform'):verify(folder,'0.4.0')
+
+    def test_checksums_use_lf_where_text_mode_would_write_crlf(self):
+        # The release job runs on Windows; CRLF names break `shasum -a 256 -c` on macOS.
+        original=Path.open
+        def windows_text(path,mode='r',buffering=-1,encoding=None,errors=None,newline=None):
+            if 'w' in mode and 'b' not in mode and newline is None:newline='\r\n'
+            return original(path,mode,buffering,encoding,errors,newline)
+        with tempfile.TemporaryDirectory(dir=ROOT) as work:
+            folder=Path(work);self.fixture(folder)
+            with patch.object(Path,'open',windows_text):verify(folder,'0.4.0')
+            raw=(folder/'SHA256SUMS.txt').read_bytes()
+        self.assertNotIn(b'\r',raw);self.assertEqual(len(raw.split(b'\n')),4)
 
     def test_private_or_wrong_version_package_cannot_be_published(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as work:

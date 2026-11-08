@@ -44,7 +44,8 @@ class Navigation(tk.Canvas):
         # A delayed hint teaches each entry's Ctrl+number shortcut; once one
         # is open, neighbouring entries answer at once while scanning.
         if 0<=index<len(self.names):
-            text=tr(self.names[index])+'  ·  Ctrl+'+str(index+1)+('  ·  '+tr('记录中') if index==0 and getattr(self,'live',False) else '')
+            from platform_runtime import shortcut_hint
+            text=tr(self.names[index])+'  ·  '+shortcut_hint('Ctrl+'+str(index+1))+('  ·  '+tr('记录中') if index==0 and getattr(self,'live',False) else '')
             self.tip.request(index,text,self.winfo_rootx()+self.winfo_width(),round(self.winfo_rooty()+index*self.step+self.step/2))
         else:self.tip.hide()
     def leave(self,_):self.hovered=-1;self.paint();self.tip.hide()
@@ -72,7 +73,8 @@ class Navigation(tk.Canvas):
             y=i*self.step+self.step/2;color=T.FG if i==self.selected else T.MUTED
             if i==self.hovered and i!=self.selected:
                 rounded(self,4*s,i*self.step+9*s,w-9*s,self.step-18*s,8*s,fill=T.HOVER,outline='');color=T.FG
-            kind={'运行与 HUD':0,'赛事复盘':1,'采样与遥测':3,'图像与数据':4,'赛道指南':5,'车型图鉴':6,'个人赛道纪录':7}.get(name,i)
+            # Offline preferences replace the settings page, so they keep its glyph.
+            kind={'运行与 HUD':0,'赛事复盘':1,'采样与遥测':3,'离线偏好设置':3,'图像与数据':4,'赛道指南':5,'车型图鉴':6,'个人赛道纪录':7}.get(name,i)
             symbol(self,kind,19*s,y-10*s,s,T.ACCENT if i==self.selected else color)
             self.create_text(57*s,y,text=tr(name),anchor='w',fill=color,font=(T.FONT,11,'bold' if i==self.selected else 'normal'))
             if numbers:self.create_text(w-12*s,y,text=f'{i + 1:02}',anchor='e',fill=T.ACCENT if i==self.selected else T.MUTED,font=('Consolas',8))

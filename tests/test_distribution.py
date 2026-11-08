@@ -36,6 +36,15 @@ class DistributionTests(unittest.TestCase):
         result=subprocess.run([sys.executable,str(ROOT/'tools/audit_publication.py'),'--ref','refs/heads/audit-nonexistent-ref','--json'],cwd=ROOT,capture_output=True,text=True)
         self.assertNotEqual(result.returncode,0);self.assertFalse(json.loads(result.stdout)['ok'])
 
+    def test_finder_metadata_never_blocks_the_working_tree_audit(self):
+        # Opening the checkout in macOS Finder writes .DS_Store; the Mac build audits the working tree first.
+        from tools.audit_publication import working_tree_files
+        probe=ROOT/'src'/'.DS_Store';existed=probe.exists()
+        if not existed:probe.write_bytes(b'\0\0\0\1Bud1')
+        try:self.assertNotIn('src/.DS_Store',working_tree_files())
+        finally:
+            if not existed:probe.unlink()
+
     def test_private_files_are_rejected_even_inside_source(self):
         for name in ('data/a.json','src/Logs/session.json','src/sample.lap.json','docs/race.csv','src/local_settings.json','src/vendor/secret.py','_verification/result.json','src/record.duckdb'):
             with self.subTest(name=name):self.assertFalse(allowed(name))

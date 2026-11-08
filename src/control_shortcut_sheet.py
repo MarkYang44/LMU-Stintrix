@@ -43,11 +43,12 @@ class ShortcutSheet:
         # Keys keep their natural column; descriptions start right after the widest key.
         body.columnconfigure(0,weight=0);body.columnconfigure(1,weight=1)
         row=0
-        from platform_runtime import offline_only,page_ids
+        from platform_runtime import offline_only,page_ids,shortcut_hint
         for group,items in GROUPS:
             tk.Label(body,text=tr(group),bg=T.CARD,fg=T.ACCENT,font=(T.FONT,9,'bold'),anchor='w').grid(row=row,column=0,columnspan=2,sticky='w',pady=(px(root,12),px(root,4)));row+=1
             for keys,text in items:
                 if offline_only() and keys=='Ctrl 1–7':keys='Ctrl 1–'+str(len(page_ids()))
+                keys=shortcut_hint(keys)
                 cell=tk.Frame(body,bg=T.CARD);cell.grid(row=row,column=0,sticky='w',pady=px(root,3))
                 for key in keys.split(' '):
                     chip=tk.Frame(cell,bg=T.EDGE);chip.pack(side='left',padx=(0,px(root,4)))

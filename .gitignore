@@ -28,6 +28,7 @@
 !/.github/**
 
 # Private outputs, including data copied into an allowed directory.
+**/.DS_Store
 **/__pycache__/
 *.py[cod]
 **/.env*

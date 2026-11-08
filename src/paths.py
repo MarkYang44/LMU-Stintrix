@@ -24,7 +24,10 @@ def base_data_directory():
     configured=os.environ.get('LMU_STINTRIX_DATA_DIR') or os.environ.get(DATA_ENV) or local_settings().get('data_directory')
     default=Path.home()/'Library'/'Application Support'/'LMU-Stintrix' if sys.platform=='darwin' else APP_ROOT/'data'
     path=Path(configured).expanduser() if configured else default
-    return (path if path.is_absolute() else APP_ROOT/path).resolve()
+    if not path.is_absolute():
+        # APP_ROOT of a frozen Mac app is inside its signed bundle; never write data there.
+        path=(Path.cwd() if sys.platform=='darwin' and getattr(sys,'frozen',False) else APP_ROOT)/path
+    return path.resolve()
 
 def data_directory():
     base=base_data_directory()

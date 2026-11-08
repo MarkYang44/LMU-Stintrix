@@ -58,7 +58,8 @@ def verify(folder,version):
         if metadata.get('bytes')!=path.stat().st_size or metadata.get('sha256')!=checksums[path.name]:
             raise ValueError('Mac artifact checksum mismatch')
     output=folder/'SHA256SUMS.txt'
-    output.write_text(''.join(f'{checksum}  {name}\n' for name,checksum in checksums.items()),encoding='ascii')
+    # LF on every publishing OS so `shasum -a 256 -c` and `sha256sum -c` accept the names.
+    output.write_text(''.join(f'{checksum}  {name}\n' for name,checksum in checksums.items()),encoding='ascii',newline='\n')
     return checksums
 
 

@@ -18,11 +18,11 @@
 ![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[下载 Windows x64 · v0.4.0](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.0/LMU-Stintrix-v0.4.0-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.0/LMU-Stintrix-v0.4.0-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
+**[下载 Windows x64 · v0.4.1](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 
 ## 项目简介
 
-**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.0)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
+**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.1)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
 
 Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌面应用里。查看同一布局的完整圈，比较输入与圈速差异，再结合个人纪录回顾练习效果。
 
@@ -88,7 +88,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 下载安装
 
-1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.0/LMU-Stintrix-v0.4.0-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
+1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
 2. 将整个压缩包解压到可写文件夹。
 3. 双击 **`LMU-Stintrix.exe`**。
 

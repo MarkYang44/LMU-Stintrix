@@ -1,3 +1,12 @@
+## v0.4.1 — MacBook 实机验收修复
+
+- Mac：Command+1–6 直接切换页面（v0.4.0 实际发出的是 Ctrl+点击），搜索、导航提示与快捷键一览统一显示 Cmd。Dock 保留应用自带的清晰圆角图标，不再在启动后换成模糊的方块；切换游戏改由系统启动服务重新打开应用。
+- Mac：左上角游戏选择器显示 LMU 官方矢量标志与 EVO 徽标；可在「离线偏好设置 → 游戏图标」选择自己的图标文件（如从 Windows 游戏目录复制的 `evo.ico`），只保存在本机资料库，程序不分发游戏图片。「离线偏好设置」的导航图标不再与赛道指南重复。
+- Mac：滚轮与触控板按系统单位换算，视频分析等滚动页与主界面滚动距离一致；Apple Vision 首次识别留出模型准备时间，冷启动不再超时；相对路径的 `LMU_STINTRIX_DATA_DIR` 不再写入应用包内部。
+- 发布：`SHA256SUMS.txt` 改用 LF 换行，macOS 可直接用 `shasum -a 256 -c` 校验；Finder 生成的 `.DS_Store` 不再阻断构建审计。Windows 实时采集、判圈规则与数据精度不变。
+
+English: Fixes from real-device MacBook acceptance. Command+number switches pages, the Dock keeps the app's crisp icon and game switches relaunch through Launch Services. The game selector shows the LMU vector mark and an EVO badge, or your own icon files. Scroll units follow macOS, Apple Vision OCR tolerates a cold first request, relative data folders stay outside the app, and SHA256SUMS.txt uses LF. Windows behaviour, lap rules and data precision are unchanged.
+
 ## v0.4.0 — Apple Silicon 离线分析版
 
 - macOS 默认进入赛事复盘：共享原有赛事管理、双游戏独立资料库、圈速/遥测分析与对比、报告任务、个人纪录和工业风界面；移除实时采集、HUD、游戏连接和全局游戏快捷键入口。Windows 正常启动保留原有功能。

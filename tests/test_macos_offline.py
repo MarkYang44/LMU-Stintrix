@@ -281,11 +281,14 @@ class UI(unittest.TestCase):
             with patch.object(cc,'ROOT',Path(work)),patch.object(cc,'SIMULATOR','lmu'):
                 app=cc.ControlCenter()
                 try:
+                    # Command+3 opens the rail's third entry (the v0.4.2 order follows page_ids).
+                    from platform_runtime import page_ids
+                    target=page_ids()[2]
                     app.root.update();app.root.focus_force();app.root.update()
                     app.root.event_generate('<Command-Key-3>')
                     until=time.monotonic()+2
-                    while app.page!=6 and time.monotonic()<until:app.root.update();time.sleep(.01)
-                    self.assertEqual(app.page,6)
+                    while app.page!=target and time.monotonic()<until:app.root.update();time.sleep(.01)
+                    self.assertEqual(app.page,target)
                 finally:app.close()
 
     def test_offline_pages_palette_and_preferences_in_both_games(self):

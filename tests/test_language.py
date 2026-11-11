@@ -85,6 +85,9 @@ class LanguageTests(unittest.TestCase):
                         center.show_page(page);center.root.update();self.assertEqual(center.title.cget('text'),title)
                         if center.guide_page:self.assertEqual(center.guide_page.library.language,'en')
                     center.show_page(0);self.assertEqual(center.mode_label.get(),'纯净 · 曲线 + 踏板 / 方向盘')
+                    # Group captions need a full-height rail; CI desktops are smaller
+                    # than the default window, so request an exact client size.
+                    center.root.maxsize(4096,4096);center.root.geometry('1240x900');pump(.15)
                     texts=[center.shell.navigation.itemcget(item,'text') for item in center.shell.navigation.find_all() if center.shell.navigation.type(item)=='text']
                     self.assertIn('Settings',texts);self.assertIn('Analysis',texts)
                     center.toggle_language();self.assertEqual(center.title.cget('text'),'运行与 HUD')

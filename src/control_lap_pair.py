@@ -55,16 +55,18 @@ def show(app,root,initial=(),*,selected=()):
     state={'events':{},'by_track':{},'search_terms':{},'laps':{'A':{},'B':{}},'rows':{'A':{},'B':{}},'headers':{},'generation':{'A':0,'B':0},'loading':set(),'busy':False,'reason':False,'result':last,'message':'正在读取赛事…','initial':tuple(initial),'inventory_ready':False}
     quick={};csv_button=None
     status=tk.StringVar(window,value=tr('正在读取赛事…'));events={};numbers={};lap_boxes={};event_boxes={}
-    footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=20,pady=(4,14))
+    footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=22,pady=(10,14));tk.Frame(window,bg=T.EDGE,height=1).pack(side='bottom',fill='x')
     def say(message):state['message']=str(message);status.set(tr(str(message)))
-    intro=Label(window,text='先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。',bg=T.BG,fg=T.FG,wraplength=940,justify='left');intro.pack(fill='x',padx=20,pady=16)
+    from control_window import Header
+    from control_widgets import px
+    heading=Header(window,'圈 A / 圈 B 对比','先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。');heading.pack(fill='x',padx=px(window,22),pady=(px(window,20),px(window,12)))
+    intro=heading.subtitle
     if getattr(app,'simulator','lmu')=='ac_evo':
         Label(window,text='EVO：对比物理／仪表输入和游戏圈速；保留重复计时样本，不补造圈边界。',bg=T.BG,fg=T.MUTED,wraplength=940,justify='left').pack(fill='x',padx=20,pady=(0,8))
     intro.bind('<Configure>',lambda e:intro.configure(wraplength=max(100,e.width)))
     query=tk.StringVar(window,value=restore.get('query',''));matches=tk.StringVar(window);track=tk.StringVar(window,value=restore.get('track',''))
     search_row=tk.Frame(window,bg=T.BG);search_row.pack(fill='x',padx=20)
-    Label(search_row,text='赛道',bg=T.BG,fg=T.MUTED).pack(side='left',padx=(0,10))
-    track_box=Select(search_row,textvariable=track,values=[],state='disabled',width=29);track_box.pack(side='left',padx=(0,10))
+    track_box=Select(search_row,textvariable=track,values=[],state='disabled',width=29,placeholder='正在读取赛道…');track_box.pack(side='left',padx=(0,10))
     search=SearchField(search_row,query,command=lambda:filter_events(),placeholder='在当前赛道搜索日期、车型或赛事');search.pack(side='left',fill='x',expand=True)
     Label(window,textvariable=matches,bg=T.BG,fg=T.MUTED,anchor='w').pack(fill='x',padx=20,pady=(4,0))
     def filter_events(*_):
@@ -72,7 +74,7 @@ def show(app,root,initial=(),*,selected=()):
         scoped=state['by_track'].get(track.get(),()) if track.get() else ()
         values=[label for label in scoped if all(word in state['search_terms'][label] for word in words)]
         for box in event_boxes.values():box.configure(values=values)
-        matches.set(tr('匹配 {shown}/{total} 场 · 筛选不改变已选赛事').format(shown=len(values),total=len(scoped)) if track.get() else tr('先选择赛道；仅在选择赛事后读取有效圈'))
+        matches.set(tr('匹配 {shown}/{total} 场 · 筛选不改变已选赛事').format(shown=len(values),total=len(scoped)) if track.get() else '')
     def circuit_key(event):return str(event.get('track','')).strip().casefold()
     def index_events():
         state['by_track']={};state['search_terms']={}
@@ -94,6 +96,7 @@ def show(app,root,initial=(),*,selected=()):
             if key:labels.setdefault(key,event['track']);counts[key]=counts.get(key,0)+1
         shown={key:display(value) for key,value in labels.items()}
         track_box.labels={'':'请选择赛道',**{key:(name+(' / '+labels[key] if list(shown.values()).count(name)>1 else '')+f' · {counts[key]}') for key,name in shown.items()}}
+        track_box.placeholder='请选择赛道' if labels else '还没有可对比的赛事'
         track_box.configure(values=['',*sorted(labels,key=lambda k:shown[k].casefold())]);track_box.paint()
     def choose_track(_=None):
         if state['busy']:return
@@ -162,10 +165,10 @@ def show(app,root,initial=(),*,selected=()):
         summaries[key]=tk.StringVar(window)
         Label(header,textvariable=summaries[key],bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='e').pack(side='right',fill='x',expand=True,padx=(12,0))
         events[key]=tk.StringVar(window);numbers[key]=tk.StringVar(window)
-        event_boxes[key]=Select(area,textvariable=events[key],values=[],state='disabled')
+        event_boxes[key]=Select(area,textvariable=events[key],values=[],state='disabled',placeholder='选择赛事')
         event_boxes[key].pack(fill='x',padx=12,pady=5)
         event_boxes[key].bind('<<ComboboxSelected>>',lambda _,k=key:scan(k))
-        lap_boxes[key]=Select(area,textvariable=numbers[key],values=[],state='disabled')
+        lap_boxes[key]=Select(area,textvariable=numbers[key],values=[],state='disabled',placeholder='选择有效圈')
         lap_boxes[key].pack(fill='x',padx=12,pady=(5,12));lap_boxes[key].bind('<<ComboboxSelected>>',lambda _:refresh())
     actions=tk.Frame(window,bg=T.BG);actions.pack(fill='x',padx=20,pady=6)
     def fastest(key):
@@ -188,7 +191,7 @@ def show(app,root,initial=(),*,selected=()):
         options=state['laps']['B'];chosen=next((label for label,n in options.items() if n==selected and n!=a),next((label for label,n in options.items() if n!=a),next(iter(options))))
         numbers['B'].set(chosen);say('圈 B 已使用圈 A 的赛事；请选择要比较的有效圈。');refresh()
     for key,label,command in [('A','A：最快有效圈',lambda:fastest('A')),('B','B：最快有效圈',lambda:fastest('B')),('same','B 使用 A 的赛事',same_session),('swap','交换 A / B',swap)]:
-        quick[key]=Action(actions,label,command,180);quick[key].pack(side='left',padx=(0,8))
+        quick[key]=Action(actions,label,command,120);quick[key].pack(side='left',padx=(0,8))
     from control_flow import install
     install(actions)
     def compare():

@@ -6,7 +6,6 @@ from storage import atomic_json
 from control_theme import T
 from control_widgets import Switch
 from i18n import tr
-from control_motion import fade_in
 
 
 def load(root):
@@ -58,18 +57,20 @@ def install(app,table,key,filters=None,frozen=None):
         import control_confirm
         old=getattr(table,'preferences_window',None)
         if old is not None and old.winfo_exists():old.lift();return old
-        window=tk.Toplevel(app.root);fade_in(window);table.preferences_window=window;window.title(tr('列设置'));window.configure(bg=T.BG);window.geometry('600x710');window.minsize(500,420)
+        from control_window import window as sheet,fit,note
+        from control_widgets import px
+        window=sheet(app.root,'列设置','选择显示的列；固定列在横向滚动时保持可见，至少保留一列。拖动表头边界可调整列宽。',escape=False,transient=False);table.preferences_window=window
         from control_video_widgets import ScrollPage
-        scroll=ScrollPage(window);scroll.pack(fill='both',expand=True);window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta))
-        body=tk.Frame(scroll.body,bg=T.CARD);body.pack(fill='x',padx=16,pady=12)
-        intro=app.label(body,'选择显示列；固定列在横向滚动时保持可见。至少保留一列。',9,T.MUTED);intro.pack(fill='x',pady=6);intro.bind('<Configure>',lambda e:intro.configure(wraplength=max(100,e.width)))
-        app.label(body,'拖动表头边界调整列宽',9,T.MUTED).pack(anchor='w',pady=3)
-        heading=app.row(body);heading.columnconfigure(0,weight=1);heading.columnconfigure(1,minsize=95);heading.columnconfigure(2,minsize=95)
+        feedback=note(window.body,'',9,T.ACCENT);feedback.pack(fill='x',pady=(0,px(window,6)))
+        scroll=ScrollPage(window.body);scroll.pack(fill='both',expand=True);window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta))
+        surface=tk.Frame(scroll.body,bg=T.CARD);surface.pack(fill='x',padx=(0,px(window,10)))
+        body=tk.Frame(surface,bg=T.CARD);body.pack(fill='x',padx=px(window,16),pady=px(window,10))
+        heading=app.row(body);heading.columnconfigure(0,weight=1);heading.columnconfigure(1,minsize=px(window,84));heading.columnconfigure(2,minsize=px(window,84))
         for col,title in enumerate(('列名称','显示','固定')):app.label(heading,title,9,T.MUTED).grid(row=0,column=col,sticky='w',padx=6)
         visible={};frozen={};pins={};traces=[];state=dict(reset=False,baseline=None,loading=True)
         drafts=getattr(app,'column_drafts',None)
         if drafts is None:drafts=app.column_drafts={}
-        status=tk.StringVar(window);dirty=tk.StringVar(window)
+        status=tk.StringVar(window);dirty=window.status;feedback.configure(textvariable=status)
         def snapshot():
             return dict(visible={k:v.get() for k,v in visible.items()},frozen={k:v.get() for k,v in frozen.items()},reset=state['reset'])
         def is_dirty():return snapshot()!=state['baseline']
@@ -77,7 +78,7 @@ def install(app,table,key,filters=None,frozen=None):
             for col in pins:pins[col].configure(state='normal' if visible[col].get() else 'disabled')
             if not state['loading']:dirty.set(tr('有未保存修改' if is_dirty() else '列设置与已保存值一致'))
         for col in table.columns:
-            row=app.row(body);row.columnconfigure(0,weight=1);row.columnconfigure(1,minsize=95);row.columnconfigure(2,minsize=95)
+            row=app.row(body);row.pack_configure(pady=1);row.columnconfigure(0,weight=1);row.columnconfigure(1,minsize=px(window,84));row.columnconfigure(2,minsize=px(window,84))
             v=tk.BooleanVar(window,value=col in table.displaycolumns);f=tk.BooleanVar(window,value=col in table.frozen_columns);visible[col]=v;frozen[col]=f
             app.label(row,table.labels[col],10).grid(row=0,column=0,sticky='w',padx=6)
             Switch(row,'',v,lambda:None,compact=True).grid(row=0,column=1,sticky='w',padx=6)
@@ -89,8 +90,6 @@ def install(app,table,key,filters=None,frozen=None):
                 visible[col].set(remembered['visible'].get(col,True));frozen[col].set(remembered['frozen'].get(col,False))
             state['reset']=remembered['reset']
         state['loading']=False
-        footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=16,pady=10)
-        app.label(footer,dirty,9,T.MUTED).pack(fill='x',pady=3)
         def save():
             try:
                 widths=defaults['widths'] if state['reset'] else {k:round(v/table.s,2) for k,v in table.widths.items()}
@@ -98,7 +97,7 @@ def install(app,table,key,filters=None,frozen=None):
                 persist(dict(visible=[k for k in order if visible[k].get()],frozen=[k for k,v in frozen.items() if v.get() and visible[k].get()],widths=widths))
                 state['reset']=False;state['baseline']=snapshot();drafts.pop(key,None);changed();status.set(tr('列设置已保存'));return True
             except (OSError,ValueError) as error:status.set(tr(str(error)));return False
-        row=app.row(footer);app.button(row,'应用并记住',save,True,130)
+        window.add_action('应用并记住',save,True,120)
         def reset():
             if is_dirty():
                 answer=control_confirm.draft_choice(window,save_label='应用并记住')
@@ -106,8 +105,7 @@ def install(app,table,key,filters=None,frozen=None):
                 if answer=='save' and not save():return
             for col in table.columns:visible[col].set(True);frozen[col].set(col in defaults['frozen'])
             state['reset']=True;changed();status.set(tr('默认列已填入，应用后生效'))
-        app.button(row,'恢复默认列',reset,False,130);feedback=app.label(footer,status,9,T.ACCENT);feedback.pack(fill='x',pady=5)
-        feedback.bind('<Configure>',lambda e:feedback.configure(wraplength=max(100,e.width)))
+        window.add_action('恢复默认列',reset,False,110);window.add_action('关闭',lambda:close(),False,90)
         def keep():
             if is_dirty():drafts[key]=snapshot()
         def close(after=None,exiting=False):
@@ -123,13 +121,13 @@ def install(app,table,key,filters=None,frozen=None):
             if event.widget is window:
                 if table.winfo_exists():table.unbind('<Destroy>',destroy_binding)
                 for variable,token in traces:variable.trace_remove('write',token)
-                for variable in [*visible.values(),*frozen.values(),status,dirty]:variable.__del__();variable._tk=None
+                for variable in [*visible.values(),*frozen.values(),status]:variable.__del__();variable._tk=None
         window.bind('<Destroy>',dispose,add='+')
         def close_with_table(event):
             if event.widget is table and window.winfo_exists():keep();window.destroy()
         destroy_binding=table.bind('<Destroy>',close_with_table,add='+')
         for variable in [*visible.values(),*frozen.values()]:traces.append((variable,variable.trace_add('write',changed)))
-        changed();window.protocol('WM_DELETE_WINDOW',close);control_confirm.register(app,window,close)
+        changed();window.on_close=close;window.bind('<Escape>',lambda _:(close(),'break')[1]);control_confirm.register(app,window,close)
         window.column_visible=visible;window.column_frozen=frozen;window.column_save=save;window.column_status=status;window.column_close=close;window.column_dirty=is_dirty;window.column_pins=pins;window.column_reset=reset
-        return window
+        fit(window,540,660,minimum=(460,420));return window
     table.show_columns=show;table.remember_columns=remember

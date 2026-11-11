@@ -44,18 +44,26 @@ class RecordPage:
         contexts=getattr(app,'record_browser_context',{});app.record_browser_context=contexts;self.context=contexts.setdefault(kind,{})
         loaders=getattr(app,'record_loaders',{});app.record_loaders=loaders;self.loader=loaders.setdefault(kind,Loader(app))
         self.host.record_browser=self;self.restore_job=None;self.captured=False;self.cleanups=[]
-        self.status=self.variable('status');self.feedback=StatusFeedback(body,self.status);self.feedback.pack(fill='x',pady=6)
+        self.status=self.variable('status');self.feedback=StatusFeedback(body,self.status,collapse=True);self.feedback.pack(fill='x',pady=6)
         self.query=self.variable('query',self.context.get('query',''))
         self.populated=False;self.query.trace_add('write',lambda *_:self.context.update(query=self.query.get()))
     def variable(self,name,value=''):
         v=tk.StringVar(self.host,value=value);self.variables[name]=v;return v
     def search(self,row,**options):
-        options.setdefault('placeholder','搜索赛道、车辆或日期')
-        field=SearchField(row,textvariable=self.query,**options);field.pack(side='left',fill='x',expand=True);self.search_field=field;self.app.search_target=field;return field
+        options.setdefault('placeholder','搜索赛道、车辆或日期');options.setdefault('height',38)
+        field=SearchField(row,textvariable=self.query,**options);field.pack(side='left',fill='x',expand=True);self.search_field=field;self.app.search_target=field
+        # Every records view reads the same way: the search with its filter and
+        # refresh tools, the status line, then the rows.
+        row.compact=True;self.feedback.pack_configure(after=row)
+        return field
     def row(self,parent):
         row=self.app.row(parent);install(row);self.actions.append(row);return row
     def button(self,parent,key,title,command,enabled=lambda:True,primary=False):
-        b=self.app.button(parent,title,command,primary,135);self.buttons[key]=b;self.conditions[key]=enabled;return b
+        compact=getattr(parent,'compact',False)
+        b=self.app.button(parent,title,command,primary,135,compact=compact);self.buttons[key]=b;self.conditions[key]=enabled
+        # Search-row tools follow the field, the last one flush with the card edge.
+        if compact:b.pack_configure(padx=(px(parent,9),0))
+        return b
     def alive(self):return not self.disposed and not self.app.closing and self.generation==self.app.scan_generation and bool(self.host.winfo_exists())
     def say(self,text,**values):self.notice=(text,values);self.status.set(tr(text).format(**values))
     def sync(self):

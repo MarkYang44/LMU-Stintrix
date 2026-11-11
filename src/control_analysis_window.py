@@ -48,17 +48,17 @@ def continue_scan(previous,scanner,preference,policy):
 class AnalysisWindow:
     def __init__(self,app,identity,title,entry,size=(1100,820)):
         self.app=app;self.identity=identity;self.title=title;self.entry=deepcopy(entry);self.variables=[];self.buttons={};self.conditions={};self.editors=[];self.result=None;self.applied=None;self.running=None;self.pending=None;self.exporting=False;self.writing=False;self.failed=False;self.auto_job=None;self.notice=('',{});self.render=lambda _:None;self.on_translate=lambda:None;self.initial=None;self.submitted=None;self.edited=False;self.version=0;self.future=None
-        w=tk.Toplevel(app.root);self.window=w;w.analysis_panel=self;app.analysis_windows[identity]=w;w.configure(bg=T.BG);w.transient(app.root);w.title(tr(title))
-        width=min(px(w,size[0]),w.winfo_screenwidth()-80);height=min(px(w,size[1]),w.winfo_screenheight()-100);w.geometry(f'{width}x{height}');w.minsize(min(width,px(w,780)),min(height,px(w,560)))
-        self.footer=tk.Frame(w,bg=T.CARD);self.footer.pack(side='bottom',fill='x',padx=18,pady=(0,14));self.status=self.variable();self.output=self.variable()
-        self.feedback=StatusFeedback(self.footer,self.status);self.feedback.pack(fill='x',padx=10,pady=(8,4))
-        self.saved=tk.Frame(self.footer,bg=T.CARD);Label(self.saved,text='最近保存',bg=T.CARD,fg=T.MUTED,font=(T.FONT,9)).pack(side='left',padx=(0,8))
+        from control_window import window as sheet,fit
+        from track_names import display
+        w=sheet(app.root,title,display(entry['track'])+' · '+entry['session'].get('vehicle',''),feedback=True,escape=False);self.window=w;w.analysis_panel=self;app.analysis_windows[identity]=w
+        self.footer=w.footer;self.status=w.status;self.output=self.variable();self.feedback=w.footer.feedback
+        self.saved=tk.Frame(w.footer,bg=T.BG);Label(self.saved,text='最近保存',bg=T.BG,fg=T.MUTED,font=(T.FONT,9)).pack(side='left',padx=(0,8))
         self.path=tk.Entry(self.saved,textvariable=self.output,state='readonly',readonlybackground=T.FIELD,bg=T.FIELD,fg=T.FG,selectbackground=T.SELECT,selectforeground=T.FG,font=(T.FONT,9),relief='flat');self.path.pack(side='left',fill='x',expand=True);self.path.bind('<Control-a>',lambda _:(self.path.selection_range(0,'end'),'break')[1])
-        self.actions=tk.Frame(self.footer,bg=T.CARD);self.actions.pack(fill='x',padx=10,pady=(0,8));install(self.actions)
-        self.scroll=ScrollPage(w);self.scroll.pack(fill='both',expand=True,padx=18,pady=(14,8));self.scroll.canvas.configure(bg=T.CARD);self.body=self.scroll.body;self.body.configure(bg=T.CARD)
-        self.heading(title,18,T.FG);from track_names import display
-        self.heading(display(entry['track'])+' · '+entry['session'].get('vehicle',''),10,T.ACCENT)
-        w.protocol('WM_DELETE_WINDOW',self.close);w.bind('<Escape>',lambda _:(self.close(),'break')[1]);w.bind('<Control-s>',lambda _:(keyboard_action(w,self.export),'break')[1]);w.bind('<F5>',lambda _:(keyboard_action(w,self.apply),'break')[1]);w.bind('<MouseWheel>',self.wheel)
+        self.actions=tk.Frame(w.footer,bg=T.BG);self.actions.pack(fill='x',padx=px(w,22),pady=(px(w,10),0),before=w.footer.bar);install(self.actions)
+        self.scroll=ScrollPage(w.body);self.scroll.pack(fill='both',expand=True);surface=tk.Frame(self.scroll.body,bg=T.CARD);surface.pack(fill='both',expand=True,padx=(0,px(w,10)))
+        self.body=tk.Frame(surface,bg=T.CARD);self.body.pack(fill='both',expand=True,padx=px(w,6),pady=px(w,8))
+        fit(w,size[0],size[1],minimum=(780,560))
+        w.on_close=self.close;w.bind('<Escape>',lambda _:(self.close(),'break')[1]);w.bind('<Control-s>',lambda _:(keyboard_action(w,self.export),'break')[1]);w.bind('<F5>',lambda _:(keyboard_action(w,self.apply),'break')[1]);w.bind('<MouseWheel>',self.wheel)
         w.bind('<Destroy>',self.dispose,add='+');w.retranslate=self.translate;backdrop(w)
     def variable(self,value='',boolean=False):
         v=(tk.BooleanVar if boolean else tk.StringVar)(self.window,value=value);self.variables.append(v);return v
@@ -116,7 +116,7 @@ class AnalysisWindow:
             if not self.alive():
                 if not self.app.closing:self.app.status.set(tr('报告已保存：{path}').format(path=path))
                 return
-            self.output.set(str(path));self.saved.pack(fill='x',padx=10,pady=(0,6),before=self.actions);self.open_last();self.sync()
+            self.output.set(str(path));self.saved.pack(fill='x',padx=px(self.window,22),pady=(px(self.window,8),0),before=self.actions);self.open_last();self.sync()
         self.app.run_background(partial(writer,value),done)
     def open_last(self):
         path=Path(self.output.get())
@@ -129,7 +129,7 @@ class AnalysisWindow:
         except OSError as error:self.say('目录打开失败：{error}',error=error)
     def finish(self):
         self.table.viewport.bind('<MouseWheel>',self.table_wheel)
-        self.initial=deepcopy(self.draft());self.submitted=self.initial;self.button('open','打开上次报告',self.open_last,lambda:bool(self.output.get()));self.button('folder','打开导出目录',self.open_folder,lambda:bool(self.output.get()));self.translate();self.sync();self.apply();reveal_window(self.window)
+        self.initial=deepcopy(self.draft());self.submitted=self.initial;self.button('open','打开上次报告',self.open_last,lambda:bool(self.output.get()));self.button('folder','打开导出目录',self.open_folder,lambda:bool(self.output.get()));self.translate();self.sync();self.apply()
         from control_confirm import register
         register(self.app,self.window,self.close)
     def close(self,done=None,exiting=False):

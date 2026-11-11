@@ -18,8 +18,8 @@ class UI(unittest.TestCase):
             scan.assert_not_called();c['track'].set('fuji speedway');c['choose_track']();scan.assert_not_called()
             c['events']['A'].set(c['event_boxes']['A'].values[0]);c['scan']('A');self.pump(app,.15)
             before=[v.get() for v in c['events'].values()];numbers=[v.get() for v in c['numbers'].values()]
-            c['query'].set('富士 Ferrari');self.assertEqual(len(c['event_boxes']['A'].values),1)
-            c['query'].set('no matches');self.assertEqual(c['event_boxes']['A'].values,[])
+            c['query'].set('富士 Ferrari');c['search'].flush();self.assertEqual(len(c['event_boxes']['A'].values),1)
+            c['query'].set('no matches');c['search'].flush();self.assertEqual(c['event_boxes']['A'].values,[])
             self.assertEqual([v.get() for v in c['events'].values()],before);self.assertEqual([v.get() for v in c['numbers'].values()],numbers)
             c['search'].clear();self.assertEqual(len(c['event_boxes']['B'].values),1);self.assertEqual(scan.call_count,1)
             app.root.focus_force();w.focus_force();w.event_generate('<Control-f>');self.pump(app,.05);self.assertIs(w.focus_get(),c['search'].entry)

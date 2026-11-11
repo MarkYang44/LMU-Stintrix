@@ -21,22 +21,23 @@ class WorkList:
     def __init__(self,app,title,columns,key,row,filters=None,accept=lambda item,view:True,detail=lambda item:'',hint='',searchable=lambda item:'',include=lambda item:False):
         self.app=app;self.key=key;self.row=row;self.accept=accept;self.detail=detail;self.searchable=searchable;self.title=title;self.columns=columns;self.include=include;self.on_loaded=None
         self.items={};self.remembered=();self.loading=False;self.error=False;self.generation=0;self.buttons={};self.conditions={};self.widths={};self.notice=('',{});self.detail_text=None
-        self.window,self.footer,self.table,self.status=shell(app,title,columns,feedback=True);self.window.worklist=self
-        self.window.geometry('1050x720');self.window.minsize(800,620)
+        self.window,self.footer,self.table,self.status=shell(app,title,columns,feedback=True,subtitle=hint);self.window.worklist=self
         self.query=tk.StringVar(self.window);self.view=tk.StringVar(self.window,value=next(iter(filters or {'all':''})));self.count=tk.StringVar(self.window)
-        parent=self.table.master;tools=tk.Frame(parent,bg=T.CARD);tools.pack(fill='x',before=self.table,pady=(0,5))
+        parent=self.table.master;tools=self.tools=tk.Frame(parent,bg=T.BG);tools.pack(fill='x',before=self.table,pady=(0,px(self.window,4)))
         if filters:
             self.filter=Select(tools,textvariable=self.view,values=list(filters),labels=filters,width=24);self.filter.pack(side='left',padx=(0,8))
             self.filter.bind('<<ComboboxSelected>>',lambda _:self.render())
-        self.search=SearchField(tools,self.query,self.render);self.search.pack(side='left',fill='x',expand=True)
-        self.count_label=app.label(parent,self.count,9,T.MUTED);self.count_label.pack(fill='x',before=self.table)
-        self.hint=app.label(parent,hint,9,T.MUTED);self.hint.pack(fill='x',before=self.table,pady=(3,0));self.hint.bind('<Configure>',lambda e:self.hint.configure(wraplength=max(100,e.width)))
-        holder=tk.Frame(parent,bg=T.FIELD);holder.pack(side='bottom',fill='x',before=self.table)
+        self.count_label=app.label(tools,self.count,9,T.MUTED);self.count_label.pack(side='right',padx=(px(self.window,12),0))
+        self.search=SearchField(tools,self.query,self.render,placeholder='输入关键词筛选列表');self.search.pack(side='left',fill='x',expand=True)
+        self.hint=self.window.header.subtitle
+        holder=tk.Frame(parent,bg=T.FIELD);holder.pack(side='bottom',fill='x',before=self.table,pady=(px(self.window,8),0))
         self.details=tk.Text(holder,height=3,bg=T.FIELD,fg=T.FG,insertbackground=T.FG,relief='flat',wrap='word',font=(T.FONT,9),padx=8,pady=6,state='disabled')
         scrollbar=ttk.Scrollbar(holder,command=self.details.yview,orient='vertical',style='Lab.Vertical.TScrollbar');scrollbar.pack(side='right',fill='y');self.details.configure(yscrollcommand=scrollbar.set);self.details.pack(fill='both',expand=True)
         self.table.bind('<<TreeviewSelect>>',self.selected);self.table.copy_feedback=lambda text:self.say(text)
-        self.window.bind('<Control-f>',lambda _:(self.search.entry.focus_set(),'break')[1]);self.window.bind('<Escape>',lambda _:self.window.destroy())
-        self.window.bind('<Destroy>',self.dispose,add='+');self.window.retranslate=self.translate;flow(self.footer)
+        self.window.bind('<Control-f>',lambda _:(self.search.entry.focus_set(),'break')[1])
+        self.window.bind('<Destroy>',self.dispose,add='+');self.window.retranslate=self.translate
+        from control_window import fit
+        fit(self.window,1000,700,minimum=(760,540))
     def alive(self):return not self.app.closing and self.window.winfo_exists()
     def say(self,text,**values):
         self.notice=(text,values);self.status.set(tr(text).format(**values) if values else tr(text))
@@ -69,7 +70,11 @@ class WorkList:
             if not self.alive():return
             self.sync()
             if self.buttons[key].enabled:return command()
-        button=Action(self.footer,title,invoke,width,primary);button.pack(side='left',padx=(0,8));self.buttons[key]=button;self.conditions[key]=enabled;self.widths[key]=width;self.sync();return button
+        if key=='refresh':
+            # Refreshing is about the whole view, not the selection: it sits with search and count.
+            width=80;button=Action(self.tools,title,invoke,width);button.pack(side='right',padx=(px(self.window,10),0),before=self.count_label)
+        else:width=min(width,110);button=self.window.add_action(title,invoke,primary,width)
+        self.buttons[key]=button;self.conditions[key]=enabled;self.widths[key]=width;self.sync();return button
     def load(self,work,notice,**values):
         self.generation+=1;generation=self.generation;self.loading=True;self.error=False;self.say('正在读取列表…');self.window.work_feedback.busy('load');self.render();self.sync()
         def done(value,error):
@@ -84,7 +89,7 @@ class WorkList:
         self.window.title(tr(self.title));self.render()
         text,values=self.notice;self.say(text,**values)
         for key,button in self.buttons.items():button.configure(width=max(px(button,self.widths[key]),button.font.measure(tr(button.label))+px(button,36)))
-        if self.footer.winfo_width()>1:self.footer.event_generate('<Configure>',width=self.footer.winfo_width(),height=self.footer.winfo_height())
+        self.window.footer.arrange()
     def dispose(self,event):
         if event.widget is self.window:
-            for variable in (self.query,self.view,self.count,self.status):variable.__del__();variable._tk=None
+            for variable in (self.query,self.view,self.count):variable.__del__();variable._tk=None

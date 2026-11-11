@@ -37,15 +37,18 @@ def show(app):return OfficialPage(app)
 class OfficialPage(RecordPage):
     def __init__(self,app):
         body=app.card('官方战绩','只读导入游戏结果 XML；没有遥测的赛事只展示成绩与官方圈计时');super().__init__(app,'official',body)
-        row=app.row(body);self.search(row)
-        tools=self.row(body);idle=lambda:not self.loader.running
-        self.button(tools,'sync','同步游戏成绩',self.sync_game,idle,True);self.button(tools,'folder','导入结果文件夹',self.folder,idle);self.button(tools,'refresh','刷新已导入成绩',self.loader.read,idle)
+        idle=lambda:not self.loader.running
+        # Bringing results in comes first: sync from the game or import a
+        # folder, with the driver name a sync applies; the list follows.
+        tools=self.row(body)
+        self.button(tools,'sync','同步游戏成绩',self.sync_game,idle,True);self.button(tools,'folder','导入结果文件夹',self.folder,idle)
         driver_row=self.row(body);app.label(driver_row,'多人赛事车手姓名',9).pack(side='left')
         from race_model import read_json
         saved=read_json(app.data_path/'OfficialResults/preferences.json',{});saved=saved if isinstance(saved,dict) else {}
         self.driver=self.variable('driver',self.context.get('driver',saved.get('player_name','')));self.driver.trace_add('write',lambda *_:self.context.update(driver=self.driver.get()))
         self.driver_field=Field(driver_row,textvariable=self.driver,width=25);self.driver_field.pack(side='left')
         self.hint(body,'姓名在同步时应用；留空沿用已有设置或本地记录中的车手姓名。')
+        row=app.row(body);self.search(row);self.button(row,'refresh','刷新已导入成绩',self.loader.read,idle)
         self.modes=ModeControls(body,app,self.populate_results,'official_mode_filters');self.modes.bind_query(self.query)
         self.entries={};self.table=SessionList(body,columns=tuple(k for k,_,_ in COLUMNS),height=7)
         for key,_,width in COLUMNS:self.table.column(key,width=width*self.table.s,minwidth=70*self.table.s,stretch=key in ('track','car'))

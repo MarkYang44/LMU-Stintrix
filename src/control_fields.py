@@ -51,8 +51,8 @@ class Select(tk.Canvas):
     continue to the intended control; temporary owner bindings are removed.
     """
     def __init__(self,parent,textvariable=None,values=(),state='readonly',width=26,
-                 height=7,font=None,style=None,labels=None,images=None,**kwargs):
-        self.s=scale(parent);self.variable=textvariable or tk.StringVar(parent)
+                 height=7,font=None,style=None,labels=None,images=None,placeholder='请选择',**kwargs):
+        self.s=scale(parent);self.variable=textvariable or tk.StringVar(parent);self.placeholder=placeholder
         self.images=dict(images or {});self.icon_space=max((i.width() for i in self.images.values()),default=0)
         if self.icon_space:self.icon_space+=px(parent,9)
         self.values=list(values);self.labels=labels or {};self.compact_labels={};self.state=state;self.error='';self.rows=max(1,min(8,int(height)))
@@ -127,10 +127,13 @@ class Select(tk.Canvas):
             self.coords(self.edit_item,14*s,h/2);self.itemconfigure(self.edit_item,width=max(1,w-60*s));self.tag_lower('surface')
         else:
             text=tr(self.compact_labels.get(self.variable.get(),self.display(self.variable.get())));maximum=max(1,w-66*s-self.icon_space)
+            # An empty choice reads as a prompt, never as a blank, broken-looking field.
+            empty=not text
+            if empty:text=tr(self.placeholder)
             if self.font.measure(text)>maximum:
                 while text and self.font.measure(text+'…')>maximum:text=text[:-1]
                 text+='…'
-            self.coords(self.caption,14*s+self.icon_space,h/2);self.itemconfigure(self.caption,text=text,fill=foreground)
+            self.coords(self.caption,14*s+self.icon_space,h/2);self.itemconfigure(self.caption,text=text,fill=T.MUTED if empty else foreground)
             if self.icon is not None:
                 self.coords(self.icon,14*s,h/2);self.itemconfigure(self.icon,image=self.images.get(self.variable.get(),''))
     def toggle(self,_=None):

@@ -27,22 +27,23 @@ def show(app):
 class GoalWindow:
     def __init__(self,app):
         self.app=app;self.goals={};self.running=None;self.pending=None;self.result=None;self.loading=False;self.finishing=False;self.notice=('',{});self.refresh_selection=None;self.rows={};self.views={};self.displayed=None
-        w=tk.Toplevel(app.root);fade_in(w);self.window=w;w.goal_panel=self;w.title(tr('训练目标跟进'));w.configure(bg=T.BG);w.transient(app.root);w.geometry('1100x800');w.minsize(720,540)
-        footer=tk.Frame(w,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,14));self.status=tk.StringVar(w);self.feedback=StatusFeedback(footer,self.status);self.feedback.pack(fill='x',padx=10,pady=6)
-        self.actions=tk.Frame(footer,bg=T.CARD);self.actions.pack(fill='x',padx=10,pady=(0,8));install(self.actions);self.buttons={}
+        from control_window import window as sheet,fit
+        from control_widgets import px
+        w=sheet(app.root,'训练目标跟进','固定参考圈与区间；选择目标查看后续赛事，刷新保留当前选择。',feedback=True);self.window=w;w.goal_panel=self
+        self.status=w.status;self.feedback=w.footer.feedback;self.actions=w.footer.actions;self.buttons={}
         for key,title,command in (('refresh','刷新跟进',self.refresh),('finish','结束当前目标',self.finish)):
-            b=Action(self.actions,title,command,160,key=='refresh');b.pack(side='left');self.buttons[key]=b
-        self.scroll=ScrollPage(w);self.scroll.pack(fill='both',expand=True,padx=18,pady=(14,8));self.scroll.canvas.configure(bg=T.CARD);body=self.scroll.body;body.configure(bg=T.CARD)
+            self.buttons[key]=w.add_action(title,command,key=='refresh',110)
+        self.scroll=ScrollPage(w.body);self.scroll.pack(fill='both',expand=True);surface=tk.Frame(self.scroll.body,bg=T.CARD);surface.pack(fill='both',expand=True,padx=(0,px(w,10)))
+        body=tk.Frame(surface,bg=T.CARD);body.pack(fill='both',expand=True,padx=px(w,6),pady=px(w,8))
         def label(text,size=10):
-            l=Label(body,text=text,bg=T.CARD,fg=T.FG if size>10 else T.MUTED,font=(T.FONT,size),anchor='w',justify='left');l.pack(fill='x',padx=12,pady=6);l.bind('<Configure>',lambda e:l.configure(wraplength=max(80,e.width)));return l
-        label('训练目标跟进',18);label('固定参考圈与区间；选择目标查看后续赛事，刷新保留当前选择。')
-        self.selected=tk.StringVar(w);self.box=Select(body,textvariable=self.selected,width=24);self.box.pack(fill='x',padx=12,pady=8);self.box.bind('<<ComboboxSelected>>',self.analyse)
-        self.context=label('');label('区间用时趋势',12)
+            l=Label(body,text=text,bg=T.CARD,fg=T.FG if size>10 else T.MUTED,font=(T.FONT,size,'bold' if size>10 else 'normal'),anchor='w',justify='left');l.pack(fill='x',padx=12,pady=6);l.bind('<Configure>',lambda e:l.configure(wraplength=max(80,e.width)));return l
+        self.selected=tk.StringVar(w);self.box=Select(body,textvariable=self.selected,width=24,placeholder='还没有训练目标');self.box.pack(fill='x',padx=12,pady=8);self.box.bind('<<ComboboxSelected>>',self.analyse)
+        self.context=label('');label('区间用时趋势',11)
         self.chart=ProgressChart(body,self.select_session,height=180);self.chart.empty_text='暂无后续赛事；有新记录后可刷新跟进';self.chart.pack(fill='x',padx=12,pady=8)
         self.table=SessionList(body,columns=tuple(k for k,_,_ in COLUMNS),height=5,selectmode='browse');self.table.pack(fill='x',padx=12,pady=8);self.table.viewport.bind('<MouseWheel>',self.table_wheel);self.table.bind('<<TreeviewSelect>>',self.detail)
         self.details=label('')
-        w.protocol('WM_DELETE_WINDOW',w.destroy);w.bind('<Escape>',lambda _:(w.destroy(),'break')[1]);w.bind('<F5>',lambda _:(self.refresh(),'break')[1]);w.bind('<MouseWheel>',self.wheel);w.bind('<Destroy>',self.dispose,add='+');w.retranslate=self.translate
-        self.translate();self.refresh()
+        w.bind('<F5>',lambda _:(self.refresh(),'break')[1]);w.bind('<MouseWheel>',self.wheel);w.bind('<Destroy>',self.dispose,add='+');w.retranslate=self.translate
+        self.translate();fit(w,1000,760,minimum=(720,540));self.refresh()
     def alive(self):return not self.app.closing and bool(self.window.winfo_exists())
     def say(self,text,**values):self.notice=(text,values);self.status.set(tr(text).format(**values))
     def sync(self):
@@ -63,7 +64,7 @@ class GoalWindow:
             if not self.alive():return
             self.loading=False;self.feedback.busy('goals',False)
             if error:self.say('跟进未更新，可重试：{error}',error=error);self.sync();return
-            self.goals={g['id']:g for g in values};self.box.labels={key:self.goal_label(g) for key,g in self.goals.items()};self.box.configure(values=list(self.goals));self.selected.set(selected if selected in self.goals else next(iter(self.goals),''));self.context.configure(text=self.box.display(self.selected.get()));self.sync()
+            self.goals={g['id']:g for g in values};self.box.placeholder='选择训练目标' if values else '还没有训练目标';self.box.labels={key:self.goal_label(g) for key,g in self.goals.items()};self.box.configure(values=list(self.goals));self.selected.set(selected if selected in self.goals else next(iter(self.goals),''));self.context.configure(text=self.box.display(self.selected.get()));self.sync()
             if self.goals:self.analyse()
             else:self.clear();self.chart.empty_text='先在训练优先级报告里选择区间，设为本次训练目标。';self.chart.draw();self.say('先在训练优先级报告里选择区间，设为本次训练目标。')
         self.app.run_background(partial(goals,self.app.data_path),done)
@@ -124,7 +125,7 @@ class GoalWindow:
         for key,title,width in COLUMNS:self.table.heading(key,text=tr(title));self.table.column(key,width=width,minwidth=75,stretch=True)
         self.render();self.chart.draw()
         for b in self.buttons.values():b.configure(width=max(px(b,120),b.font.measure(tr(b.label))+px(b,36)))
-        self.actions.event_generate('<Configure>',width=self.actions.winfo_width());self.say(self.notice[0],**self.notice[1])
+        self.window.footer.arrange();self.say(self.notice[0],**self.notice[1])
     def table_wheel(self,event):
         t=self.table
         if not event.state&1 and (t.limit()<=0 or event.delta>0 and t.offset<=0 or event.delta<0 and t.offset>=t.limit()):self.scroll.wheel(event.delta);return 'break'

@@ -163,7 +163,7 @@ class VideoWizard(VideoViewport,VideoAssist,VideoGuide):
             self.heading_title.configure(font=(T.FONT,17,'bold'));self.heading_frame.pack_configure(pady=(5,1))
             self.geometry_label.pack_forget()
         else:
-            self.heading_meta.pack(fill='x',before=self.heading_title,pady=(3,7));self.heading_hint.pack(fill='x',pady=(3,7))
+            self.heading_meta.pack(fill='x',before=self.heading_row,pady=(3,7));self.heading_hint.pack(fill='x',pady=(3,7))
             self.heading_title.configure(font=(T.FONT,21,'bold'));self.heading_frame.pack_configure(pady=(15,6))
             self.geometry_label.pack(fill='x',pady=(3,7))
 

@@ -49,7 +49,7 @@ class UI(unittest.TestCase):
         app,root,errors=self.app();self.settle(app);p=app.palette
         app.root.event_generate('<Control-k>');self.assertTrue(p.opened);self.assertIs(p.frame.master,app.root)
         self.assertEqual({c.group for _,_,c in p.rows},{'页面','操作'});self.assertEqual(p.rows[0][2].key,'page:0')
-        p.query.set('图鉴');self.assertEqual(p.rows[0][2].key,'page:5');self.assertEqual(p.rows[0][2].shortcut,'Ctrl+6')
+        p.query.set('图鉴');self.assertEqual(p.rows[0][2].key,'page:5');self.assertEqual(p.rows[0][2].shortcut,'Ctrl+5')
         p.move(1);self.assertEqual(p.index,1);p.move(-5);self.assertEqual(p.index,0)
         p.choose(keyboard=True);self.assertFalse(p.opened);self.settle(app,lambda:app.page==5)
         self.assertEqual(app._palette_recent[0],'page:5');p.open();self.assertEqual((p.rows[0][2].key,p.rows[0][2].group),('page:5','最近使用'))

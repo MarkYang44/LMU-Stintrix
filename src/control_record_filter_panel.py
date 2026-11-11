@@ -9,6 +9,8 @@ class Panel:
         self.page=page;self.filters=page.modes;self.options=self.filters.pack_info();self.options.pop('in',None)
         siblings=self.filters.master.pack_slaves();index=siblings.index(self.filters);self.before=siblings[index+1] if index+1<len(siblings) else None
         self.row=page.buttons['refresh'].master;self.button=page.button(self.row,'filters','筛选条件',self.toggle)
+        # Filters come before refresh, as on every list.
+        if self.row.pack_slaves():self.button.pack_configure(before=page.buttons['refresh'])
         if not page.context.get('filters_open',False):self.filters.pack_forget()
         self.filters.compact(page.table)
         self.sync()

@@ -52,10 +52,10 @@ class ShortcutSheet:
                 cell=tk.Frame(body,bg=T.CARD);cell.grid(row=row,column=0,sticky='w',pady=px(root,3))
                 for key in keys.split(' '):
                     chip=tk.Frame(cell,bg=T.EDGE);chip.pack(side='left',padx=(0,px(root,4)))
-                    tk.Label(chip,text=key,bg=T.FIELD,fg=T.FG,font=('Consolas',9),padx=px(root,6),pady=1).pack(padx=1,pady=1)
+                    tk.Label(chip,text=key,bg=T.FIELD,fg=T.FG,font=(T.MONO,9),padx=px(root,6),pady=1).pack(padx=1,pady=1)
                 tk.Label(body,text=tr(text),bg=T.CARD,fg=T.FG,font=(T.FONT,10),anchor='w').grid(row=row,column=1,sticky='w',padx=(px(root,10),0));row+=1
         foot=tk.Frame(inner,bg=T.CARD);foot.pack(fill='x',padx=px(root,20),pady=(px(root,14),px(root,16)))
-        tk.Label(foot,text=tr('macOS 可使用 Command 代替 Control。' if offline_only() else '游戏中控制 HUD 的按键在「全局快捷键」里设置。'),bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='w').pack(side='left')
+        tk.Label(foot,text=tr('macOS 可使用 Command 代替 Control。' if offline_only() else '游戏中控制 HUD 的按键在「设置 → 界面与系统」里设置。'),bg=T.CARD,fg=T.MUTED,font=(T.FONT,9),anchor='w').pack(side='left')
         def hotkeys():
             from control_shortcuts import show
             self.close(False);show(app)

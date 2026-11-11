@@ -23,7 +23,7 @@ class SessionList(tk.Frame):
         self.sort_state=None;self.sort_command=None;self.sortable=set(columns);self.header_press=None
         self.chosen=set();self.previous=set();self.anchor=None;self.cursor=None;self.fade=1.;self.arrival=0.;self.offset=0.;self.xoffset=0.
         self.pending=None;self.textcache={};self.header_key=None;self.font=tkfont.Font(self,family=T.FONT,size=9)
-        self.small=tkfont.Font(self,family='Segoe UI',size=9);self.bold=tkfont.Font(self,family=T.FONT,size=9,weight='bold')
+        self.small=tkfont.Font(self,family=T.LATIN,size=9);self.bold=tkfont.Font(self,family=T.FONT,size=9,weight='bold')
         self.header=tk.Canvas(self,height=round(36*s),bg=T.FIELD,highlightthickness=0);self.header.grid(row=0,column=0,sticky='ew')
         self.viewport=tk.Canvas(self,height=round(height*self.rowheight),bg=T.CARD,highlightthickness=0,takefocus=True)
         self.viewport.grid(row=1,column=0,sticky='nsew');self.columnconfigure(0,weight=1);self.rowconfigure(1,weight=1)
@@ -351,10 +351,10 @@ class SessionList(tk.Frame):
                     if key=='lap' and iid in getattr(self,'marked',()):
                         # A personal best carries a small tag after its time when the column has room.
                         tag=x+12*s+font.measure(text)+6*s
-                        if tag+20*s<=x+width:c.create_text(tag,y+self.rowheight/2+self.arrival,text='PB',anchor='w',font=('Consolas',7,'bold'),fill=T.ACCENT)
+                        if tag+20*s<=x+width:c.create_text(tag,y+self.rowheight/2+self.arrival,text='PB',anchor='w',font=(T.MONO,7,'bold'),fill=T.ACCENT)
                     elif key=='lap' and iid in getattr(self,'gaps',{}):
                         # Other sessions of that layout and car read as their distance to it.
-                        if not hasattr(self,'gap_font'):self.gap_font=tkfont.Font(self,family='Consolas',size=7)
+                        if not hasattr(self,'gap_font'):self.gap_font=tkfont.Font(self,family=T.MONO,size=7)
                         gap='+'+format(self.gaps[iid],'.3f');tag=x+12*s+font.measure(text)+6*s
                         if tag+self.gap_font.measure(gap)<=x+width-4*s:c.create_text(tag,y+self.rowheight/2+self.arrival,text=gap,anchor='w',font=self.gap_font,fill=T.MUTED)
                     if self.cursor==iid and c.focus_get() is c and key==self.focus_column:c.create_rectangle(x+3*s,y+3*s,x+width-3*s,y+self.rowheight-3*s,outline=T.ACCENT)

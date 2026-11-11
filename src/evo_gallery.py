@@ -36,8 +36,9 @@ class Gallery(tk.Frame):
         finally:app.content=outer
         self.variables={k:tk.StringVar(self,value=self.state.get(k,'')) for k in ('query','brand','group')}
         self.status=tk.StringVar(self);self.variables['status']=self.status
-        row=app.row(body);app.label(row,'搜索',10,T.MUTED).pack(side='left',padx=(0,8))
-        self.search=SearchField(row,textvariable=self.variables['query'],command=self.filter_changed,placeholder='搜索车型、品牌或赛道布局')
+        # The field names what it matches, like every list search; no separate caption.
+        row=app.row(body)
+        self.search=SearchField(row,textvariable=self.variables['query'],command=self.filter_changed,placeholder='搜索车型、品牌或赛道布局',height=38)
         self.search.pack(side='left',fill='x',expand=True);app.search_target=self.search
         self.selectors={}
         if kind=='cars':

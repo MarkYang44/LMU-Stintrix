@@ -15,15 +15,22 @@ def centre(widget):return widget.winfo_rooty()+widget.winfo_height()/2
 class UI(unittest.TestCase):
     app=helpers.UI.app;pump=helpers.UI.pump;settle=helpers.UI.settle
 
-    def test_game_switcher_lives_under_the_logo_and_titles_share_the_toggle_row(self):
+    def test_game_switcher_search_and_global_toggles_live_on_the_rail(self):
         app,root,errors=self.app();self.pump(app,.1)
         for _ in range(2):
             shell=app.shell;box=app.simulator_selector
             self.assertIs(box.master,shell.brand);self.assertTrue(box.winfo_ismapped());self.assertEqual(box.itemcget(box.caption,'text'),'LMU')
-            self.assertEqual(box.labels['lmu'],'LMU · Le Mans Ultimate');self.assertLessEqual(box.winfo_rootx()+box.winfo_width(),shell.language_button.winfo_rootx())
+            self.assertEqual(box.labels['lmu'],'LMU · Le Mans Ultimate')
             texts=[shell.brand.itemcget(i,'text') for i in shell.brand.find_all() if shell.brand.type(i)=='text']
             self.assertNotIn('LE MANS ULTIMATE',texts)
-            self.assertIs(shell.title.master,shell.language_button.master);self.assertAlmostEqual(centre(shell.title),centre(shell.language_button),delta=shell.title.winfo_height()/2)
+            # App-wide controls live on the rail: search under the switcher,
+            # theme and language at its foot; the header is the page's alone.
+            for control in (shell.palette_button,shell.theme_button,shell.language_button):
+                self.assertTrue(str(control).startswith(str(shell.side)));self.assertTrue(control.winfo_ismapped())
+            self.assertLess(box.winfo_rooty(),shell.palette_button.winfo_rooty())
+            self.assertLessEqual(shell.palette_button.winfo_rooty()+shell.palette_button.winfo_height(),shell.navigation.winfo_rooty())
+            self.assertGreaterEqual(shell.theme_button.winfo_rooty(),shell.navigation.winfo_rooty()+shell.navigation.winfo_height())
+            self.assertEqual([w for w in shell.title.master.winfo_children() if w.winfo_manager()],[shell.title])
             app.set_theme('light');app.toggle_language();self.pump(app,.3)
         self.assertFalse(errors)
 
@@ -33,7 +40,7 @@ class UI(unittest.TestCase):
         self.assertTrue(tabs[0].selected);self.assertFalse(any(b.selected for b in tabs[1:]))
         target=bodies[2];app.root.update_idletasks()
         app.scroll.yview_moveto(max(0,target.winfo_rooty()-app.content.winfo_rooty()-10)/max(1,app.content.winfo_height()));self.pump(app,.1)
-        self.assertIs(spy.current,target);self.assertEqual([b.selected for b in tabs],[False,False,True,False])
+        self.assertIs(spy.current,target);self.assertEqual([b.selected for b in tabs],[False,False,True,False,False])
         app.scroll.yview_moveto(1);self.pump(app,.1);self.assertIs(spy.current,bodies[-1]);self.assertTrue(tabs[-1].selected)
         app.scroll.yview_moveto(0);self.pump(app,.1);tabs[0].focus_force();self.pump(app,.05);before=app.scroll.yview()[0]
         tabs[0].event_generate('<Right>');self.pump(app,.1)

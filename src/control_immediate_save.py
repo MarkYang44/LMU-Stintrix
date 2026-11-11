@@ -15,7 +15,8 @@ class ImmediateSave:
         if old:self.pending=dict(old['pending']);self.notice=old['notice']
         self.frame=tk.Frame(parent,bg=parent.cget('bg'));self.frame.pack(fill='x',pady=3)
         self.message=tk.StringVar(self.frame,value=tr(self.notice[0]).format(**self.notice[1]));self.frame.preference_variables=variables
-        self.feedback=StatusFeedback(self.frame,self.message);self.feedback.pack(fill='x')
+        # The save line aligns with the controls it reports on; its mark shows only with news.
+        self.feedback=StatusFeedback(self.frame,self.message,collapse=True);self.feedback.pack(fill='x')
         self.retry_button=Action(self.frame,'重试保存',self.retry,120);self.retry_button.configure(height=px(self.frame,34))
         if self.pending is not None:self.retry_button.pack(anchor='w',pady=3);self.feedback.label.configure(fg=T.RED)
         self.frame.bind('<Destroy>',self.dispose,add='+');self.frame.retranslate=self.translate

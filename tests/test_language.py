@@ -81,12 +81,12 @@ class LanguageTests(unittest.TestCase):
                     self.assertIs(center.hud,hud);self.assertIs(hud.engine,engine);self.assertIs(engine.recorder,recorder)
                     self.assertGreater(recorder.samples,before);self.assertEqual(hud.canvas.cget('bg'),'#000000')
                     self.assertEqual(center.title.cget('text'),'Session Review')
-                    for page,title in enumerate(('Run & HUD','Session Review','Sampling & Telemetry','Reports & Data','Circuit Guide','Car Catalog','Personal track records')):
+                    for page,title in enumerate(('Run & HUD','Session Review','Settings','Reports & Data','Circuit Guide','Car Catalog','Personal track records')):
                         center.show_page(page);center.root.update();self.assertEqual(center.title.cget('text'),title)
                         if center.guide_page:self.assertEqual(center.guide_page.library.language,'en')
                     center.show_page(0);self.assertEqual(center.mode_label.get(),'纯净 · 曲线 + 踏板 / 方向盘')
                     texts=[center.shell.navigation.itemcget(item,'text') for item in center.shell.navigation.find_all() if center.shell.navigation.type(item)=='text']
-                    self.assertIn('Sampling & Telemetry',texts)
+                    self.assertIn('Settings',texts);self.assertIn('Analysis',texts)
                     center.toggle_language();self.assertEqual(center.title.cget('text'),'运行与 HUD')
                     self.assertFalse(errors)
                 finally:

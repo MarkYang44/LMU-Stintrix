@@ -119,15 +119,25 @@ class UI(unittest.TestCase):
         self.assertAlmostEqual(centre(label),centre(p.buttons['previous']),delta=1)
         p.buttons['more'].invoke();self.pump(app,.1);self.assertIsNotNone(p.menu.popup);p.menu.close();self.assertFalse(errors)
 
-    def test_run_tools_centre_the_silent_switch_on_the_button_row(self):
+    def test_run_tools_centre_the_silent_switch_and_card_tools_on_their_rows(self):
+        from unittest.mock import patch
         from control_widgets import Switch
         app,root,errors=self.app();self.pump(app,.1)
         switch=next(w for w in walk(app.content) if isinstance(w,Switch) and w.text=='静默记录 · 隐藏全部 HUD')
+        with patch.object(app,'active',return_value=True):
+            app.update_toolbar();self.pump(app,.05)
+            for button in app.live_actions:self.assertAlmostEqual(centre(switch),centre(button),delta=1)
+        app.update_toolbar();self.pump(app,.05)
+        # Layouts edit the HUD card, so its button shares that card's title line.
         layout=next(w for w in walk(app.content) if getattr(w,'label',None)=='HUD 布局')
-        self.assertAlmostEqual(centre(switch),centre(layout),delta=1);self.assertFalse(errors)
+        heading=layout.master.winfo_children()[0];self.assertEqual(heading.cget('text'),'HUD 显示')
+        self.assertAlmostEqual(centre(heading),centre(layout),delta=layout.winfo_height()/2)
+        # The demo stands beside start on the status line.
+        self.assertAlmostEqual(centre(app.demo_button),centre(app.start_button),delta=1)
+        self.assertLess(app.demo_button.winfo_rootx(),app.start_button.winfo_rootx());self.assertFalse(errors)
 
     def test_numbered_pages_open_from_ctrl_digits_without_motion(self):
         app,root,errors=self.app();app.root.focus_force();self.pump(app,.05);nav=app.shell.navigation
         app.root.event_generate('<Control-Key-3>');self.assertEqual(nav.selected,2);self.assertFalse(nav.motion.jobs)
-        self.settle(app);self.assertEqual(app.page,2)
-        app.root.event_generate('<Control-Key-7>');self.settle(app);self.assertEqual(app.page,6);self.assertFalse(errors)
+        self.settle(app);self.assertEqual(app.page,6)
+        app.root.event_generate('<Control-Key-7>');self.settle(app);self.assertEqual(app.page,2);self.assertEqual(nav.selected,6);self.assertFalse(errors)

@@ -71,7 +71,8 @@ def close_forms(center,done):
     except (ValueError,OSError) as error:
         text=(tr('部分参数已保存；未完成项仍保留。')+'\n' if saved else '')+str(error)
         center.status.set(tr('设置未保存')+' · '+text)
-        messagebox.showerror(tr('设置未保存'),text,parent=center.root)
+        from control_confirm import notice
+        notice(center.root,'设置未保存',text)
 
 
 def equal(a,b):
@@ -196,7 +197,7 @@ def build(center,body,module,specs,choices=()):
             # One caption per group, placed above it only while the group is inactive.
             note=center.label(body,'',9,T.MUTED);grid.note(note,group);conditions[group]=(note,tile,[])
         grid.add(tile,group);row=center.row(tile);caption=center.label(row,label,10,T.MUTED);caption.pack(side='left')
-        field=Field(row,textvariable=variable(key),width=15,font=('Segoe UI',11));field.pack(side='right',padx=4)
+        field=Field(row,textvariable=variable(key),width=15,font=(T.LATIN,11));field.pack(side='right',padx=4)
         if group:conditions[group][2].append((field,caption))
         error_hint=center.label(tile,'',9,T.RED);feedback.add(key,field,label,error_hint);register(center,key,label,field,module)
         field.entry.bind('<FocusOut>',lambda _:validation() if complete else None,add='+')
@@ -209,7 +210,7 @@ def build(center,body,module,specs,choices=()):
             baseline.update({k:str(v) for k,v in load(path).items()})
             center.form_drafts.pop(module,None);dirty()
         except (ValueError,OSError) as error:
-            if not feedback.show(error):messagebox.showerror(tr('设置未保存'),str(error),parent=center.root)
+            if not feedback.show(error):__import__('control_confirm').notice(center.root,'设置未保存',str(error))
     def reset():
         current=load(path)
         for key,var in variables.items():var.set(str(current[key]))

@@ -170,7 +170,7 @@ class Data(unittest.TestCase):
             with patch('platform_runtime.subprocess.Popen') as launch:platform_runtime.open_path(ROOT/'README.md')
             self.assertEqual(launch.call_args.args[0],['/usr/bin/open',str(ROOT/'README.md')])
         with patch.dict(os.environ,{'STINTRIX_OFFLINE':'0'}),patch.object(platform_runtime.sys,'platform','win32'):
-            self.assertFalse(platform_runtime.offline_only());self.assertEqual(platform_runtime.page_ids(),tuple(range(7)))
+            self.assertFalse(platform_runtime.offline_only());self.assertEqual(platform_runtime.page_ids(),(0,1,6,4,5,3,2))
             self.assertEqual(platform_runtime.wheel_steps(Mock(delta=120)),1)
             with patch.object(os,'startfile',create=True) as launch:platform_runtime.open_path(ROOT/'README.md')
             launch.assert_called_once_with(ROOT/'README.md')

@@ -27,6 +27,16 @@ def checked(tags,text):
     return values
 
 
+
+def identity_text(entry,folder):
+    """Track · car · local start, instead of the raw folder name."""
+    import re
+    from track_names import display
+    stamp=re.match(r'(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})',folder.name)
+    parts=[display(entry.get('track') or ''),entry.get('vehicle') or entry.get('car') or '',f'{stamp[1]} {stamp[2]}:{stamp[3]}' if stamp else '']
+    return ' · '.join(str(v) for v in parts if v) or folder.name
+
+
 def show(app,entry,done):
     if not entry or not entry.get('folder'):return
     root=Path(app.data_path).resolve();folder=Path(entry['folder']).resolve()
@@ -39,25 +49,28 @@ def show(app,entry,done):
         if old is None:old=load(folder/'_archive_note.json')
         if not isinstance(old,dict) or not isinstance(old.get('text',''),str) or not isinstance(old.get('tags',[]),list) or any(not isinstance(tag,str) for tag in old.get('tags',[])):raise ValueError('标记文件无法读取，原文件已保留')
     except ValueError as error:app.status.set(tr(str(error)));return
-    window=tk.Toplevel(app.root);fade_in(window);windows[key]=window;window.title(tr('收藏与标签'));window.geometry('720x650');window.minsize(620,570);window.configure(bg=T.BG)
-    footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,18))
-    body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
+    from control_window import window as sheet,fit,card,note
+    from control_widgets import px
+    window=sheet(app.root,'收藏与标签',identity_text(entry,folder),escape=False,transient=False);windows[key]=window
     baseline=dict(favorite=bool(old.get('favorite')),traffic=bool(old.get('traffic')),tags=', '.join(old.get('tags',[])),text=old.get('text',''))
     drafts=getattr(app,'note_drafts',{});app.note_drafts=drafts;value=drafts.get(key,baseline)
-    favorite=tk.BooleanVar(window,value=value['favorite']);traffic=tk.BooleanVar(window,value=value['traffic']);tags=tk.StringVar(window,value=value['tags']);message=tk.StringVar(window)
-    app.label(body,'收藏与标签',18,T.FG,True).pack(anchor='w',padx=12,pady=8)
-    identity=app.label(body,folder.name,9,T.MUTED);identity.pack(fill='x',pady=(0,5));identity.bind('<Configure>',lambda e:identity.configure(wraplength=max(100,e.width)))
-    window.retranslate=lambda:window.title(tr('收藏与标签')+' · '+folder.name);window.retranslate()
-    Switch(body,'收藏这场赛事',favorite,lambda:None).pack(fill='x');Switch(body,'交通影响（人工标记）',traffic,lambda:None).pack(fill='x')
-    app.label(body,'标签（逗号分隔）',10).pack(anchor='w');Field(body,textvariable=tags).pack(fill='x',pady=6)
+    favorite=tk.BooleanVar(window,value=value['favorite']);traffic=tk.BooleanVar(window,value=value['traffic']);tags=tk.StringVar(window,value=value['tags']);message=window.status
+    shell_translate=window.retranslate
+    def translate():shell_translate();window.title(tr('收藏与标签')+' · '+folder.name)
+    window.retranslate=translate;translate()
+    outer,flags=card(window.body,16);outer.pack(fill='x')
+    Switch(flags,'收藏这场赛事',favorite,lambda:None).pack(fill='x');Switch(flags,'交通影响（人工标记）',traffic,lambda:None).pack(fill='x')
+    body=window.body;gap=px(window,14)
+    app.label(body,'标签',10,T.FG,True).pack(anchor='w',pady=(gap,0));note(body,'用逗号分隔，最多 20 个；可从已有标签中添加。').pack(fill='x',pady=(px(window,2),px(window,6)))
+    Field(body,textvariable=tags).pack(fill='x')
     known=sorted({tag for item in notes.values() if isinstance(item,dict) and isinstance(item.get('tags',[]),list) for tag in item.get('tags',[]) if isinstance(tag,str)})
-    choice=tk.StringVar(window);row=app.row(body);picker=Select(row,textvariable=choice,values=known,width=24);picker.pack(side='left',fill='x',expand=True)
+    choice=tk.StringVar(window);row=app.row(body);picker=Select(row,textvariable=choice,values=known,width=24,placeholder='选择已有标签' if known else '还没有其他标签');picker.pack(side='left',fill='x',expand=True)
     def add():
         if choice.get():tags.set(', '.join(dict.fromkeys([v.strip() for v in tags.get().replace('，',',').split(',') if v.strip()]+[choice.get()])))
-    add_button=app.button(row,'添加已有标签',add,False,150)
+    add_button=app.button(row,'添加',add,False,96);add_button.pack_configure(padx=(px(window,9),0))
     if not known:picker.configure(state='disabled');add_button.configure(state='disabled')
-    app.label(body,'备注',10).pack(anchor='w',pady=(8,3))
-    holder=tk.Frame(body,bg=T.FIELD);holder.pack(fill='both',expand=True,pady=(0,8));text=tk.Text(holder,height=5,wrap='word',bg=T.FIELD,fg=T.FG,insertbackground=T.ACCENT,relief='flat',font=(T.FONT,10),undo=True,padx=10,pady=8)
+    app.label(body,'备注',10,T.FG,True).pack(anchor='w',pady=(gap,px(window,6)))
+    holder=tk.Frame(body,bg=T.FIELD);holder.pack(fill='both',expand=True);text=tk.Text(holder,height=5,wrap='word',bg=T.FIELD,fg=T.FG,insertbackground=T.ACCENT,relief='flat',font=(T.FONT,10),undo=True,padx=10,pady=8)
     scrollbar=ttk.Scrollbar(holder,command=text.yview,orient='vertical',style='Lab.Vertical.TScrollbar');scrollbar.pack(side='right',fill='y');text.configure(yscrollcommand=scrollbar.set);text.pack(fill='both',expand=True);text.insert('1.0',value['text']);text.edit_modified(False)
     def snapshot():return dict(favorite=favorite.get(),traffic=traffic.get(),tags=tags.get(),text=text.get('1.0','end-1c'))
     def dirty():return snapshot()!=baseline
@@ -91,17 +104,17 @@ def show(app,entry,done):
         else:drafts.pop(key,None)
         window.destroy()
         if after:after()
-    hint=app.label(footer,message,9);hint.pack(fill='x',padx=8,pady=8)
-    app.button(app.row(footer),'保存标记',save,True,150)
+    hint=window.footer.message
+    window.add_action('保存标记',save,True,120);window.add_action('关闭',close,False,90)
     traces=[(v,v.trace_add('write',update)) for v in (favorite,traffic,tags)]
     def edited(_):
         if text.edit_modified():text.edit_modified(False);update()
-    text.bind('<<Modified>>',edited);window.bind('<Control-s>',lambda _:(save(),'break')[1]);window.bind('<Escape>',lambda _:close());window.protocol('WM_DELETE_WINDOW',close);register(app,window,close)
+    text.bind('<<Modified>>',edited);window.bind('<Control-s>',lambda _:(save(),'break')[1]);window.on_close=close;window.bind('<Escape>',lambda _:(close(),'break')[1]);register(app,window,close)
     def dispose(event):
         if event.widget is window:
             windows.pop(key,None)
             for v,token in traces:v.trace_remove('write',token)
-            for v in (favorite,traffic,tags,choice,message):v.__del__();v._tk=None
-    window.bind('<Destroy>',dispose,add='+');update()
+            for v in (favorite,traffic,tags,choice):v.__del__();v._tk=None
+    window.bind('<Destroy>',dispose,add='+');update();fit(window,640,minimum=(540,560))
     window.note_controls=dict(tags=tags,text=text,favorite=favorite,traffic=traffic,choice=choice,add=add,save=save,close=close,dirty=dirty,message=message)
     return window

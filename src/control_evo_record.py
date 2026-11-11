@@ -12,7 +12,7 @@ class Header(tk.Frame):
     def __init__(self,parent,app):
         super().__init__(parent,bg=T.CARD);self.app=app
         self.text=tk.Frame(self,bg=T.CARD);self.text.pack(fill='x')
-        Label(self.text,text='ASSETTO CORSA EVO  /  PERSONAL BEST',bg=T.CARD,fg=T.ACCENT,font=('Consolas',9,'bold'),anchor='w').pack(fill='x',pady=(0,4))
+        Label(self.text,text='ASSETTO CORSA EVO  /  PERSONAL BEST',bg=T.CARD,fg=T.ACCENT,font=(T.MONO,9,'bold'),anchor='w').pack(fill='x',pady=(0,4))
         self.facts_host=tk.Frame(self,bg=T.CARD)
         self.art=tk.Frame(self,bg=T.CARD);self.images=[];self.picture=None;self.track_picture=None;self.columns=None
         self.art.bind('<Configure>',self.layout)

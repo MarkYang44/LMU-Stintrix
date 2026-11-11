@@ -40,25 +40,46 @@ class Activity(tk.Canvas):
 
 
 class StatusFeedback(tk.Frame):
-    def __init__(self,parent,variable,font_size=9):
-        super().__init__(parent,bg=parent.cget('bg'));self.variable=variable;self.tasks=set()
-        self.icon=Activity(self);self.icon.pack(side='left',padx=(0,5));self.label=Label(self,textvariable=variable,bg=self.cget('bg'),fg=T.MUTED,font=(T.FONT,font_size),anchor='w',justify='left');self.label.pack(side='left',fill='x',expand=True)
+    """A status line with its activity mark.
+
+    With ``collapse`` the mark takes room only while it shows something (a
+    wait past its short delay, or a confirmation), so an idle line aligns with
+    the list it describes.
+    """
+    def __init__(self,parent,variable,font_size=9,collapse=False):
+        super().__init__(parent,bg=parent.cget('bg'));self.variable=variable;self.tasks=set();self.collapse=collapse;self.reveal_job=None
+        self.icon=Activity(self)
+        if not collapse:self.icon.pack(side='left',padx=(0,5))
+        self.label=Label(self,textvariable=variable,bg=self.cget('bg'),fg=T.MUTED,font=(T.FONT,font_size),anchor='w',justify='left');self.label.pack(side='left',fill='x',expand=True)
         self.label.bind('<Configure>',lambda e:self.label.configure(wraplength=max(80,e.width)))
         self.trace=variable.trace_add('write',self.changed);self.bind('<Destroy>',self.dispose,add='+')
+    def show_icon(self,visible):
+        if not self.collapse:return
+        if visible and not self.icon.winfo_manager():self.icon.pack(side='left',padx=(0,5),before=self.label)
+        elif not visible and self.icon.winfo_manager():self.icon.pack_forget()
+    def reveal(self):
+        self.reveal_job=None
+        if self.tasks:self.show_icon(True)
     def changed(self,*_):
         value=self.variable.get()
         prefixes=('设置已保存','已完成','已导出','已保存本机','参考圈已保存','对比已生成','新纪录')
-        if not self.tasks and any(value.startswith(tr(p)) for p in prefixes):self.icon.confirm()
-        elif not self.tasks:self.icon.set(False)
+        if not self.tasks and any(value.startswith(tr(p)) for p in prefixes):self.show_icon(True);self.icon.confirm()
+        elif not self.tasks:self.icon.set(False);self.show_icon(False)
     def busy(self,key,active=True):
         if active:self.tasks.add(key)
         else:self.tasks.discard(key)
         self.icon.set(bool(self.tasks))
+        # A quick job finishes before its mark would appear: nothing moves.
+        if self.tasks and self.collapse and self.reveal_job is None:self.reveal_job=self.after(150,self.reveal)
         if not self.tasks:self.changed()
     def success(self):
-        if not self.tasks:self.icon.confirm()
+        if not self.tasks:self.show_icon(True);self.icon.confirm()
     def dispose(self,event):
         if event.widget is self:
+            if self.reveal_job is not None:
+                try:self.after_cancel(self.reveal_job)
+                except tk.TclError:pass
+                self.reveal_job=None
             try:self.variable.trace_remove('write',self.trace)
             except (tk.TclError,AttributeError):pass
             self.variable=None

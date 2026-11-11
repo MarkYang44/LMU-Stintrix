@@ -29,7 +29,7 @@ class HistoryPage(RecordPage):
     def __init__(self,app):
         body=app.card('纪录履历','同赛道布局、同车型分别统计刷新过程；默认最新记录优先');super().__init__(app,'history',body)
         self.identity=lambda e:(str(e['folder']),e['lap']['number']);self.entries=[];row=app.row(body);self.search(row)
-        tools=self.row(body);self.button(tools,'refresh','刷新记录',self.loader.read,lambda:not self.loader.running,True);self.button(tools,'note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),lambda:self.selected is not None and not self.loader.running)
+        self.button(row,'refresh','刷新记录',self.loader.read,lambda:not self.loader.running)
         self.hint(body,'双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。')
         from control_mode_filters import ModeControls
         self.modes=ModeControls(body,app,self.populate_history,'history_event_filters');self.modes.bind_query(self.query);self.count=CountBadge(body);self.count.pack(fill='x',pady=4)
@@ -44,6 +44,8 @@ class HistoryPage(RecordPage):
         actions=self.row(chart_body);actions.pack_configure(before=self.chart);self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:self.selected is not None and not self.exporter.busy,True)
         self.button(actions,'folder','打开赛事目录',lambda:self.open(self.selected['folder']),lambda:self.selected is not None)
         self.button(actions,'card','生成个人战绩卡',self.card,lambda:self.selected is not None)
+        # Notes belong to the chosen record, beside its other actions.
+        self.button(actions,'note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),lambda:self.selected is not None and not self.loader.running)
         from simulator_profiles import capabilities
         supported=capabilities(getattr(app,'simulator','lmu'))
         if getattr(app,'simulator','lmu')=='ac_evo':

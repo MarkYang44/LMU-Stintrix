@@ -73,7 +73,7 @@ class UI(unittest.TestCase):
             self.assertTrue(box.itemcget(box.icon,'image'));self.assertGreater(box.coords(box.caption)[0],14*box.s)
             box.open();self.pump(app,.08)
             self.assertEqual(sum(box.panel.type(i)=='image' for i in box.panel.find_all()),2)
-            self.assertLessEqual(box.winfo_rootx()+box.winfo_width(),app.shell.language_button.winfo_rootx())
+            self.assertLessEqual(box.winfo_rooty()+box.winfo_height(),app.shell.language_button.winfo_rooty())
             before=app.simulator_choice.get();box.event_generate('<Escape>');self.pump(app,.05)
             self.assertIsNone(box.popup);self.assertEqual(app.simulator_choice.get(),before)
         self.assertFalse(errors)

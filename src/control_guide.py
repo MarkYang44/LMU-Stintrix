@@ -45,17 +45,22 @@ class GuidePage:
     def build(self):
         center=self.center;tr=self.tr
         self.container=tk.Frame(center.content,bg=T.BG);self.container.pack(fill='x')
-        self.filter_card=GlassCard(self.container,compact=True);self.filter_card.pack(fill='x',pady=(0,12));body=self.filter_card.body
+        # The browse header carries no card chrome: the filter panel while it
+        # is open, then one quiet result line (count, reset, data note), the
+        # active-filter chips and the expanded note. The cards are the content.
+        self.filter_card=tk.Frame(self.container,bg=T.BG);self.filter_card.pack(fill='x',pady=(0,px(self.container,12)))
+        body=self.filter_card.body=tk.Frame(self.filter_card,bg=T.BG);body.pack(fill='x')
         query=tk.StringVar(center.root,value=self.state['query']);self.variables['query']=query
-        # Search and the filter toggle live in the fixed toolbar (install_actions);
-        # this card keeps the filter fields, chips, reset and the result count.
+        # Search and the filter toggle live in the fixed toolbar (install_actions).
         self.search_field=self.search_entry=self.filter_button=None
         self.query_trace=query.trace_add('write',lambda *_:self.remember_query())
         class_values={tr('全部组别','All classes'):'','LMGT3':'LMGT3','Hypercar':'Hypercar'}
         car_values={tr('全部车型','All cars'):'',**{item['name']:item['slug'] for item in self.library.data['cars'].values()}}
         favorite_values={tr('全部内容','All content'):'',tr('收藏的车型','Favorite cars'):'cars'}
         if self.view=='tracks':favorite_values[tr('收藏的赛道','Favorite circuits')]='tracks'
-        self.choices={};filters=tk.Frame(body,bg=T.CARD);self.filter_fields=filters;tiles=[]
+        # The filter panel keeps its card; a plain frame around it lets it open with motion.
+        self.filter_fields=tk.Frame(body,bg=T.BG);panel=GlassCard(self.filter_fields,compact=True);panel.pack(fill='x')
+        self.choices={};filters=panel.body;tiles=[]
         for key,title,values in [('group',tr('组别','Class'),class_values),('car',tr('车型','Car'),car_values),('favorite',tr('收藏','Favorites'),favorite_values)]:
             variable=tk.StringVar(center.root,value=next((name for name,value in values.items() if value==self.state[key]),next(iter(values))))
             self.variables[key]=variable;self.choices[key]=values
@@ -72,33 +77,39 @@ class GuidePage:
             for i in range(3):filters.columnconfigure(i,weight=1 if i<columns else 0,uniform='guide-filters' if i<columns else '',minsize=0)
             for i,tile in enumerate(tiles):tile.grid(row=i//columns,column=i%columns,sticky='ew',padx=(0,px(filters,8)) if i%columns<columns-1 else 0,pady=(0,4))
         filters.bind('<Configure>',arrange)
-        row=center.row(body);self.filter_tools=row;install(row)
-        self.reset_button=center.button(row,tr('重置筛选','Reset filters'),self.reset,width=112)
-        self.metadata_button=center.button(row,tr('资料说明 ▸','About this data ▸'),self.toggle_metadata,width=120)
+        from control_widgets import Link
+        line=tk.Frame(body,bg=T.BG);line.pack(fill='x');self.filter_tools=line
+        self.result=center.label(line,'',9,T.MUTED);self.result.pack(side='left')
+        self.metadata_button=Link(line,tr('资料说明 ▸','About this data ▸'),self.toggle_metadata);self.metadata_button.pack(side='right')
+        # Reset appears only while there is something to reset.
+        self.reset_gap=tk.Label(line,text='·',bg=T.BG,fg=T.MUTED,font=(T.FONT,9));self.reset_button=Link(line,tr('重置筛选','Reset filters'),self.reset)
         self.page_number=tk.StringVar(center.root);self.variables['page_number']=self.page_number
-        self.result=center.label(row,'',9,T.ACCENT);self.result.pack(side='left',padx=5)
         from control_guide_chips import Chips
         self.filter_chips=Chips(body,self.remove_filter,self.focus_search)
-        self.metadata=tk.Frame(body,bg=T.CARD)
+        self.metadata=tk.Frame(body,bg=T.BG)
         self.cards.text(self.metadata,f"GTD {self.library.data['content_version']} · {self.library.data['updated']} · "+tr('资料参考：','Reference: ')+self.library.data['game_reference'],9,T.MUTED)
         self.cards.text(self.metadata,tr('实测验证：','Build-validated: ')+f"{self.library.data['validated_recommendations']}/{self.library.data['total_recommendations']} · "+tr('文字来自 GTD；图片来源 Le Mans Ultimate / Studio 397。保留原资料日期和未验证标记。','Content adapted from GTD; artwork credited to Le Mans Ultimate / Studio 397. Original dates and unverified markers retained.'),9,T.MUTED)
         if self.state.get('metadata'):
-            self.metadata.pack(fill='x',pady=6);self.metadata_button.configure(text=tr('资料说明 ▾','About this data ▾'))
-        card=GlassCard(self.container,compact=True);self.selection=card.body
-        self.selected_label=self.cards.text(self.selection,'',10,T.FG)
-        self.selection_chips=Chips(self.selection,self.select,self.focus_search)
-        row=center.row(self.selection);install(row)
-        self.compare_button=center.button(row,tr('查看对比','View comparison'),self.compare,True,width=130)
-        center.button(row,tr('清空选择','Clear selection'),self.clear,width=115)
-        self.browse_button=center.button(row,tr('返回资料列表','Back to library'),self.browse,width=145)
+            self.metadata.pack(fill='x',pady=(px(body,8),0));self.metadata_button.configure(text=tr('资料说明 ▾','About this data ▾'))
+        # The comparison tray rests under the document (the shell's tray): what
+        # is chosen and the way into the comparison stay in view while reading.
+        tray=GlassCard(center.shell.tray_host,compact=True);tray.pack(fill='x');self.tray=tray;self.selection=tray.body
+        row=tk.Frame(self.selection,bg=T.CARD);row.pack(fill='x')
+        self.selected_label=center.label(row,'',10,T.FG,True);self.selected_label.pack(side='left',padx=(0,px(row,12)))
+        tools=tk.Frame(row,bg=T.CARD);tools.pack(side='right')
+        self.clear_button=center.button(tools,tr('清空选择','Clear selection'),self.clear,width=115,compact=True)
+        # One action toggles between the comparison and the library it came from.
+        self.compare_button=center.button(tools,tr('查看对比','View comparison'),self.toggle_compare,True,width=130,compact=True)
+        self.compare_button.pack_configure(padx=0);self.browse_button=self.compare_button
+        self.selection_chips=Chips(row,self.select,self.focus_search);self.selection_chips.pack_configure(side='left',fill='x',expand=True,padx=(0,px(row,12)))
         self.results=tk.Frame(self.container,bg=T.BG);self.results.pack(fill='x')
         self.footer=center.row(self.container);install(self.footer);self.pager(self.footer)
         self.page_label=center.label(self.footer,'',9,T.MUTED);self.page_label.pack(side='left',padx=8)
 
     def pager(self,row,compact=False):
-        previous=self.center.button(row,'\u2039' if compact else self.tr('上一页','Previous'),lambda:self.turn(-1),width=44 if compact else 86)
+        previous=self.center.button(row,'\u2039' if compact else self.tr('上一页','Previous'),lambda:self.turn(-1),width=44 if compact else 86,compact=compact)
         box=Select(row,textvariable=self.page_number,values=[],width=9);box.pack(side='left',padx=4,pady=4);box.bind('<<ComboboxSelected>>',lambda _:self.go_page())
-        following=self.center.button(row,'\u203a' if compact else self.tr('下一页','Next'),lambda:self.turn(1),width=44 if compact else 86)
+        following=self.center.button(row,'\u203a' if compact else self.tr('下一页','Next'),lambda:self.turn(1),width=44 if compact else 86,compact=compact)
         if compact:
             # Arrow-only pager buttons still name themselves on hover.
             from control_tooltip import Tooltip
@@ -112,14 +123,15 @@ class GuidePage:
         host.pack(fill='x',before=self.center.shell.scroll.master,pady=(0,8));install(host)
         from control_search import SearchField
         # One fixed row: the real search field (no separate "search" button that
-        # only scrolls to it), the filter toggle, a compact pager and comparison.
+        # only scrolls to it), the filter toggle, the layout and a compact pager.
+        # The comparison lives in its tray under the document.
         # Describe only what this view's text search actually matches; the car
         # filter narrows circuit recommendations separately.
         hint=self.tr('搜索赛道或地区','Search circuit or location') if self.view=='tracks' else self.tr('搜索车型、品牌或组别','Search car, brand or class')
-        field=SearchField(host,textvariable=self.variables['query'],command=self.filter_changed,placeholder=hint,font=(T.FONT,11));field.flow_stretch=True
-        field.configure(width=px(host,260));field.last=self.variables['query'].get()
+        field=SearchField(host,textvariable=self.variables['query'],command=self.filter_changed,placeholder=hint,font=(T.FONT,11),height=38);field.flow_stretch=True
+        field.configure(width=px(host,200));field.last=self.variables['query'].get()
         self.search_field=field;self.search_entry=field.entry
-        self.filter_button=self.center.button(host,self.tr('筛选条件','Filters'),self.toggle_filters,width=110)
+        self.filter_button=self.center.button(host,self.tr('筛选条件','Filters'),self.toggle_filters,width=110,compact=True)
         # Cards read one entry deeply; the list shows every entry at once.
         from control_widgets import Segmented
         self.layout_var=tk.StringVar(host,value=self.state.get('layout','cards'))
@@ -128,8 +140,7 @@ class GuidePage:
         from control_widgets import release_with
         release_with(self.layout_switch,self.layout_var)
         self.pager(host,compact=True)
-        self.fixed_actions={'search':field,'filters':self.filter_button,
-            'compare':self.center.button(host,self.tr('查看对比','View comparison'),lambda:self.browse() if self.state['mode']=='compare' else self.compare(),True,width=145)}
+        self.fixed_actions={'search':field,'filters':self.filter_button,'compare':self.compare_button}
         self.sync_filters();self.update_selection();self.update_pagers()
 
     def set_layout(self):
@@ -184,7 +195,7 @@ class GuidePage:
         opened=not bool(self.metadata.winfo_manager());self.state['metadata']=opened
         if opened:
             from control_motion import expand
-            expand(self.metadata,lambda:self.metadata.pack(fill='x',pady=6))
+            expand(self.metadata,lambda:self.metadata.pack(fill='x',pady=(px(self.metadata,8),0)))
         else:self.metadata.pack_forget()
         self.metadata_button.configure(text=self.tr('资料说明 ▾','About this data ▾') if opened else self.tr('资料说明 ▸','About this data ▸'))
 
@@ -216,7 +227,7 @@ class GuidePage:
         opened=bool(self.state.get('filters_open',False));active=[key for key in self.choices if self.state[key]]
         if opened and not self.filter_fields.winfo_manager():
             from control_motion import expand
-            show=lambda:self.filter_fields.pack(fill='x',before=self.filter_tools)
+            show=lambda:self.filter_fields.pack(fill='x',pady=(0,px(self.filter_fields,6)),before=self.filter_tools)
             if animate:expand(self.filter_fields,show)
             else:show()
         elif not opened:self.filter_fields.pack_forget()
@@ -225,7 +236,13 @@ class GuidePage:
         if button is not None and button.winfo_exists():button.configure(text=title,selected=opened,width=max(px(button,110),button.font.measure(title)+px(button,36)))
         titles=dict(group=self.tr('组别','Class'),car=self.tr('车型','Car'),favorite=self.tr('收藏','Favorites'))
         self.filter_chips.set([] if opened else [(key,titles[key]+' · '+self.variables[key].get()) for key in active])
-        self.reset_button.configure(state='normal' if active or self.state['query'] else 'disabled')
+        resettable=bool(active or self.state['query']);self.reset_button.configure(state='normal' if resettable else 'disabled')
+        if resettable and not self.reset_button.winfo_manager():
+            # Packed right to left after the data note: "Reset · About this data".
+            self.reset_gap.pack(side='right',padx=px(self.reset_gap,8));self.reset_button.pack(side='right')
+        elif not resettable and self.reset_button.winfo_manager():
+            if self.reset_button.focus_get() is self.reset_button:self.focus_search()
+            self.reset_button.pack_forget();self.reset_gap.pack_forget()
 
     def remove_filter(self,key):
         self.variables[key].set(next(iter(self.choices[key])));self.filter_changed()
@@ -260,7 +277,7 @@ class GuidePage:
             builders.append(comparison)
             self.page_label.configure(text=self.tr('对比中 · 保留原赛道上下文','Comparing · original circuit context retained'))
         else:
-            self.filter_card.pack(fill='x',pady=(0,12),before=self.selection.master if self.state['comparison'] else self.results);self.footer.pack(fill='x',pady=5)
+            self.filter_card.pack(fill='x',pady=(0,px(self.container,12)),before=self.results);self.footer.pack(fill='x',pady=5)
             pages=max(1,(len(self.rows)+self.PAGE_SIZE-1)//self.PAGE_SIZE)
             self.state['page']=max(0,min(pages-1,self.state['page']));start=self.state['page']*self.PAGE_SIZE
             listing=self.state.get('layout')=='list'
@@ -302,17 +319,16 @@ class GuidePage:
             self.center.root.update_idletasks();finish()
 
     def update_selection(self):
-        self.selected_label.configure(text=self.tr('已选对比项目','Selected for comparison')+f" · {len(self.state['comparison'])} / 3")
+        count=len(self.state['comparison']);comparing=self.state['mode']=='compare'
+        self.selected_label.configure(text=self.tr('已选对比项目','Selected for comparison')+f' · {count} / 3')
         self.selection_chips.set([(key,self.library.name(key)) for key in self.state['comparison']])
-        self.compare_button.configure(state='normal' if len(self.state['comparison'])>=2 and self.state['mode']!='compare' else 'disabled')
-        self.browse_button.configure(state='normal' if self.state['mode']=='compare' else 'disabled')
-        button=self.fixed_actions.get('compare')
-        if button is not None and button.winfo_exists():
-            comparing=self.state['mode']=='compare'
-            button.configure(text=self.tr('返回资料列表','Back to library') if comparing else self.tr('查看对比','View comparison'),state='normal' if comparing or len(self.state['comparison'])>=2 else 'disabled')
-        panel=self.selection.master
-        if self.state['comparison']:panel.pack(fill='x',pady=(0,px(panel,18)),before=self.results)
-        else:panel.pack_forget()
+        button=self.compare_button;title=self.tr('返回资料列表','Back to library') if comparing else self.tr('查看对比','View comparison')
+        button.configure(text=title,state='normal' if comparing or count>=2 else 'disabled',width=max(px(button,130),button.font.measure(title)+px(button,36)))
+        # The tray appears with the first chosen item and leaves with the last.
+        self.center.shell.show_tray(count>0)
+    def toggle_compare(self):
+        if self.state['mode']=='compare':self.browse()
+        else:self.compare()
 
     def favorite(self,kind,slug):
         try:self.library.favorite(kind,slug)

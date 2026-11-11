@@ -8,7 +8,6 @@ from control_widgets import px,Switch
 from control_video_widgets import Action
 from control_theme import T
 import vehiclelab
-from control_motion import fade_in
 
 
 def show(owner,target=None):
@@ -17,18 +16,17 @@ def show(owner,target=None):
         previous.lift()
         if target in previous.profile_fields:previous.profile_focus(target)
         return previous
-    window=tk.Toplevel(owner.root);fade_in(window);owner.profile_dialog=window;window.title(tr('Stintrix · 车型轮胎阈值'));window.geometry(f'{px(window,680)}x{px(window,680)}');window.minsize(px(window,620),px(window,650))
-    window.configure(bg=T.CARD);window.transient(owner.root)
-    footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=24,pady=(0,18))
+    from control_window import window as sheet,fit
+    window=sheet(owner.root,'Stintrix · 车型轮胎阈值','按车型设置胎温、胎压与胎况报警；未单独设置的车型沿用通用默认。',escape=False);owner.profile_dialog=window
     from control_video_widgets import ScrollPage
-    page=ScrollPage(window);page.pack(fill='both',expand=True,padx=18,pady=(18,8));frame=page.body;frame.configure(bg=T.CARD)
+    page=ScrollPage(window.body);page.pack(fill='both',expand=True)
+    surface=tk.Frame(page.body,bg=T.CARD);surface.pack(fill='both',expand=True,padx=(0,px(window,10)))
+    frame=tk.Frame(surface,bg=T.CARD);frame.pack(fill='both',expand=True,padx=px(window,18),pady=px(window,14))
     window.bind('<MouseWheel>',lambda event:page.wheel(event.delta))
     data_path=getattr(owner,'data_path',ROOT);config=vehiclelab.load_settings(data_path/'vehicle_settings.json');latest=owner.hud.engine.latest if owner.active() else None
     car=tk.StringVar(window,value=latest['vehicle'] if latest else '*');enabled=tk.BooleanVar(window)
-    Label(frame,text='车型阈值',bg=T.CARD,fg=T.FG,font=(T.FONT,16,'bold')).pack(anchor='w')
-    Label(frame,text='* 为通用默认；报警按车型保存。',bg=T.CARD,fg=T.MUTED).pack(anchor='w',pady=(5,15))
     Label(frame,text='车型',bg=T.CARD,fg=T.MUTED).pack(anchor='w')
-    box=Select(frame,textvariable=car,values=list(dict.fromkeys([car.get(),'*',*config['profiles']])),style='Lab.TCombobox');box.pack(fill='x',pady=6)
+    box=Select(frame,textvariable=car,values=list(dict.fromkeys([car.get(),'*',*config['profiles']])),style='Lab.TCombobox',labels={'*':'通用默认（所有车型）'});box.pack(fill='x',pady=6)
     source=tk.StringVar(window);source_label=Label(frame,textvariable=source,bg=T.CARD,fg=T.MUTED,justify='left',anchor='w');source_label.pack(fill='x',pady=(0,8))
     source_label.bind('<Configure>',lambda e:e.widget.configure(wraplength=max(100,e.width)))
     Switch(frame,'启用该车型温度 / 胎压 / 胎况报警',enabled,lambda:None).pack(fill='x',pady=8)
@@ -42,7 +40,7 @@ def show(owner,target=None):
         feedback.add(key,field,title,Label(tile,text='',bg=T.CARD,fg=T.RED));traces.append((var,var.trace_add('write',lambda *_,k=key:feedback.clear(k))))
     from control_confirm import draft_choice,register
     from control_forms import equal
-    current=[car.get()];baseline={};state=tk.StringVar(window);buttons={};saved=[False]
+    current=[car.get()];baseline={};state=window.status;buttons={};saved=[False]
     def snapshot():return dict(alerts=enabled.get(),**{key:var.get() for key,var in variables.items()})
     def dirty():return any(not equal(value,baseline.get(key)) for key,value in snapshot().items())
     def update(*_):
@@ -70,7 +68,7 @@ def show(owner,target=None):
             else:state.set(tr('已保存；可以继续编辑其他车型。'))
             return True
         except (ValueError,OSError) as error:
-            if not feedback.show(error):messagebox.showerror(tr('设置未保存'),str(error),parent=window)
+            if not feedback.show(error):__import__('control_confirm').notice(window,'设置未保存',str(error))
             return False
     def switch(_=None):
         requested=car.get()
@@ -97,18 +95,15 @@ def show(owner,target=None):
         from control_validation import reveal
         window.update_idletasks();reveal(fields[key]);fields[key].focus_set()
     draft=getattr(owner,'profile_draft',None);fill(draft['car'] if draft else car.get(),draft['values'] if draft else None)
-    box.bind('<<ComboboxSelected>>',switch);window.protocol('WM_DELETE_WINDOW',close);register(owner,window,close)
+    box.bind('<<ComboboxSelected>>',switch);window.on_close=close;register(owner,window,close)
     for var in (enabled,*variables.values()):traces.append((var,var.trace_add('write',update)))
-    Label(footer,textvariable=state,bg=T.CARD,fg=T.MUTED,font=(T.FONT,9)).pack(anchor='w',pady=(5,8))
-    actions=tk.Frame(footer,bg=T.CARD);actions.pack(fill='x')
     for key,label,command,width,primary in [('save','保存并继续',lambda:save(False),140,True),('reset','撤销本次修改',lambda:fill(current[0]),150,False),('defaults','载入通用默认',defaults,150,False),('close','关闭',close,90,False)]:
-        buttons[key]=Action(actions,label,command,width,primary);buttons[key].pack(side='left')
-    from control_flow import install
-    install(actions);update()
+        buttons[key]=window.add_action(label,command,primary,90)
+    update()
     def translate():
-        update()
+        window.title(tr('Stintrix · 车型轮胎阈值'));update()
         for button in buttons.values():button.configure(width=max(px(button,90),button.font.measure(tr(button.label))+px(button,36)));button.paint()
-        actions.event_generate('<Configure>',width=actions.winfo_width())
+        window.footer.arrange()
     window.retranslate=translate
     from control_motion import keyboard_action
     window.bind('<Control-s>',lambda _:(keyboard_action(window,lambda:save(False)),'break')[1])
@@ -124,7 +119,8 @@ def show(owner,target=None):
     def dispose(event):
         if event.widget is window:
             for variable,token in traces:variable.trace_remove('write',token)
-            for variable in (car,enabled,state,source,*variables.values()):variable.__del__();variable._tk=None
+            for variable in (car,enabled,source,*variables.values()):variable.__del__();variable._tk=None
     window.bind('<Destroy>',dispose,add='+')
+    fit(window,600,700,minimum=(520,520))
     if target in fields:focus_field(target)
     return window

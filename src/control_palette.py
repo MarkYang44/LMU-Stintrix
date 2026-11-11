@@ -315,7 +315,7 @@ class Palette:
                 canvas.create_rectangle(2*s,y+12*s,5*s,y+item_h-12*s,fill=T.ACCENT,outline='')
             shortcut=command.shortcut
             right=width-12*s
-            if shortcut:canvas.create_text(right,y+item_h/2,text=shortcut,anchor='e',fill=T.ACCENT if selected else T.MUTED,font=('Consolas',8));right-=tk_measure(canvas,('Consolas',8),shortcut)+14*s
+            if shortcut:canvas.create_text(right,y+item_h/2,text=shortcut,anchor='e',fill=T.ACCENT if selected else T.MUTED,font=(T.MONO,8));right-=tk_measure(canvas,(T.MONO,8),shortcut)+14*s
             title=tr(command.title);title_font=(T.FONT,10,'bold' if selected else 'normal')
             title=clip(canvas,title_font,title,right-16*s)
             canvas.create_text(16*s,y+item_h/2,text=title,anchor='w',fill=T.FG,font=title_font)
@@ -409,12 +409,12 @@ class SearchPill(Pill):
         super().__init__(parent,'搜索',command,150)
         from platform_runtime import shortcut_hint
         self.shortcut=shortcut_hint('Ctrl K')
-        keys=tk_measure(self,('Consolas',8),self.shortcut);self.configure(width=max(int(self.cget('width')),round(self.font.measure(tr('搜索'))+keys+64*self.s)))
+        keys=tk_measure(self,(T.MONO,8),self.shortcut);self.configure(width=max(int(self.cget('width')),round(self.font.measure(tr('搜索'))+keys+64*self.s)))
     def paint(self):
         super().paint()
         s=self.s;w=self.winfo_width();h=self.winfo_height();shift=self.press_amount*s;middle=h/2-s+shift
         if not hasattr(self,'glass'):
-            self.glass=self.create_oval(0,0,1,1);self.handle=self.create_line(0,0,1,1,capstyle='round');self.keys=self.create_text(0,0,anchor='e',font=('Consolas',8))
+            self.glass=self.create_oval(0,0,1,1);self.handle=self.create_line(0,0,1,1,capstyle='round');self.keys=self.create_text(0,0,anchor='e',font=(T.MONO,8))
         r=4.5*s;cx=20*s;cy=middle-1*s
         self.coords(self.glass,cx-r,cy-r,cx+r,cy+r);self.coords(self.handle,cx+r*.75,cy+r*.75,cx+r*1.7,cy+r*1.7)
         self.itemconfigure(self.glass,outline=T.FG,width=max(1,1.4*s));self.itemconfigure(self.handle,fill=T.FG,width=max(1,1.4*s))

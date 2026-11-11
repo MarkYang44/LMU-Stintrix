@@ -8,7 +8,8 @@ class TaskSections:
         self.app=app;self.key=key;self.current=None;self.positions={};self.on_select=None
         from control_video_widgets import TabBar,Tab
         from control_widgets import px
-        bar=TabBar(app.content);bar.pack(anchor='w',pady=(0,px(app.content,12)));self.bar=bar
+        # Task tabs live in the shell's fixed tab row, above any task actions.
+        bar=TabBar(app.shell.tab_host);bar.pack(anchor='w');self.bar=bar;app.shell.show_tabs()
         self.frames={name:tk.Frame(app.content,bg=T.BG) for name,_ in items};self.buttons={}
         for name,label in items:self.buttons[name]=Tab(bar,label,lambda n=name:self.select(n),120)
     def select(self,name):

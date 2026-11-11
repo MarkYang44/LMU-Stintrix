@@ -51,7 +51,7 @@ class HudPreview(tk.Canvas):
         self.delete('all');pad=10*s;line=max(1,1.6*s)
         rounded(self,0,0,w-1,h-1,8*s,fill=T.FIELD,outline=T.ACCENT if self.hovered else T.EDGE)
         self.create_text(pad,pad,text=tr('画面预览')+' · '+tr(self.mode_label.get()),anchor='nw',fill=T.FG if self.hovered else T.MUTED,font=(T.FONT,8))
-        self.create_text(w-pad,pad,text=(tr('HUD 布局')+' ▸   ' if self.hovered else '')+f'{self.window.get()} s',anchor='ne',fill=T.ACCENT if self.hovered else T.MUTED,font=('Consolas',8))
+        self.create_text(w-pad,pad,text=(tr('HUD 布局')+' ▸   ' if self.hovered else '')+f'{self.window.get()} s',anchor='ne',fill=T.ACCENT if self.hovered else T.MUTED,font=(T.MONO,8))
         left=pad;right=w-pad;top=pad+18*s;bottom=h-pad
         if bottom-top<24*s:return
         header=self.header*min(30*s,(bottom-top)*.3)
@@ -62,8 +62,8 @@ class HudPreview(tk.Canvas):
                 if header>20*s and cell>70*s:
                     middle=top+(header-4*s)/2
                     self.create_oval(x+6*s,middle-2*s,x+10*s,middle+2*s,fill=color,outline='')
-                    self.create_text(x+14*s,middle,text=name,anchor='w',fill=T.MUTED,font=('Consolas',7))
-                    self.create_text(x+cell-6*s,middle,text=value,anchor='e',fill=color,font=('Consolas',9,'bold'))
+                    self.create_text(x+14*s,middle,text=name,anchor='w',fill=T.MUTED,font=(T.MONO,7))
+                    self.create_text(x+cell-6*s,middle,text=value,anchor='e',fill=color,font=(T.MONO,9,'bold'))
             top+=header
         panel=self.panel*min(120*s,(right-left)*.3)
         trace_right=right-(panel+6*s*self.panel)

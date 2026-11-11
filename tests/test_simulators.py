@@ -151,7 +151,7 @@ with patch.object(ControlCenter,'repair_windows_entry'),patch('recorder.Recorder
  for page in (1,3,4,2,0):app.show_page(page);pump()
  app.set_theme('light');pump();app.toggle_language();pump();app.set_theme('dark');pump()
  assert app.simulator_selector.winfo_ismapped()
- assert app.simulator_selector.winfo_rootx()+app.simulator_selector.winfo_width()<=app.shell.language_button.winfo_rootx()
+ assert app.simulator_selector.winfo_rooty()+app.simulator_selector.winfo_height()<=app.shell.language_button.winfo_rooty()
  app.root.update_idletasks()
  from PIL import ImageGrab
  p=Path('_local/acevo');p.mkdir(parents=True,exist_ok=True)

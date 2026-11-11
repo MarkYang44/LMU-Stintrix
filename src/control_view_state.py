@@ -48,7 +48,7 @@ def show_page(app,index,progressive=False):
     if offline_only() and index==0:index=1
     app.browsing.capture(app)
     if not app.shell.covering:app.shell.cover_page()
-    app.clear_toolbar();app.pages.cancel_request()
+    app.clear_toolbar();app.shell.clear_tabs();app.pages.cancel_request()
     app.page=index;app.restore_list_context=True;app.progressive=progressive
     app.scan_generation+=1;app.tree=None;app.guide_page=None
     app.shell.scroller.cancel()

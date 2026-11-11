@@ -77,7 +77,9 @@ def register_routes(app,anchor):
 class Search:
     def __init__(self,app,parent):
         self.app=app;self.pending=None;self.buttons=[];self.entries=[];self.variable=tk.StringVar(parent,value=getattr(app,'settings_query',''))
-        self.row=tk.Frame(parent,bg=T.BG);self.row.pack(fill='x',pady=(0,4));app.label(self.row,'搜索设置',10,T.MUTED).pack(side='left',padx=(0,12));self.field=SearchField(self.row,self.variable,self.request);self.field.pack(side='left',fill='x',expand=True)
+        self.row=tk.Frame(parent,bg=T.BG);self.row.pack(fill='x',pady=(0,4))
+        # The placeholder names the field, as on every other page's search.
+        self.field=SearchField(self.row,self.variable,self.request,placeholder='搜索设置，例如 采样、轮胎、快捷键');self.field.pack(side='left',fill='x',expand=True)
         self.results=tk.Frame(parent,bg=T.BG)
         self.field.entry.bind('<Return>',lambda _:self.open_first())
         self.field.entry.bind('<Down>',lambda _:self.first_button())

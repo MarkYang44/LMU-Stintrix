@@ -23,7 +23,9 @@ def show(app):
     from control_video_widgets import TabBar,Tab
     from control_widgets import px
     # Views share one segmented bar, visibly apart from the page's actions.
-    outer=app.content;bar=TabBar(outer);bar.pack(anchor='w',pady=(0,px(outer,10)));indicator=TabIndicator(outer);view=tk.Frame(outer,bg=T.BG);view.pack(fill='x')
+    # The view tabs sit in the shell's fixed tab row: switching views or
+    # scrolling never moves them, whichever actions the chosen view brings.
+    outer=app.content;tabs=app.shell.tab_host;bar=TabBar(tabs);bar.pack(anchor='w');indicator=TabIndicator(tabs);view=tk.Frame(outer,bg=T.BG);view.pack(fill='x')
     from simulator_profiles import capabilities
     supported=capabilities(getattr(app,'simulator','lmu'))
     choices=[('best','赛道最快圈')]
@@ -66,7 +68,7 @@ def show(app):
         if token is not None:app.shell.reveal_page(token)
     for kind,label in choices:
         buttons.append((kind,Tab(bar,label,lambda k=kind:mount(k),130)))
-    app.personal_record_tabs=dict(buttons)
+    app.personal_record_tabs=dict(buttons);app.shell.show_tabs()
     mount(selected)
 
 

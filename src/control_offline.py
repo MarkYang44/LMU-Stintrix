@@ -23,7 +23,7 @@ def choose_icon(app,game):
     try:import_icon(game,path)
     except ValueError as error:
         from tkinter import messagebox
-        app.status.set(tr('操作未完成：')+tr(str(error)));messagebox.showerror('Stintrix',tr(str(error)),parent=app.root);return
+        app.status.set(tr('操作未完成：')+tr(str(error)));__import__('control_confirm').notice(app.root,'操作未完成',str(error));return
     from control_simulator import refresh_icons
     refresh_icons(app);app.status.set(tr('已更新游戏图标'))
 
@@ -53,3 +53,5 @@ def preferences(app):
     body=app.card('报告与可视化','HTML 报告可离线打开；圈速单与赛事日志由内置原生引擎生成。')
     app.label(body,'已导入的 Windows 报告图片保留；需要时可在赛事操作中重新生成。',10,T.MUTED).pack(fill='x',pady=6)
     app.button(app.row(body),'报告与存储',lambda:app.request_page(3),False,160)
+    from control_app_preferences import build as app_preferences
+    app_preferences(app)

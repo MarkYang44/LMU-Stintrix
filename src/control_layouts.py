@@ -13,7 +13,6 @@ import layout_actions
 import control_confirm
 from control_validation import Feedback
 from preference_error import PreferenceError
-from control_motion import fade_in
 
 TITLES={'main':'油刹 / 转向','tyres':'轮胎','strategy':'燃油与能量','pit':'进站分析','stint':'Stint 节奏','weather':'天气与赛道'}
 MODES={'normal':'标准面板','curves':'纯净 · 仅曲线','controls':'纯净 · 曲线 + 踏板 / 方向盘'}
@@ -24,21 +23,27 @@ def show(app):
     if old is not None and old.winfo_exists():old.deiconify();old.lift();return old
     try:initial=layout_actions.current(app.data_path,app.hud if app.active() else None)
     except (ValueError,OSError) as error:
-        messagebox.showerror(tr('布局无法打开'),tr(str(error)),parent=app.root);return
-    window=tk.Toplevel(app.root);fade_in(window);app.layout_window=window;window.title(tr('HUD 布局与备份'));window.configure(bg=T.BG);window.geometry('900x820');window.minsize(720,580)
+        from control_confirm import notice
+        notice(app.root,'布局无法打开',str(error));return
+    from control_window import window as sheet,fit,note
+    from control_widgets import px
     from control_video_widgets import ScrollPage
-    scroll=ScrollPage(window);scroll.pack(fill='both',expand=True)
+    window=sheet(app.root,'HUD 布局与备份','在预览中拖动面板调整位置与大小。预览只修改草稿，保存并应用后才改变 HUD。',escape=False,transient=False);app.layout_window=window
+    window.header.pack_configure(pady=(0,px(window,8)))
+    scroll=ScrollPage(window.body)
     window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta) if not isinstance(e.widget,Select) else None)
-    body=tk.Frame(scroll.body,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=12)
+    sheet_card=tk.Frame(scroll.body,bg=T.CARD);sheet_card.pack(fill='both',expand=True,padx=(0,px(window,10)))
+    body=tk.Frame(sheet_card,bg=T.CARD);body.pack(fill='both',expand=True,padx=px(window,18),pady=(px(window,6),px(window,16)))
     store=LayoutStore(app.data_path);variables=[];traces=[];remembered=getattr(app,'layout_draft',None);errors=Feedback()
     def var(value='',boolean=False):
         result=tk.BooleanVar(window,value=value) if boolean else tk.StringVar(window,value=value);variables.append(result);return result
     def hud():return app.hud if app.active() else None
     state={'draft':deepcopy(initial),'panel':'main','history':{},'loading':True,'baseline':None,'pending':None}
-    status=var();dirty=var();selected=var();name=var();kind=var('main');visible=var(True,True);top=var(True,True);lock=var(False,True);mode=var('normal');wave=var('10');backup=var();snap=var(False,True)
-    def section(title):app.label(body,title,11,T.FG).pack(anchor='w',pady=(10,6))
+    status=var();dirty=window.status;selected=var();name=var();kind=var('main');visible=var(True,True);top=var(True,True);lock=var(False,True);mode=var('normal');wave=var('10');backup=var();snap=var(False,True)
+    feedback=note(window.body,status,9,T.ACCENT);feedback.pack(fill='x',pady=(0,px(window,8)));scroll.pack(fill='both',expand=True)
+    def section(title):app.label(body,title,10,T.FG,True).pack(anchor='w',pady=(px(window,14),px(window,4)))
     section('选择布局')
-    row=app.row(body);chooser=Select(row,textvariable=selected,values=(),width=25);chooser.pack(side='left',fill='x',expand=True)
+    row=app.row(body);chooser=Select(row,textvariable=selected,values=(),width=25,placeholder='还没有保存的布局');chooser.pack(side='left',fill='x',expand=True)
     app.button(row,'应用所选布局',lambda:guard(apply_selected),False,140)
     tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x');row=app.row(tile);app.label(row,'布局名称',10).pack(side='left',padx=(0,12));name_field=Field(row,textvariable=name);name_field.pack(side='left',fill='x',expand=True);errors.add('name',name_field,'布局名称',app.label(tile,'',9,T.RED))
     section('编辑面板')
@@ -75,11 +80,8 @@ def show(app):
     app.button(row,'恢复所选备份',lambda:guard(restore),False,140)
     row=app.row(recovery);app.button(row,'备份当前 HUD',lambda:guard(backup_now),False,145)
     app.button(row,'删除所选布局',lambda:guard(delete),False,145)
-    footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=16,pady=8)
-    app.label(footer,dirty,9,T.MUTED).pack(anchor='w',pady=3)
-    row=app.row(footer);app.button(row,'保存并应用',lambda:guard(save),True,135);app.button(row,'另存为',lambda:guard(copy),False,105)
-    app.button(row,'读取当前 HUD',lambda:guard(read_live),False,140)
-    feedback=app.label(footer,status,9,T.ACCENT);feedback.pack(fill='x',pady=3);feedback.bind('<Configure>',lambda e:feedback.configure(wraplength=max(100,e.width)))
+    window.add_action('保存并应用',lambda:guard(save),True,120);window.add_action('另存为',lambda:guard(copy),False,96)
+    window.add_action('读取当前 HUD',lambda:guard(read_live),False,120)
     def toggle_backup():
         if recovery.winfo_manager():recovery.pack_forget()
         else:recovery.pack(fill='x',pady=5)
@@ -192,7 +194,7 @@ def show(app):
             if state['pending'] is not None:window.after_cancel(state['pending'])
             for variable,token in traces:variable.trace_remove('write',token)
             for variable in variables:variable.__del__();variable._tk=None
-    panel.bind('<<ComboboxSelected>>',change_panel);chooser.bind('<<ComboboxSelected>>',lambda e:guard(select_draft));window.protocol('WM_DELETE_WINDOW',close)
+    panel.bind('<<ComboboxSelected>>',change_panel);chooser.bind('<<ComboboxSelected>>',lambda e:guard(select_draft));window.on_close=close;window.bind('<Escape>',lambda _:(close(),'break')[1])
     control_confirm.register(app,window,close)
     refresh();state['selected']=selected.get();load_draft();clean()
     # A draft is session-local and never modifies the saved active layout on reopen.
@@ -206,4 +208,4 @@ def show(app):
         if isinstance(label,tk.Label):label.bind('<Configure>',lambda e:e.widget.configure(wraplength=max(100,e.width)))
     window.layout_state=state;window.layout_fields=fields;window.layout_name=name;window.layout_panel=kind;window.layout_save=lambda:guard(save);window.layout_restore=lambda:guard(restore);window.layout_status=status
     window.layout_preview=preview;window.layout_select=chooser;window.layout_close=close;window.layout_dirty=is_dirty;window.layout_read=lambda:guard(read_live);window.layout_errors=errors
-    return window
+    fit(window,880,800,minimum=(700,560));return window

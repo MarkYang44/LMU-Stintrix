@@ -26,8 +26,8 @@ import vehiclelab
 import endurance
 import control_theme
 
-PAGES=('运行与 HUD','赛事复盘','采样与遥测','图像与数据','赛道指南','车型图鉴','个人赛道纪录')
-SUBTITLES=('比赛中保持专注。所有控制，在这里。','搜索时间、赛道或车辆；双击记录或按 Enter 打开复盘。','分别配置输入采样、轮胎策略与耐力赛遥测。','视频分析、赛事包与本地报告，按任务处理。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。','赛道最快圈与领奖台记录，记录每一次突破。')
+PAGES=('运行与 HUD','赛事复盘','设置','图像与数据','赛道指南','车型图鉴','个人赛道纪录')
+SUBTITLES=('启动记录，调整 HUD 显示与附加面板。','搜索时间、赛道或车辆；双击记录或按 Enter 打开复盘。','输入采样、车辆策略、耐力赛遥测与界面偏好。','视频分析、赛事包与本地报告，按任务处理。','赛道特性、练习建议与车型选择。','车型优缺点、适配赛道与并排对比。','赛道最快圈与领奖台记录，记录每一次突破。')
 
 
 class ControlCenter:
@@ -102,6 +102,10 @@ class ControlCenter:
         style.configure('Lab.Vertical.TScrollbar',background=T.EDGE,troughcolor=T.BG,borderwidth=0,arrowsize=0,width=px(self.root,7))
         style.layout('Lab.Vertical.TScrollbar',[('Vertical.Scrollbar.trough',{'sticky':'ns','children':[('Vertical.Scrollbar.thumb',{'expand':1,'sticky':'nswe'})]})])
         style.map('Lab.Vertical.TScrollbar',background=[('active',T.ACCENT)])
+        # The page scrollbar while everything fits: same footprint, nothing drawn.
+        style.configure('Lab.Idle.Vertical.TScrollbar',background=T.BG,troughcolor=T.BG,bordercolor=T.BG,lightcolor=T.BG,darkcolor=T.BG,borderwidth=0,arrowsize=0,width=px(self.root,7))
+        style.layout('Lab.Idle.Vertical.TScrollbar',[('Vertical.Scrollbar.trough',{'sticky':'ns','children':[('Vertical.Scrollbar.thumb',{'expand':1,'sticky':'nswe'})]})])
+        style.map('Lab.Idle.Vertical.TScrollbar',background=[('active',T.BG)])
         style.configure('Lab.Horizontal.TScrollbar',background=T.EDGE,troughcolor=T.CARD,borderwidth=0,arrowsize=0,width=px(self.root,7))
         style.layout('Lab.Horizontal.TScrollbar',[('Horizontal.Scrollbar.trough',{'sticky':'ew','children':[('Horizontal.Scrollbar.thumb',{'expand':1,'sticky':'nswe'})]})])
         style.map('Lab.Horizontal.TScrollbar',background=[('active',T.ACCENT)])
@@ -112,7 +116,7 @@ class ControlCenter:
         self.configure_styles()
         self.page_titles=PAGES;self.page_subtitles=SUBTITLES
         if self.profile.catalogue=='official':
-            self.page_subtitles=(*SUBTITLES[:2],'配置输入采样、HUD 刷新与练习赛记录。','共享赛事选择，管理归档、无损存储和报告重试。','查看赛道布局与官方线路图。','按品牌与车型组别筛选官方图片。','赛道最快圈与纪录履历，保留每一次突破。')
+            self.page_subtitles=(*SUBTITLES[:2],'输入采样、HUD 刷新、练习赛记录与界面偏好。','共享赛事选择，管理归档、无损存储和报告重试。','查看赛道布局与官方线路图。','按品牌与车型组别筛选官方图片。','赛道最快圈与纪录履历，保留每一次突破。')
         if offline_only():
             self.page_titles=(*PAGES[:2],'离线偏好设置',*PAGES[3:])
             self.page_subtitles=(*self.page_subtitles[:2],'主题、语言与本机资料库；分析数据不会写入应用程序。',*self.page_subtitles[3:])
@@ -163,20 +167,28 @@ class ControlCenter:
         return Label(parent,text='' if isinstance(text,tk.Variable) else text,textvariable=text if isinstance(text,tk.Variable) else None,
             bg=parent.cget('bg'),fg=color or T.FG,font=(T.FONT,size,'bold' if bold else 'normal'),anchor='w',justify='left')
 
-    def card(self,title,subtitle='',parent=None,compact=False):
+    def card(self,title,subtitle='',parent=None,compact=False,action=None):
         card=GlassCard(parent or self.content,compact=compact)
         if parent:parent.add(card)
         else:card.pack(fill='x',pady=(0,px(self.root,18)))
         body=card.body
-        if title:body.heading=self.label(body,title,14,T.FG,True);body.heading.pack(anchor='w',pady=(0,5))
+        if title and action:
+            # A card's own tool sits on its title line, beside what it edits.
+            head=tk.Frame(body,bg=body.cget('bg'));head.pack(fill='x',pady=(0,5))
+            body.heading=self.label(head,title,14,T.FG,True);body.heading.pack(side='left',anchor='w')
+            body.action=self.button(head,*action,compact=True);body.action.pack_configure(side='right',padx=0,pady=0)
+        elif title:body.heading=self.label(body,title,14,T.FG,True);body.heading.pack(anchor='w',pady=(0,5))
         if subtitle:
             label=self.label(body,subtitle,9,T.MUTED);label.pack(fill='x',pady=(0,px(self.root,14)))
             label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
         return body
 
-    def button(self,parent,text,command,primary=False,width=140):
+    def button(self,parent,text,command,primary=False,width=140,compact=False):
         from control_video_widgets import Action
-        button=Action(parent,text,command,width,primary);button.pack(side='left',padx=(0,px(self.root,9)),pady=4);return button
+        button=Action(parent,text,command,width,primary)
+        # Toolbars and card tools use the compact height; page commands keep the full one.
+        if compact:button.configure(height=px(button,38))
+        button.pack(side='left',padx=(0,px(self.root,9)),pady=4);return button
 
     def row(self,parent):
         row=tk.Frame(parent,bg=parent.cget('bg'));row.pack(fill='x',pady=5);return row
@@ -244,12 +256,15 @@ class ControlCenter:
         live_row=self.row(body);live_row.pack_configure(pady=0);self.run_primary_row=live_row;self.connection_feedback=ConnectionFeedback(live_row);self.connection_feedback.pack(side='left',padx=(0,6));self.connection_feedback.set('waiting')
         self.live_label=self.label(live_row,'等待启动',11,T.ACCENT);self.live_label.pack(side='left')
         self.recording_detail=self.label(body,'',9,T.MUTED)
-        self.start_button=self.button(live_row,'▶  启动记录',self.start,True,160);self.stop_button=self.button(live_row,'停止并保存',self.stop_hud,False,140)
-        # One primary control: start while idle, stop-and-save while a HUD records.
-        for button in (self.stop_button,self.start_button):button.pack_forget()
-        (self.stop_button if self.active() else self.start_button).pack(side='right',padx=(8,0),pady=2)
-        def arrange_primary(event,label=self.live_label,start=self.start_button,stop=self.stop_button):
-            if all(w.winfo_exists() for w in (label,start,stop)):label.configure(wraplength=max(100,event.width-sum(b.winfo_reqwidth() for b in (start,stop) if b.winfo_manager())-px(label,48)))
+        # The run's commands share the status line: the demo beside start while
+        # idle, stop-and-save alone while a HUD records or saves.
+        commands=tk.Frame(live_row,bg=live_row.cget('bg'));commands.pack(side='right');self.run_commands=commands
+        self.demo_button=self.button(commands,'演示模式',lambda:self.start(True),False,110)
+        self.start_button=self.button(commands,'▶  启动记录',self.start,True,160);self.stop_button=self.button(commands,'停止并保存',self.stop_hud,False,140)
+        from control_toolbar import arrange_run_commands
+        arrange_run_commands(self)
+        def arrange_primary(event,label=self.live_label,commands=commands):
+            if label.winfo_exists() and commands.winfo_exists():label.configure(wraplength=max(100,event.width-commands.winfo_reqwidth()-px(label,48)))
         live_row.bind('<Configure>',arrange_primary)
         self.run_layout_summary=self.label(body,'',9,T.MUTED);self.run_layout_summary.pack(fill='x',pady=1)
         self.run_layout_summary.bind('<Configure>',lambda e:self.run_layout_summary.configure(wraplength=max(100,e.width)))
@@ -258,13 +273,9 @@ class ControlCenter:
         row=self.row(body)
         row.pack_configure(pady=0)
         Switch(row,'静默记录 · 隐藏全部 HUD',self.silent_mode,self.set_silent_recording,compact=True).pack(side='left')
-        from control_layouts import show as layouts
-        from control_shortcuts import show as shortcuts
-        self.button(row,'HUD 布局',lambda:layouts(self),False,145)
-        self.button(row,'全局快捷键',lambda:shortcuts(self),False,135)
-        self.demo_button=self.button(row,'演示模式',lambda:self.start(True),False,110)
-        # Live HUD controls join this row only while a HUD runs; idle, the demo
-        # takes their place, so nothing sits disabled waiting to be useful.
+        # Live HUD controls join this row only while a HUD runs, so nothing sits
+        # disabled waiting to be useful. Layouts edit the HUD card below; global
+        # shortcuts and the Start menu entry live in Settings.
         self.live_actions=[self.button(row,'鼠标穿透 / 解锁',lambda:self.hud_action('toggle_clickthrough'),False,172),self.button(row,'性能诊断',lambda:self.hud_action('show_diagnostics'),False,130)]
         for button in self.live_actions:button.flow_hidden=True
         self.run_tools_row=row
@@ -278,7 +289,8 @@ class ControlCenter:
         row.bind('<Configure>',arrange_tools)
         policy=self.label(body,self.profile.recording_hint,9,T.MUTED);policy.pack(fill='x');policy.bind('<Configure>',lambda e:policy.configure(wraplength=max(100,e.width)))
         grid=CardGrid(self.content);grid.pack(fill='x')
-        body=self.card('油门 / 刹车 / 转向','输入通道、显示模式与波形窗口',grid)
+        from control_layouts import show as layouts
+        body=self.card('HUD 显示','显示模式、输入通道与波形窗口；预览随选择即时更新',grid,action=('HUD 布局',lambda:layouts(self),False,110))
         self.mode=tk.StringVar(self.root,value=initial['mode'])
         modes={'标准面板':'normal','纯净 · 仅曲线':'curves','纯净 · 曲线 + 踏板 / 方向盘':'controls'}
         self.mode_label=tk.StringVar(self.root,value=next(k for k,v in modes.items() if v==self.mode.get()))
@@ -327,18 +339,6 @@ class ControlCenter:
         self.refresh_run_configuration=lambda:refresh_display(self)
         refresh_display(self)
         self.pages.on_resume(refresh_run)
-
-        # A one-time setup: one compact row, details only on request.
-        body=self.card('',compact=True);head=self.row(body);head.pack_configure(pady=0)
-        self.label(head,'Windows 快捷启动',11,T.FG,True).pack(side='left')
-        from control_sections import Disclosure
-        options=Disclosure(body,self,'windows-entry','管理启动入口',header=head).body
-        hint=self.label(options,'添加后可在开始菜单 / Windows 搜索中输入 Stintrix 或 LMU 启动；迁移程序后可再次更新入口',9,T.MUTED);hint.pack(fill='x')
-        hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
-        row=self.row(options)
-        self.button(row,'添加 / 更新开始菜单',self.register_app,False,185)
-        self.button(row,'移除开始菜单入口',lambda:self.register_app(True),False,170)
-        self.label(options,'可在 Windows 搜索结果中右键固定到开始菜单或任务栏。',9,T.MUTED).pack(anchor='w',pady=6)
 
     def register_app(self,remove=False):
         from windows_integration import register
@@ -389,7 +389,7 @@ class ControlCenter:
         self.status.set(tr('正在处理…'));work_key=object();self.shell.status_feedback.busy(work_key)
         def finish(result,error):
             self.shell.status_feedback.busy(work_key,False)
-            if error:self.status.set(tr('操作未完成：') + error);messagebox.showerror('Stintrix',error,parent=self.root)
+            if error:self.status.set(tr('操作未完成：') + error);__import__('control_confirm').notice(self.root,'操作未完成',error)
             else:
                 self.status.set(tr('已完成 · 数据保存在本机'))
                 if done:done(result)
@@ -397,10 +397,12 @@ class ControlCenter:
 
     def sessions(self,body,multiple=False,checkboxes=False,selection_buttons=True,compact_actions=False,height=9,filter_toggle=True,fill=False):
         from control_search import SearchField
-        row=self.row(body);self.label(row,'搜索',10,T.MUTED).pack(side='left',padx=(0,8));self.search=tk.StringVar(self.root);entry=SearchField(row,textvariable=self.search,command=self.populate)
-        self.search_target=entry;entry.pack(side='left',fill='x',expand=True)
-        filters=self.button(row,'筛选条件',lambda:self.review_filters.toggle_filters(),False,112) if filter_toggle else None
-        self.review_refresh=self.button(row,'刷新记录',self.refresh,False,112)
+        row=self.row(body);self.search=tk.StringVar(self.root)
+        # List tools share one line: the field names itself, filters and refresh follow.
+        entry=SearchField(row,textvariable=self.search,command=self.populate,placeholder='搜索时间、赛道、车辆或阶段',height=38)
+        self.search_target=entry;entry.pack(side='left',fill='x',expand=True,padx=(0,px(row,9)))
+        filters=self.button(row,'筛选条件',lambda:self.review_filters.toggle_filters(),False,112,compact=True) if filter_toggle else None
+        self.review_refresh=self.button(row,'刷新记录',self.refresh,False,104,compact=True);self.review_refresh.pack_configure(padx=0)
         from control_review_filters import ReviewFilters
         self.review_filters=ReviewFilters(body,self)
         self.search.set(self.browsing.query(self.page))
@@ -709,6 +711,10 @@ class ControlCenter:
         body=self.card('进站、Stint 与天气')
         self.settings_anchors.append(('耐力与天气',body))
         yield from self.form(body,'endurance',list(FORMS['endurance'][0]))
+        yield
+        # App-wide choices end the page: theme, language, hotkeys, Start menu.
+        from control_app_preferences import build as app_preferences
+        app_preferences(self)
 
     def data_page(self):
         from control_data import build

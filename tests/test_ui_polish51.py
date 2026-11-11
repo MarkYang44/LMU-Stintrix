@@ -73,7 +73,7 @@ class PolishUITests(unittest.TestCase):
         window.shortcut_fields['lock'].set('Ctrl+Shift+F9');self.assertIn('相同快捷键',window.shortcut_hints['lock'].get());window.shortcut_save();self.assertFalse((root/'hotkey_settings.json').exists())
         window.shortcut_record('visibility');window.destroy();self.assertIsNone(app.shortcuts.capture_owner);self.assertFalse(errors)
     def test_table_preferences_keep_selection_scroll_and_restore_on_reentry(self):
-        app,root,errors=self.app(True);app.show_page(1);self.pump(app,.5);table=app.tree;chosen=table.get_children()[0];table.selection_set((chosen,));table.scroller.move(40);self.pump(app,.1)
+        app,root,errors=self.app(True);app.show_page(1);self.pump(app,.5);table=app.tree;chosen=table.get_children()[0];table.selection_set((chosen,));table.scroller.move(20);self.pump(app,.1)
         offset=table.offset;window=table.show_columns();window.column_visible['car'].set(False);window.column_save();self.pump(app,.1)
         self.assertNotIn('car',table.displaycolumns);self.assertEqual(table.selection(),(chosen,));self.assertEqual(table.offset,offset)
         table.widths['date']=233*table.s;table.remember_columns();table.xview('moveto',.7);fixed={k:x for k,x,pinned in table.positions() if pinned};self.assertAlmostEqual(fixed['date'],table.gutter)

@@ -76,11 +76,15 @@ class UI(unittest.TestCase):
         self.assertTrue(tabs['best'].selected);self.assertFalse(tabs['best'].primary);self.assertTrue(p.fixed['curve'].primary)
         self.assertEqual(set(p.fixed),{'curve','training','card','details'});self.assertTrue(any(a.key=='mode' for a in p.menu.actions));self.assertFalse(errors)
 
-    def test_run_page_folds_windows_entry_and_rail_keeps_only_privacy_promise(self):
+    def test_start_menu_entry_lives_in_settings_and_rail_keeps_only_privacy_promise(self):
         from control_sections import Disclosure
         app,root,errors=self.app();self.pump(app,.1)
-        entry=next(w for w in walk(app.content) if isinstance(w,Disclosure) and w.key=='windows-entry')
-        self.assertFalse(entry.body.winfo_manager());entry.toggle();self.pump(app,.05);self.assertTrue(entry.body.winfo_ismapped());entry.toggle()
+        # A one-time system setup belongs with the other app-wide preferences.
+        self.assertFalse([w for w in walk(app.content) if isinstance(w,Disclosure) and w.key=='windows-entry'])
+        app.request_page(2);self.settle(app,lambda:'start_menu' in getattr(app,'app_preference_controls',{}))
+        controls=app.app_preference_controls;self.assertEqual(app.settings_anchors[-1][0],'界面与系统')
+        self.assertEqual((controls['start_menu'].label,controls['remove_start_menu'].label),('添加 / 更新','移除入口'))
+        self.assertTrue(controls['shortcuts'].winfo_exists())
         self.assertEqual([w.cget('text') for w in app.shell.footer.winfo_children() if w.winfo_class()=='Label'],['●  LOCAL & PRIVATE']);self.assertFalse(errors)
 
     def test_data_selection_orders_filters_before_refresh_like_other_lists(self):

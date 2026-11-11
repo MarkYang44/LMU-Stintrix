@@ -12,7 +12,9 @@ PALETTES={
 }
 PALETTES['dark'].update(GREEN='#34e59a',RED='#ff596b',BLUE='#52b5ff')
 PALETTES['light'].update(GREEN='#157b4a',RED='#b92f42',BLUE='#216fa5')
-T=SimpleNamespace(**PALETTES['dark'],FONT='PingFang SC' if sys.platform=='darwin' else 'Microsoft YaHei UI',mode='dark')
+T=SimpleNamespace(**PALETTES['dark'],FONT='PingFang SC' if sys.platform=='darwin' else 'Microsoft YaHei UI',mode='dark',
+    # Latin display and tabular faces that exist on each platform (Tk silently substitutes missing families).
+    LATIN='Helvetica Neue' if sys.platform=='darwin' else 'Segoe UI',MONO='Menlo' if sys.platform=='darwin' else 'Consolas')
 
 
 def set_mode(mode):

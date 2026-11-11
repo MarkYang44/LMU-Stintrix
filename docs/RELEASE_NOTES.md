@@ -1,3 +1,26 @@
+## v0.4.2 — 导航重组与窗口统一
+
+- 左侧导航按「实时 / 分析 / 资料 / 工具」分组，「设置」固定在底部；「个人赛道纪录」紧跟「赛事复盘」。Ctrl+1–7（macOS 离线版 Command+1–6）按新的显示顺序切换：运行与 HUD、赛事复盘、个人赛道纪录、赛道指南、车型图鉴、图像与数据、设置。窗口较矮时先收起分组标题，再压缩行高。
+- 快速搜索（Ctrl+K）、深色 / 浅色和中文 / EN 切换移到侧栏；页头只保留页面标题和一句用途说明，内容区多出一行高度。
+- 「采样与遥测」更名为「设置」，末尾新增「界面与系统」：主题、语言、全局快捷键和 Windows 开始菜单入口集中在这里，也能被设置搜索和 Ctrl+K 找到。
+- 运行与 HUD：「演示模式」与「启动记录」并排，记录时只保留「停止并保存」；「HUD 布局」移到「HUD 显示」卡片标题栏；开始菜单入口移到设置。
+- 个人赛道纪录与图像与数据的视图标签固定在页头下方，切换视图、滚动页面时不再跳动；纪录操作排在标签之后。
+- 页面工具栏统一为紧凑按钮：常用操作靠左，「更多操作」和删除靠右；赛事复盘与设置的搜索框直接写明可搜索的内容。
+- 侧栏底部的主题切换改为月亮 / 太阳图标，与中文 / EN 并排成一行；窗口缩到最小时分组标题也能完整显示。页面内容不需要滚动时不再显示滚动条。
+- 赛道指南 / 车型图鉴：顶部一行放搜索、筛选条件、卡片 / 列表和翻页，最小窗口下也不换行；结果数量、「重置筛选」（有可重置内容时才出现）和「资料说明」合成一行文字，不再单独占一张卡片，展开的筛选条件单独成卡。已选对比项目改为固定在页面底部的对比栏，滚动时始终可见，「查看对比」和「返回资料列表」合为同一个按钮。
+- 个人赛道纪录的四个视图统一列表结构：搜索框之后是「筛选条件」和「刷新」，下一行是状态，再往下是列表；「刷新」不再用主色按钮，状态行的加载图标只在加载或保存完成时出现，空闲时文字与列表左对齐。领奖台的「全部 / 冠军 / 亚军 / 季军」改为标签切换；纪录履历的「收藏与标签」移到所选纪录的操作中；官方战绩的「同步游戏成绩」「导入结果文件夹」和车手姓名移到列表上方。
+- 设置的第一部分改为带标题的「记录与数据接口」：「记录练习赛」开关与其他设置项对齐，保存状态显示在开关下方，当前采样摘要与「记录与采样说明」「检查数据接口」在同一行。
+- 二级窗口与弹窗统一结构：顶部强调线、标题和一句用途说明，中间是内容，底栏左侧显示状态、右侧放操作。主按钮的位置跟随系统习惯，Windows 在最左、macOS 在最右。覆盖数据接口检查、性能诊断、同场完整圈对比、确认与删除、收藏与标签、更正参赛方式、全局快捷键、HUD 布局、车型轮胎阈值、列设置、单元格详情、本场目标圈速、训练目标跟进、训练优先级与同条件进步分析、报告任务、缓存与导出文件、最近提取结果。
+- 窗口按实际显示缩放和内容自动定尺寸，并在当前显示器居中；按钮放不下时自动换行。修复 125% 及以上缩放时「本场目标圈速」的按钮被裁掉、「数据接口检查」看不到「重新检查 / 导出」、未保存确认和删除确认显示不全。
+- 「数据接口检查」从纯文本改为带状态颜色的检查项。「性能诊断」改为实时速率卡片、对齐的 P50 / P95 / P99 延迟表和计数项。「同场完整圈对比」不再使用系统原生按钮，每一圈旁边可直接「提取此圈」。
+- 空下拉框显示提示（如「选择赛事」「还没有保存的布局」）；车型阈值的「*」显示为「通用默认（所有车型）」；收藏与标签显示「赛道 · 车辆 · 时间」，不再显示文件夹名。
+- 未保存确认改为一行按钮，「放弃修改」用红色标出；永久删除用红色强调标题，目标列表按条目数调整高度。设置未保存、布局无法打开等提示改用应用内窗口，不再弹出系统对话框。
+- 列表窗口的筛选、搜索、计数和「刷新」放在同一行，针对所选项的操作统一在底栏；空列表只提示一次。全局快捷键只在有变化时提示状态。视频提取窗口的「最近提取结果」不再被标题区裁掉。
+- macOS 的等宽和西文字体改用系统自带的 Menlo / Helvetica Neue；Windows 显示不变。
+- 仅调整界面结构与交互，不改记录数据、分析结果、保存格式或报告内容。
+
+English: The rail now groups pages into Live, Analysis, Library and Tools, with Settings pinned at its foot; Ctrl+1–7 follow the new order. Search, theme and language moved to the rail, so page headers hold only the page. Sampling & Telemetry is now Settings and gains Interface & system (theme, language, global shortcuts, Start menu entry). Run & HUD keeps start, demo and the HUD display together; view tabs stay fixed above page actions, and toolbars use compact buttons with the menu and delete at the far end. The rail's theme switch is now a moon / sun pair beside the language switch, so group captions fit even at the minimum window size, and a page that fits shows no scrollbar. The guide and car catalog keep search, filters, layout and paging on one line, fold the result count, reset and data note into one quiet line, and move the comparison into a tray under the page that stays in view. All four record views read the same way (search, filters and refresh, then status, then rows); podium placings became tabs and settings open with a titled Recording & data interface section. Every secondary window and dialog now shares one layout: heading and purpose, content, then a footer with status on the left and actions on the right (primary first on Windows, last on macOS). Windows size to their content at the real display scale, so nothing is clipped at 125 % or higher. The interface check, performance diagnostics and same-session lap comparison were rebuilt with the app's own controls; empty pickers show prompts, destructive choices are marked in red and native error boxes became in-app notices. Recordings, analysis and file formats are unchanged.
+
 ## v0.4.1 — MacBook 实机验收修复
 
 - Mac：Command+1–6 直接切换页面（v0.4.0 实际发出的是 Ctrl+点击），搜索、导航提示与快捷键一览统一显示 Cmd。Dock 保留应用自带的清晰圆角图标，不再在启动后换成模糊的方块；切换游戏改由系统启动服务重新打开应用。

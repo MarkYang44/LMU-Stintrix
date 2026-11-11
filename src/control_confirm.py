@@ -1,36 +1,30 @@
 """Explicit local choices. A confirmation never uses ambiguous Yes/No labels."""
 import tkinter as tk
 from control_theme import T
-from control_widgets import px
-from control_video_widgets import Action
 from i18n import tr
-from control_motion import fade_in
+
+
+DANGER=('discard','stop')
 
 
 def ask(parent,title,message,choices):
-    owner=parent.winfo_toplevel();window=tk.Toplevel(owner);fade_in(window);window.title(tr(title));window.configure(bg=T.BG);window.transient(owner)
-    window.resizable(False,False);result=['cancel'];body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=16)
-    tk.Label(body,text=tr(message),wraplength=px(window,570),justify='left',anchor='w',bg=T.CARD,fg=T.FG,font=(T.FONT,10)).pack(fill='x',padx=12,pady=16)
-    actions=tk.Frame(body,bg=T.CARD);actions.pack(fill='x',padx=8,pady=8);buttons={}
+    from control_window import window as sheet,fit,modal,natural_width,note
+    owner=parent.winfo_toplevel();window=sheet(owner,title,escape=False);window.resizable(False,False);result=['cancel']
+    note(window.body,message,10,T.FG).pack(fill='x')
+    buttons={}
     def choose(key):result[0]=key;window.destroy()
-    for index,(key,label) in enumerate(choices):
-        button=Action(actions,label,lambda k=key:choose(k),260,key=='save');button.grid(row=index//2,column=index%2,padx=5,pady=4,sticky='ew');buttons[key]=button
-    actions.columnconfigure(0,weight=1);actions.columnconfigure(1,weight=1)
-    window.protocol('WM_DELETE_WINDOW',lambda:choose('cancel'));window.bind('<Escape>',lambda _:choose('cancel'))
+    for key,label in choices:buttons[key]=window.add_action(label,lambda k=key:choose(k),key=='save',110,key in DANGER)
+    window.on_close=lambda:choose('cancel');window.bind('<Escape>',lambda _:(choose('cancel'),'break')[1])
     window.confirm_buttons=buttons;owner._stintrix_confirm=window
-    previous=owner.grab_current();window.update_idletasks()
-    from control_layout_preview import monitors
-    from control_tooltip import position
-    cx=owner.winfo_rootx()+owner.winfo_width()/2;cy=owner.winfo_rooty()+owner.winfo_height()/2;screens=monitors(owner)
-    sx,sy,sw,sh=next((r for r in screens if r[0]<=cx<r[0]+r[2] and r[1]<=cy<r[1]+r[3]),screens[0])
-    width=window.winfo_reqwidth();height=window.winfo_reqheight();position(window,max(sx,min(cx-width/2,sx+sw-width)),max(sy,min(owner.winfo_rooty()+80,sy+sh-height)))
-    try:
-        window.grab_set();buttons.get('cancel',next(iter(buttons.values()))).focus_set();owner.wait_window(window)
-    finally:
-        owner._stintrix_confirm=None
-        if previous is not None and previous.winfo_exists():previous.grab_set()
-        if owner.winfo_exists():owner.focus_set()
+    fit(window,natural_width(window,440,820),owner=owner)
+    try:modal(window,owner,buttons.get('cancel',next(iter(buttons.values()))))
+    finally:owner._stintrix_confirm=None
     return result[0]
+
+
+def notice(parent,title,message):
+    """A single-answer message in the app's own window style instead of a native box."""
+    return ask(parent,title,message,[('cancel','知道了')])
 
 
 def draft_choice(parent,closing=False,exiting=False,save_label='保存并应用'):

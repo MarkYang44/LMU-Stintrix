@@ -24,6 +24,10 @@ def install(app):
     box=Select(app.shell.brand,textvariable=app.simulator_choice,values=list(GAMES),
         labels={key:SHORT[key]+' · '+name for key,name in GAMES.items()},images=load(app.root,px(app.root,26)),width=20)
     box.compact_labels=dict(SHORT);app.simulator_selector=box;app.shell.attach_context(box)
+    # A theme or language change rebuilds the shell and this variable with it.
+    # Unset the old one on the GUI thread; collected on a worker it stalls Tcl ~1 s.
+    from control_widgets import release_with
+    release_with(box,app.simulator_choice)
     from control_tooltip import Tooltip
     tip=Tooltip(box)
     from platform_runtime import offline_only

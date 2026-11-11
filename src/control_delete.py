@@ -30,7 +30,8 @@ def remove(center,items=None,after=None):
             center.status.set(tr('记录已永久删除')+f": {len(result['deleted'])} / {len(keys)}")
             errors=result['failed']+result['warnings']
             if errors:
-                messagebox.showwarning(tr('部分赛事未能删除'), '\n'.join(key+' · '+tr(error) for key,error in errors),parent=center.root)
+                from control_confirm import notice
+                notice(center.root,'部分赛事未能删除','\n'.join(key+' · '+tr(error) for key,error in errors))
         center.work(lambda:session_delete.remove_many(data,keys),done)
     if items is None:center.with_selection(chosen,count=None)
     else:chosen([dict(item) for item in items])

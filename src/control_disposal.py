@@ -4,11 +4,13 @@ import tkinter as tk
 
 def release(page,owner):
     variables={}
+    # Variables marked shared belong to the shell (theme, language); a page
+    # control that mirrors them must not retire them with the page.
     def keep(value):
-        if isinstance(value,tk.Variable):variables[id(value)]=value
+        if isinstance(value,tk.Variable) and not getattr(value,'shared',False):variables[id(value)]=value
         elif isinstance(value,dict):
             for item in value.values():
-                if isinstance(item,tk.Variable):variables[id(item)]=item
+                if isinstance(item,tk.Variable) and not getattr(item,'shared',False):variables[id(item)]=item
     def visit(widget):
         for value in vars(widget).values():keep(value)
         for child in widget.winfo_children():visit(child)

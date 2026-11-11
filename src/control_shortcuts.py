@@ -6,21 +6,20 @@ from control_theme import T
 from shortcut_keys import LABELS,DEFAULTS,parse,captured
 from i18n import tr
 import control_confirm
-from control_motion import fade_in
 
 
 def show(app):
     old=getattr(app,'shortcut_window',None)
     if old is not None and old.winfo_exists():old.deiconify();old.lift();return old
-    window=tk.Toplevel(app.root);fade_in(window);app.shortcut_window=window;window.title(tr('全局快捷键'));window.configure(bg=T.BG);window.geometry('790x615');window.minsize(710,510)
-    from control_video_widgets import ScrollPage
-    scroll=ScrollPage(window);scroll.pack(fill='both',expand=True);window.bind('<MouseWheel>',lambda e:scroll.wheel(e.delta))
-    body=tk.Frame(scroll.body,bg=T.CARD);body.pack(fill='both',expand=True,padx=16,pady=16)
+    from control_window import window as sheet,fit,card,note
+    from control_widgets import px
+    window=sheet(app.root,'全局快捷键','点击“录入”后按组合键，Esc 取消；也可手动填写。清除后保存可禁用单项。',escape=False,transient=False);app.shortcut_window=window;body=window.body
     remembered=getattr(app,'shortcut_draft',None) or app.shortcuts.settings
-    enabled=tk.BooleanVar(window,value=remembered['enabled']);status=tk.StringVar(window,value=app.shortcuts.message_text());dirty=tk.StringVar(window);fields={};hints={};recorders={};traces=[]
+    enabled=tk.BooleanVar(window,value=remembered['enabled']);status=tk.StringVar(window,value=app.shortcuts.message_text());dirty=window.status;fields={};hints={};recorders={};traces=[]
     state={'recording':None,'binding':None,'focus':None,'busy':False};owner=object()
-    Switch(body,'启用全局快捷键',enabled,lambda:None,compact=True).pack(anchor='w',pady=(0,8))
-    app.label(body,'点击“录入”后按组合键，Esc 取消；也可手动填写。清除后保存可禁用单项。',9,T.MUTED).pack(fill='x',pady=6)
+    Switch(body,'启用全局快捷键',enabled,lambda:None,compact=True).pack(anchor='w')
+    feedback=note(body,status,9,T.ACCENT);feedback.pack(fill='x',pady=(px(window,4),0))
+    outer,grid=card(body,16);outer.pack(fill='x',pady=(px(window,12),0));grid.columnconfigure(0,weight=1)
     def errors():
         problems={};seen={}
         for key,value in fields.items():
@@ -34,7 +33,7 @@ def show(app):
         problems=errors()
         for key,hint in hints.items():
             if key==state['recording']:continue
-            hint.set(tr(problems.get(key,'保存后生效' if fields[key].get()!=app.shortcuts.settings['bindings'][key] else '未绑定' if not fields[key].get() else '当前组合')))
+            hint.set(tr(problems.get(key,'保存后生效' if fields[key].get()!=app.shortcuts.settings['bindings'][key] else '未绑定' if not fields[key].get() else '已保存')))
         dirty.set(tr('有未保存修改' if is_dirty() else '快捷键与已保存值一致'));return problems
     def snapshot():return dict(enabled=enabled.get(),bindings={k:v.get() for k,v in fields.items()})
     def is_dirty():return snapshot()!=dict(enabled=app.shortcuts.settings['enabled'],bindings=app.shortcuts.settings['bindings'])
@@ -72,20 +71,18 @@ def show(app):
         if value is not None:
             fields[key].set(value);stop_capture();status.set(tr('组合键已录入，保存后生效'))
         return 'break'
-    for key,label in LABELS.items():
-        tile=tk.Frame(body,bg=T.CARD);tile.pack(fill='x',pady=5)
-        row=app.row(tile);row.columnconfigure(0,weight=1)
-        app.label(row,label,10).grid(row=0,column=0,sticky='w',padx=(0,12))
-        value=tk.StringVar(window,value=remembered['bindings'][key]);fields[key]=value;Field(row,textvariable=value,width=22).grid(row=0,column=1,sticky='ew')
+    for index,(key,label) in enumerate(LABELS.items()):
+        top=px(window,10) if index else 0
+        app.label(grid,label,10).grid(row=index*2,column=0,sticky='sw',padx=(0,12),pady=(top,0))
+        hint=tk.StringVar(window);hints[key]=hint;app.label(grid,hint,8,T.MUTED).grid(row=index*2+1,column=0,sticky='nw',padx=(0,12))
+        value=tk.StringVar(window,value=remembered['bindings'][key]);fields[key]=value;Field(grid,textvariable=value,width=22).grid(row=index*2,column=1,rowspan=2,sticky='ew',pady=(top,0))
         def record(k=key):
             if state['recording']==k:stop_capture()
             else:start_capture(k)
-        actions=tk.Frame(row,bg=T.CARD);actions.grid(row=0,column=2,padx=(8,0))
+        actions=tk.Frame(grid,bg=T.CARD);actions.grid(row=index*2,column=2,rowspan=2,padx=(8,0),pady=(top,0))
         button=app.button(actions,'录入',record,False,78);recorders[key]=button
-        app.button(actions,'清除',lambda k=key:(stop_capture(),fields[k].set('')),False,65)
-        hint=tk.StringVar(window);hints[key]=hint;app.label(tile,hint,9,T.MUTED).pack(anchor='w',pady=(0,3))
-    app.label(body,'显示与布局操作不会停止记录。原 F6–F11 单键操作保留；F12 为系统保留，不支持绑定。',9,T.MUTED).pack(fill='x',pady=10)
-    footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=16,pady=10);app.label(footer,dirty,9,T.MUTED).pack(fill='x');row=app.row(footer)
+        app.button(actions,'清除',lambda k=key:(stop_capture(),fields[k].set('')),False,65).pack_configure(padx=0)
+    note(body,'显示与布局操作不会停止记录。原 F6–F11 单键操作保留；F12 为系统保留，不支持绑定。').pack(fill='x',pady=(px(window,12),0))
     def save(on_success=None):
         if state['busy']:return
         stop_capture();problems=validate()
@@ -103,7 +100,7 @@ def show(app):
                         else:status.set(tr('保存期间又有新修改，请确认后再关闭。'))
         try:app.shortcuts.configure(dict(enabled=enabled.get(),bindings={k:v.get() for k,v in fields.items()}),done)
         except (ValueError,OSError) as error:state['busy']=False;button.configure(state='normal');status.set(tr(str(error)))
-    button=app.button(row,'保存快捷键',save,True,140)
+    button=window.add_action('保存快捷键',save,True,120)
     def defaults():
         stop_capture()
         def fill():
@@ -114,8 +111,7 @@ def show(app):
             if answer=='cancel':return
             if answer=='save':save(fill);return
         fill()
-    app.button(row,'填入推荐组合',defaults,False,150)
-    feedback=app.label(footer,status,9,T.ACCENT);feedback.pack(fill='x',pady=5);feedback.bind('<Configure>',lambda e:feedback.configure(wraplength=max(100,e.width)))
+    window.add_action('填入推荐组合',defaults,False,130);window.add_action('关闭',lambda:close(),False,90)
     def close(after=None,exiting=False):
         if state['busy']:status.set(tr('正在保存，请稍候'));return
         stop_capture()
@@ -133,14 +129,13 @@ def show(app):
         if event.widget is window:
             stop_capture()
             for variable,token in traces:variable.trace_remove('write',token)
-            for variable in [enabled,status,dirty,*fields.values(),*hints.values()]:variable.__del__();variable._tk=None
+            for variable in [enabled,status,*fields.values(),*hints.values()]:variable.__del__();variable._tk=None
     window.bind('<Destroy>',dispose,add='+')
     for value in fields.values():traces.append((value,value.trace_add('write',validate)))
     traces.append((enabled,enabled.trace_add('write',validate)))
-    for label in body.winfo_children():
-        if isinstance(label,tk.Label):label.bind('<Configure>',lambda e:e.widget.configure(wraplength=max(100,e.width)))
     validate();window.shortcut_fields=fields;window.shortcut_save=save;window.shortcut_status=status
-    window.protocol('WM_DELETE_WINDOW',close);control_confirm.register(app,window,close)
+    # Escape cancels a recording first; only an idle editor closes on it.
+    window.on_close=close;window.bind('<Escape>',lambda _:(stop_capture() if state['recording'] is not None else close(),'break')[1]);control_confirm.register(app,window,close)
     window.shortcut_close=close;window.shortcut_dirty=is_dirty;window.shortcut_enabled=enabled
     window.shortcut_record=start_capture;window.shortcut_key=key_pressed;window.shortcut_stop=stop_capture;window.shortcut_hints=hints
-    return window
+    fit(window,680);return window

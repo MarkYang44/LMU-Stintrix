@@ -3,22 +3,22 @@ import tkinter as tk
 from control_theme import T
 from control_list import SessionList
 from i18n import tr
-from control_motion import fade_in
 
-def shell(app,title,columns,feedback=False):
-    window=tk.Toplevel(app.root);fade_in(window);window.title(tr(title));window.geometry('1050x650');window.configure(bg=T.BG)
-    footer=tk.Frame(window,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=(0,18))
-    body=tk.Frame(window,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=18)
-    app.label(body,title,18,T.FG,True).pack(anchor='w',pady=10)
+def shell(app,title,columns,feedback=False,subtitle=''):
+    """A table window: heading and purpose, the table, then the shared footer.
+
+    `footer` is a free row above the footer's state line for windows that lay
+    out their own controls; others add actions with `window.add_action`.
+    """
+    from control_window import window as sheet
+    from control_widgets import px
+    window=sheet(app.root,title,subtitle,feedback=feedback,transient=False);body=window.body
+    footer=tk.Frame(window.footer,bg=T.BG);footer.pack(fill='x',padx=px(window,22),before=window.footer.bar)
     table=SessionList(body,columns=[k for k,_,_ in columns],height=8,selectmode='extended')
     for key,label,width in columns:table.heading(key,text=label);table.column(key,width=width*table.s,minwidth=70*table.s,stretch=True)
-    text=tk.StringVar(window)
-    if feedback:
-        from control_feedback import StatusFeedback
-        window.work_feedback=StatusFeedback(body,text);window.work_feedback.pack(side='bottom',fill='x',pady=8)
-    else:
-        label=app.label(body,text,10);label.pack(side='bottom',fill='x',pady=10);label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)))
-    table.pack(fill='both',expand=True,pady=8)
+    text=window.status
+    if feedback:window.work_feedback=window.footer.feedback
+    table.pack(fill='both',expand=True,pady=(px(window,6),0))
     return window,footer,table,text
 
 

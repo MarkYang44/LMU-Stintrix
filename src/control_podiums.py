@@ -47,11 +47,14 @@ def show(app):
     body=app.card('领奖台记录','仅收录已确认同组完赛前三的正赛；排位、退赛、取消资格与演示不计入')
     page=RecordPage(app,'podium',body);page.identity=lambda e:(e['folder'],e['started_utc'],e['vehicle_class'],e['place']);state['category']=page.context.get('category',0);page.state=state
     if state['category'] not in (0,1,2,3):state['category']=0
-    filters=page.row(body);buttons={}
+    # Placings narrow the list: one tab strip, like every view switch, so the
+    # primary fill stays reserved for real actions.
+    from control_video_widgets import TabBar
+    filters=tk.Frame(body,bg=T.CARD);filters.pack(fill='x',pady=(0,px(body,6)));category_bar=TabBar(filters);category_bar.pack(anchor='w');buttons={}
     victory=VictoryBadge(body);victory.pack(fill='x')
     query=page.query
     row=app.row(body);page.search(row)
-    tools=page.row(body);page.button(tools,'refresh','刷新记录',lambda:refresh_records(),lambda:not page.loader.running,True)
+    page.button(row,'refresh','刷新记录',lambda:refresh_records(),lambda:not page.loader.running)
     hint=app.label(body,'成绩数量随当前搜索与筛选更新；双击记录或按 Enter 可快捷打开。',9,T.MUTED);hint.pack(fill='x',pady=4);hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
     modes=ModeControls(body,app,lambda:populate(),'podium_mode_filters');page.modes=modes
     modes.bind_query(query)
@@ -162,13 +165,14 @@ def show(app):
             rows.append((str(i),e,(tr(LABELS[e['place']]),date(e['started_utc']).replace(' UTC',''),display(e['track']),e['vehicle_class'],tr(MODE_LABELS[mode(e)]),e['session'].get('vehicle',''),place(e['summary'].get('grid_class_place')),place(e['place']),lap_time(e.get('fastest_s')))))
         modes.summary.set(tr('显示 ')+str(len(rows))+tr(' / 共 ')+str(len(state['entries']))+tr(' 条；括号内为当前资料库选项数'))
         for category,button in buttons.items():
-            button.primary=category==state['category'];button.configure(text=tr(LABELS[category] if category else '全部')+' · '+str(counts[category]))
-            button.configure(width=max(px(button,110),button.font.measure(button.label)+px(button,36)))
-        filters.event_generate('<Configure>',width=filters.winfo_width());page.populate(rows)
+            title=tr(LABELS[category] if category else '全部')+' · '+str(counts[category])
+            button.configure(text=title,selected=category==state['category'],width=max(px(button,96),button.font.measure(title)+px(button,36)))
+        page.populate(rows)
     def choose(category):
         state['category']=category;page.context['category']=category;populate()
+    from control_video_widgets import Tab
     for category,label in ((0,'全部'),(1,'冠军'),(2,'亚军'),(3,'季军')):
-        buttons[category]=page.button(filters,'category'+str(category),label,lambda p=category:choose(p))
+        buttons[category]=Tab(category_bar,label,lambda p=category:choose(p),96)
     query.trace_add('write',lambda *_:populate())
     def accept(value):
         baseline,new=new_champions(value['entries'],getattr(app,'champion_baseline',None));app.champion_baseline=baseline

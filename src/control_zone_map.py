@@ -12,9 +12,12 @@ class ZoneMap(tk.Canvas):
     def set(self,geometry,zones,features=None):
         self.geometry=geometry;self.zones=zones;self.features=features or {};self.selected=None;self.draw()
     def select(self,zone):self.selected=zone;self.draw()
+    def retranslate(self):self.draw()
     def draw(self,_=None):
         self.delete('all');self.points=[];w=max(100,self.winfo_width());h=max(80,self.winfo_height())
-        if not self.zones:return
+        if not self.zones:
+            # Say what will appear here rather than leave an unexplained grey block.
+            self.create_text(w/2,h/2,text=tr('分析完成后，这里显示各区间在赛道上的位置。'),fill=T.MUTED,font=(T.FONT,9));return
         if len(self.geometry)<2 or max(p[1] for p in self.geometry)-min(p[1] for p in self.geometry)<1 and max(p[2] for p in self.geometry)-min(p[2] for p in self.geometry)<1:
             self.create_text(12,16,anchor='w',text=tr('距离分段视图：没有坐标，未绘制赛道形状'),fill=T.MUTED,font=(T.FONT,9))
             end=max(z['end'] for z in self.zones)

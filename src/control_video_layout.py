@@ -40,9 +40,11 @@ def entry(w,parent,title,key,default='',browse=None):
 def build(w,modes):
     window=w.window
     title=tk.Frame(window,bg=T.BG);title.pack(fill='x',padx=px(window,24),pady=(px(window,15),px(window,6)))
-    Action(title,'最近提取结果',w.recent_results,170).place(relx=1,anchor='ne')
     w.heading_frame=title;w.heading_meta=note(title,'STINTRIX / VIDEO LAB',9,T.ACCENT,True)
-    w.heading_title=note(title,'视频提取油刹曲线',21,T.FG,True)
+    # The results shortcut shares the title's line, so it can never overlap or clip it.
+    head=w.heading_row=tk.Frame(title,bg=T.BG);head.pack(fill='x')
+    Action(head,'最近提取结果',w.recent_results,130).pack(side='right',padx=(px(window,12),0))
+    w.heading_title=note(head,'视频提取油刹曲线',21,T.FG,True)
     w.heading_hint=note(title,'跟着三步完成：选视频与赛道 → 圈段与 HUD 标定 → 检查并提取。所有处理都在本机。')
     footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=px(window,22),pady=(px(window,5),px(window,12)))
     w.back=Action(footer,'上一步',w.previous_step,90);w.back.pack(side='left',padx=(0,px(window,8)))
@@ -52,7 +54,7 @@ def build(w,modes):
     Action(footer,'操作示意 / 帮助',w.show_help,155).pack(side='right')
     status_area=tk.Frame(window,bg=T.BG);status_area.pack(side='bottom',fill='x',padx=px(window,24),pady=(0,px(window,5)))
     w.feedback=StatusFeedback(status_area,w.status);w.feedback.pack(fill='x',pady=(px(window,7),0));w.feedback.label.configure(height=2)
-    w.percent=Label(status_area,text='就绪',bg=T.BG,fg=T.MUTED,font=('Consolas',9),anchor='e');w.percent.pack(side='right')
+    w.percent=Label(status_area,text='就绪',bg=T.BG,fg=T.MUTED,font=(T.MONO,9),anchor='e');w.percent.pack(side='right')
     w.bar=TaskProgress(status_area);w.bar.pack(fill='x',pady=px(window,5))
     w.tabs=Steps(window);w.tabs.pack(fill='both',expand=True,padx=px(window,22),pady=(px(window,3),px(window,5)))
     setup_page=ScrollPage(w.tabs);advanced_page=ScrollPage(w.tabs);w.calibration=tk.Frame(w.tabs,bg=T.BG)
@@ -130,7 +132,7 @@ def calibration(w):
         tools.columnconfigure(1,weight=1)
     tools.bind('<Configure>',arrange)
     timeline=tk.Frame(parent,bg=T.CARD);timeline.pack(fill='x',padx=px(parent,2),pady=(0,px(parent,6)))
-    Label(timeline,textvariable=w.seek_text,bg=T.CARD,fg=T.MUTED,font=('Consolas',9),width=11).pack(side='left',padx=px(parent,6))
+    Label(timeline,textvariable=w.seek_text,bg=T.CARD,fg=T.MUTED,font=(T.MONO,9),width=11).pack(side='left',padx=px(parent,6))
     w.seek_scale=tk.Scale(timeline,from_=0,to=1,resolution=.001,orient='horizontal',showvalue=False,variable=w.seek,
         command=w.seek_changed,bg=T.CARD,fg=T.FG,troughcolor=T.FIELD,highlightthickness=0,activebackground=T.ACCENT,relief='flat',sliderlength=18,width=10)
     w.seek_scale.pack(side='left',fill='x',expand=True)
@@ -140,7 +142,7 @@ def calibration(w):
     Action(timeline,'设为圈起点',lambda:w.mark_range('start'),115).pack(side='left',padx=px(parent,4))
     Action(timeline,'设为圈终点',lambda:w.mark_range('end'),115).pack(side='left',padx=(0,px(parent,6)))
     range_row=tk.Frame(parent,bg=T.BG);range_row.pack(fill='x',pady=(0,4))
-    Label(range_row,textvariable=w.range_summary,bg=T.BG,fg=T.MUTED,font=('Consolas',9)).pack(side='left',padx=4)
+    Label(range_row,textvariable=w.range_summary,bg=T.BG,fg=T.MUTED,font=(T.MONO,9)).pack(side='left',padx=4)
     cell=tk.Frame(range_row,bg=T.BG,width=px(parent,265),height=px(parent,42));cell.pack(side='right');cell.pack_propagate(False)
     w.range_check=Switch(cell,'我已核对完整一圈',w.range_confirmed,w.queue_guidance);w.range_check.pack(fill='x')
     precise=tk.Frame(w.calibration_options,bg=T.CARD)
@@ -175,7 +177,7 @@ def calibration(w):
 def editor(parent,title,subtitle,height):
     card,body=section(parent,title,subtitle)
     area=tk.Text(body,height=height,bg=T.FIELD,fg=T.FG,insertbackground=T.FG,relief='flat',borderwidth=0,
-                 padx=px(body,12),pady=px(body,10),highlightthickness=1,highlightbackground=T.EDGE,highlightcolor=T.ACCENT,font=('Consolas',10),undo=True)
+                 padx=px(body,12),pady=px(body,10),highlightthickness=1,highlightbackground=T.EDGE,highlightcolor=T.ACCENT,font=(T.MONO,10),undo=True)
     area.pack(fill='x',pady=px(body,3));return card,body,area
 
 

@@ -16,7 +16,7 @@ class RendererEditor:
         app.renderer_mode=tk.StringVar(body,value=values['renderer_mode']);app.renderer_path=tk.StringVar(body,value=values['renderer_path']);app.renderer_baseline=dict(self.baseline)
         self.variables=dict(renderer_mode=app.renderer_mode,renderer_path=app.renderer_path);body.renderer_variables=self.variables
         app.choice(body,'生成方式',app.renderer_mode,['racecom','native'],labels={'racecom':'RaceCom 原版','native':'Stintrix 兼容版'})
-        self.path=Field(body,textvariable=app.renderer_path,font=('Segoe UI',10));self.path.pack(fill='x',pady=8)
+        self.path=Field(body,textvariable=app.renderer_path,font=(T.LATIN,10));self.path.pack(fill='x',pady=8)
         row=app.row(body);install(row);app.button(row,'选择生成器',self.choose,False,140);self.button=app.button(row,'保存配置',self.save,True,140)
         self.status=tk.StringVar(body);body.renderer_status=self.status;self.feedback=app.label(body,self.status,9,T.MUTED);self.feedback.pack(fill='x',pady=4);self.feedback.bind('<Configure>',lambda e:self.feedback.configure(wraplength=max(100,e.width)))
         details=Disclosure(body,app,'renderer-details','格式标识与组件说明')

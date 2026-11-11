@@ -54,7 +54,7 @@ class UI(unittest.TestCase):
         def widgets(w):
             yield w
             for c in w.winfo_children():yield from widgets(c)
-        next(w for w in widgets(app.content) if getattr(w,'label',None)==title and hasattr(w,'invoke')).invoke();self.pump(app,.2)
+        next(w for w in widgets(app.shell.stage) if getattr(w,'label',None)==title and hasattr(w,'invoke')).invoke();self.pump(app,.2)
     def test_both_readers_show_rows_and_empty_actions_disable_when_search_hides_all(self):
         app,root,errors=self.app()
         for kind in ('history','official'):
@@ -63,10 +63,14 @@ class UI(unittest.TestCase):
     def test_refresh_reorder_keeps_record_selection_and_table_scroll(self):
         app,root,errors=self.app()
         for kind in ('history','official'):
-            p,value=self.mount(app,root,kind);p.table.selection_set((p.table.order[8],));identity=p.identity(p.selected);p.table.set_offset(150);p.table.xoffset=90;offset=p.table.offset
+            p,value=self.mount(app,root,kind);p.table.selection_set((p.table.order[8],));identity=p.identity(p.selected);p.table.set_offset(150);offset=p.table.offset
+            # Scroll inside the real range: the compact history layout (v0.3.16) is
+            # only 84 px wider than its viewport at 1060x700 and 100% scale, so a
+            # fixed 90 was clamped by the next layout, refresh or not.
+            xoffset=round((p.table.totalwidth-p.table.viewport.winfo_width())/2);self.assertGreater(xoffset,0);p.table.xoffset=xoffset
             changed=dict(value,entries=list(reversed(value['entries'])));module='control_history.read_history' if kind=='history' else 'control_official_results.read_results'
             with patch.object(p.loader,'reader',new=lambda:changed):p.loader.read();self.pump(app,.25)
-            self.assertEqual(p.entries if isinstance(p.entries,list) else list(p.entries.values()),changed['entries']);self.assertEqual(p.identity(p.selected),identity);self.assertEqual(p.table.offset,offset);self.assertEqual(p.table.xoffset,90)
+            self.assertEqual(p.entries if isinstance(p.entries,list) else list(p.entries.values()),changed['entries']);self.assertEqual(p.identity(p.selected),identity);self.assertEqual(p.table.offset,offset);self.assertEqual(p.table.xoffset,xoffset)
         self.assertFalse(errors)
     def test_sibling_switch_releases_variables_and_return_restores_context(self):
         app,root,errors=self.app();p,value=self.mount(app,root);p.query.set('BMW');p.table.selection_set((p.table.order[7],));identity=p.identity(p.selected);p.table.set_offset(100);variables=list(p.variables.values())

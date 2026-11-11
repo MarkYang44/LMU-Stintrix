@@ -18,21 +18,23 @@ def refresh(app):
 
 
 def build(app):
-    body=app.card('',compact=True);row=app.row(body);row.pack_configure(pady=0)
+    # A titled section like every other: the policy switch spans its row
+    # (caption left, control right), its save state reads under it, and the
+    # saved sampling summary shares a line with the interface check.
+    body=app.card('记录与数据接口','练习赛记录策略与游戏数据接口；开关修改后立即保存')
     app.practice_recording=tk.BooleanVar(app.root,value=recording_policy.load(app.data_path))
     def save(changes,draft):
         recording_policy.save(app.data_path,draft['practice'])
         if app.active():app.hud.engine.practice_enabled=draft['practice']
         return dict(practice=recording_policy.load(app.data_path))
-    app.practice_save=ImmediateSave(app,row,dict(practice=app.practice_recording),save,'practice')
-    app.practice_save.frame.pack_forget()
-    switch=Switch(row,'记录练习赛',app.practice_recording,app.practice_save.submit,compact=True);switch.pack(side='left',padx=(0,8))
+    switch=Switch(body,'记录练习赛',app.practice_recording,lambda:app.practice_save.submit());switch.pack(fill='x')
+    app.practice_save=ImmediateSave(app,body,dict(practice=app.practice_recording),save,'practice')
+    row=app.row(body);row.pack_configure(pady=(px(body,6),0))
     from control_interface import show
-    button=app.button(row,'检查数据接口',lambda:show(app),False,140);button.configure(height=px(button,34))
-    app.practice_save.frame.pack(side='left',fill='x',expand=True,padx=6)
-    app.sampling_summary=app.label(body,'',10,T.ACCENT);app.sampling_summary.pack(fill='x',pady=4)
+    button=app.button(row,'检查数据接口',lambda:show(app),False,140,compact=True);button.pack_configure(side='right',padx=0,pady=0)
+    details=Disclosure(body,app,'sampling-intro','记录与采样说明',header=row);details.button.configure(height=px(row,38));details.button.pack_configure(side='right',padx=(0,px(row,8)))
+    app.sampling_summary=app.label(row,'',10,T.FG);app.sampling_summary.pack(side='left',fill='x',expand=True)
     app.sampling_summary.bind('<Configure>',lambda e:app.sampling_summary.configure(wraplength=max(100,e.width)))
-    details=Disclosure(body,app,'sampling-intro','记录与采样说明')
     for text in ('开启后保存完整采样、车辆遥测、圈速与报告；Warmup 保持实时显示','检查官方 SDK、通道可用性和数据陈旧状态；诊断只保存本机'):
         label=app.label(details.body,text,9,T.MUTED);label.pack(fill='x',pady=3);label.bind('<Configure>',lambda e:e.widget.configure(wraplength=max(100,e.width)))
     body.reveal_anchor=lambda:details.set_open(True);app.sampling_details=details

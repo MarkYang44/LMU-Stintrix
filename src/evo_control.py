@@ -3,7 +3,7 @@ from platform_runtime import open_path
 import tkinter as tk
 from pathlib import Path
 from control_theme import T
-from control_widgets import Switch
+from control_widgets import Switch,px
 from control_flow import install
 from i18n import tr
 
@@ -48,6 +48,9 @@ def settings_page(app):
     app.settings_anchors.append(('输入采样',body))
     yield from app.form(body,'sampling',[(k,label) for k,label in [('fixed_hz','固定采样 / Hz'),('min_hz','动态最低 / Hz'),('max_hz','动态最高 / Hz'),('change_pct_s','升频变化阈值 / % 每秒'),('hold_s','降频延迟 / 秒'),('brake_pct','刹车升频阈值 / %'),('draw_hz','手动绘制 / Hz')]],
         [('mode','采样模式',['fixed','dynamic']),('draw_mode','绘制模式',['sync','manual'])])
+    yield
+    from control_app_preferences import build as app_preferences
+    app_preferences(app)
 
 
 def interface(app):
@@ -72,7 +75,8 @@ def interface(app):
             tr('玩家通道')+': '+tr('可用' if value.get('channels_available') else '等待玩家遥测'),
             tr('有效更新帧数')+': '+str(value.get('frames',0)),
             tr('仅打开既有共享内存和事件；游戏数据映射始终只读。')])
-        messagebox.showinfo('AC EVO',text,parent=app.root)
+        from control_confirm import notice
+        notice(app.root,'AC EVO',text)
     app.run_background(work,done)
 
 
@@ -84,21 +88,21 @@ def data_page(app):
 def toolbar(app):
     if app.page in (4,5):
         host=app.shell.action_host;host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8));install(host)
-        app.button(host,'下载 / 更新官方图片',lambda:download_art(app),False,195)
+        app.button(host,'下载 / 更新官方图片',lambda:download_art(app),False,195,compact=True)
         return
     if app.page not in (1,):return
-    host=app.shell.action_host;host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8));install(host)
-    app.review_actions={'open':app.button(host,'打开记录概览',lambda:app.report('review.html'),True,160)}
+    host=app.shell.action_host;host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
+    app.review_actions={'open':app.button(host,'打开记录概览',lambda:app.report('review.html'),True,140,compact=True)}
     for key,label,name in [('laps','圈速单','圈速单.png'),('journal','赛事日志','比赛日志.png')]:
-        app.review_actions[key]=app.button(host,label,lambda n=name:app.report(n),False,110)
-    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',lambda:app.compare_sessions() if len(app.tree.selection())>2 else app.selected_laps(),False,140)
+        app.review_actions[key]=app.button(host,label,lambda n=name:app.report(n),False,100,compact=True)
+    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',lambda:app.compare_sessions() if len(app.tree.selection())>2 else app.selected_laps(),False,124,compact=True)
     from control_delete import remove
     from control_danger import Danger
     from control_list_context import install as context_menu
     from control_action_menu import ActionMenu,MenuAction
     count=lambda:len(app.tree.selection()) if app.tree else 0
     single=lambda:count()==1;chosen=lambda:count()>0
-    button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,130)
+    button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110,compact=True)
     from control_event_filters import edit_note
     from control_participation import edit as edit_mode,eligible
     from control_maintenance import reports,offline_ready
@@ -132,8 +136,11 @@ def toolbar(app):
         actions.insert(0,MenuAction('import-folder','导入 Windows 赛事文件夹',lambda:import_folder(app),'导入'))
     from control_table_layouts import actions as column_actions
     actions.extend(column_actions(app.tree))
-    delete=Danger(host,'删除选中记录',lambda:remove(app),145);delete.pack(side='left',padx=(0,6))
+    delete=Danger(host,'删除选中记录',lambda:remove(app),140);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
     app.review_actions['delete']=delete
+    # The same row as the LMU review: commands left, menu and delete at the far end.
+    from control_toolbar import split_row
+    split_row(app,host,[value for key,value in app.review_actions.items() if key!='delete'],[button,delete])
     actions.append(MenuAction('delete','删除选中记录',lambda:remove(app),'赛事管理',chosen,danger=True))
     menu=ActionMenu(button,actions,'赛事操作',lambda:app.selected_count.get())
     app.review_menu=menu;context_menu(app.tree,menu,app.update_selection_count)

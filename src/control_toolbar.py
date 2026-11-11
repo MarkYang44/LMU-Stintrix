@@ -26,10 +26,10 @@ def install(app):
         toolbar(app)
     elif app.page==1:
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
-        app.review_actions={'open':app.button(host,'打开赛事复盘',lambda:app.report('review.html'),True,130),
-            'laps':app.button(host,'圈速单',lambda:app.report('圈速单.png'),False,100),
-            'journal':app.button(host,'比赛日志',lambda:app.report('比赛日志.png'),False,110),
-            'compare':app.button(host,'圈 A / 圈 B',app.selected_laps,False,135)}
+        app.review_actions={'open':app.button(host,'打开赛事复盘',lambda:app.report('review.html'),True,130,compact=True),
+            'laps':app.button(host,'圈速单',lambda:app.report('圈速单.png'),False,96,compact=True),
+            'journal':app.button(host,'比赛日志',lambda:app.report('比赛日志.png'),False,104,compact=True),
+            'compare':app.button(host,'圈 A / 圈 B',app.selected_laps,False,124,compact=True)}
         from control_action_menu import ActionMenu,MenuAction
         from control_event_filters import edit_note
         from control_split_checks import show as split_checks
@@ -37,9 +37,9 @@ def install(app):
         from control_participation import edit as edit_mode,eligible
         count=lambda:len(app.tree.selection()) if app.tree else 0
         single=lambda:count()==1;any_selected=lambda:count()>0
-        button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110)
+        button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110,compact=True)
         from control_danger import Danger
-        delete=Danger(host,'删除选中记录',lambda:remove(app),145);delete.pack(side='left',padx=(0,6))
+        delete=Danger(host,'删除选中记录',lambda:remove(app),140);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
         app.review_actions['delete']=delete
         actions=[
             MenuAction('copy-cell','复制此单元格',lambda:app.tree.copy_cell(),'复制',any_selected,'Ctrl+Shift+C；复制当前单元格的完整文字',visible=any_selected),
@@ -66,16 +66,7 @@ def install(app):
         for action in layouts:action.group='整理与管理'
         index=next(i for i,a in enumerate(actions) if a.key=='all');actions[index:index]=layouts
         menu=ActionMenu(button,actions,'赛事操作',lambda:app.selected_count.get());app.review_menu=menu
-        buttons=[*[value for key,value in app.review_actions.items() if key!='delete'],button,delete]
-        def layout(event):
-            if event.widget is not host or not all(child.winfo_exists() for child in buttons):return
-            x=y=height=0;gap=px(host,6)
-            for child in buttons:
-                child.pack_forget();w=child.winfo_reqwidth();h=child.winfo_reqheight()
-                if x and x+w>event.width:y+=height+gap;x=height=0
-                child.place(x=x,y=y,width=min(event.width,w),height=h);x+=w+gap;height=max(height,h)
-            host.pack_propagate(False);host.configure(height=y+height)
-        app.toolbar_layout_binding=(host,host.bind('<Configure>',layout))
+        split_row(app,host,[value for key,value in app.review_actions.items() if key!='delete'],[button,delete])
         from control_list_context import install as context_actions
         context_actions(app.tree,menu,app.update_selection_count)
         update(app)
@@ -120,6 +111,27 @@ def install(app):
             button.bind('<Left>',lambda _,i=index-1:step(i));button.bind('<Right>',lambda _,i=index+1:step(i))
 
 
+def split_row(app,host,lead,tail):
+    """Everyday commands read from the left; the menu and the destructive action
+    close the row at its far end, apart from them. Lines wrap at natural widths."""
+    def layout(event):
+        if event.widget is not host or not all(child.winfo_exists() for child in lead+tail):return
+        width=event.width;gap=px(host,6);x=y=height=0
+        for child in lead+tail:child.pack_forget()
+        for child in lead:
+            w=child.winfo_reqwidth();h=child.winfo_reqheight()
+            if x and x+w>width:y+=height+gap;x=height=0
+            child.place(x=x,y=y,width=min(width,w),height=h);x+=w+gap;height=max(height,h)
+        room=sum(child.winfo_reqwidth() for child in tail)+gap*(len(tail)-1)
+        if x and x+gap*3+room>width:y+=height+gap;x=height=0
+        x=max(0,width-room)
+        for child in tail:
+            w=child.winfo_reqwidth();h=child.winfo_reqheight()
+            child.place(x=x,y=y,width=min(width,w),height=h);x+=w+gap;height=max(height,h)
+        host.pack_propagate(False);host.configure(height=y+height)
+    app.toolbar_layout_binding=(host,host.bind('<Configure>',layout))
+
+
 def update(app):
     from control_maintenance import update as update_maintenance,busy as maintenance_busy
     update_maintenance(app)
@@ -155,18 +167,25 @@ def update(app):
             if button is not None and button.winfo_exists() and button.primary!=primary:button.primary=primary;button.paint()
         # Start and stop share one place: only the action that applies now is
         # shown, and saving keeps the stop control visible as its progress.
-        live=active or pending
-        for name,visible in (('start_button',not live),('stop_button',live)):
-            button=getattr(app,name,None)
-            if button is not None and button.winfo_exists() and bool(button.winfo_manager())!=visible:
-                if visible:button.pack(side='right',padx=(8,0),pady=2)
-                else:button.pack_forget()
-                button.master.event_generate('<Configure>',width=button.master.winfo_width())
-        # Swap live HUD controls and the demo in the start row by HUD state.
+        arrange_run_commands(app)
+        # Live HUD controls join the tools row only while a HUD runs.
         row=getattr(app,'run_tools_row',None)
         if row is not None and row.winfo_exists():
-            wanted=[(button,active) for button in getattr(app,'live_actions',[])]+[(getattr(app,'demo_button',None),not active)]
             changed=False
-            for button,visible in wanted:
-                if button is not None and button.winfo_exists() and getattr(button,'flow_hidden',False)==visible:button.flow_hidden=not visible;changed=True
+            for button in getattr(app,'live_actions',[]):
+                if button.winfo_exists() and getattr(button,'flow_hidden',False)==active:button.flow_hidden=not active;changed=True
             if changed:row.event_generate('<Configure>',width=row.winfo_width())
+
+
+def arrange_run_commands(app):
+    """Demo and start while idle; stop-and-save alone while a HUD records or saves."""
+    from control_hud_stop import saving
+    frame=getattr(app,'run_commands',None)
+    if frame is None or not frame.winfo_exists():return
+    live=app.active() or saving(app)
+    order=((getattr(app,'demo_button',None),not live),(getattr(app,'start_button',None),not live),(getattr(app,'stop_button',None),live))
+    wanted=[button for button,visible in order if button is not None and button.winfo_exists() and visible]
+    if frame.pack_slaves()==wanted:return
+    for button in frame.pack_slaves():button.pack_forget()
+    for index,button in enumerate(wanted):button.pack(side='left',padx=(px(frame,8) if index else 0,0),pady=2)
+    frame.master.event_generate('<Configure>',width=frame.master.winfo_width())

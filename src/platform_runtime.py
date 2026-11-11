@@ -21,8 +21,9 @@ def open_path(path):
 
 
 def page_ids():
-    # Stable business IDs preserve saved filters, page state and action routing.
-    return (1, 3, 6, 4, 5, 2) if offline_only() else tuple(range(7))
+    # Stable business IDs preserve saved filters, page state and action routing;
+    # the tuple is the rail order: live, analysis, library, tools, settings last.
+    return (1, 6, 4, 5, 3, 2) if offline_only() else (0, 1, 6, 4, 5, 3, 2)
 
 
 def wheel_steps(event):

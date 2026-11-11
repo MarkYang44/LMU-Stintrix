@@ -8,7 +8,7 @@ from control_tooltip import Tooltip
 
 class Chips(tk.Frame):
     def __init__(self,parent,remove,fallback):
-        super().__init__(parent,bg=T.CARD,height=1)
+        super().__init__(parent,bg=parent.cget('bg'),height=1)
         self.remove=remove;self.fallback=fallback;self.values=None;self.buttons={}
         self.pack(fill='x');self.pack_propagate(False);self.bind('<Configure>',self.layout)
 

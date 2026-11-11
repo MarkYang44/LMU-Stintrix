@@ -66,8 +66,15 @@ class UI(unittest.TestCase):
         app,root,errors,p=self.best();p.modes.state['mode']='unknown';p.query.set('unmatched search');self.pump(app,.14);self.assertFalse(p.rows);p.table.empty_button.invoke();self.assertEqual(p.query.get(),'');self.assertEqual(p.modes.state['mode'],'unknown')
         p.modes.state['track']='not a circuit';p.populate_best();self.assertEqual(p.table.empty_button.label,'重置筛选');p.table.empty_button.invoke();self.assertEqual(p.modes.state['track'],'');self.assertTrue(p.rows);self.assertFalse(errors)
     def test_list_uses_extra_height_and_details_return_keep_selection(self):
-        app,root,errors,p=self.best();app.root.geometry('1240x920');self.pump(app,.15);large=p.table.viewport.winfo_height();chosen=p.table.selection();p.fixed['details'].invoke();self.pump(app,.08);self.assertGreater(app.scroll.canvasy(0),0);p.buttons['list'].invoke();self.pump(app,.04);self.assertEqual(p.table.selection(),chosen)
-        app.root.geometry('1060x700');self.pump(app,.1);small=p.table.viewport.winfo_height();self.assertGreater(large,small);self.assertGreaterEqual(small/p.table.rowheight,4-.01);self.assertEqual(p.table.selection(),chosen);self.assertFalse(errors)
+        # Since v0.3.61 a short list hugs its rows (test_ui_polish84), so the two
+        # README fixture records stay three rows tall at any window size; eight
+        # distinct records make a list long enough to use the extra height.
+        from tests.test_ui_polish64 import values,detail
+        app,root,errors=self.app();rows=values(root)
+        with patch('control_records.entries',return_value=rows),patch('control_records.attach',side_effect=lambda _,v:v),patch('control_records.detail',side_effect=detail):
+            app.personal_record_view='best';app.show_page(6);self.pump(app,.45);p=app.record_loaders['best'].page;self.assertEqual(len(p.table.order),len(rows));self.assertIsNotNone(p.selected)
+            app.root.geometry('1240x920');self.pump(app,.15);large=p.table.viewport.winfo_height();chosen=p.table.selection();p.fixed['details'].invoke();self.pump(app,.08);self.assertGreater(app.scroll.canvasy(0),0);p.buttons['list'].invoke();self.pump(app,.04);self.assertEqual(p.table.selection(),chosen)
+            app.root.geometry('1060x700');self.pump(app,.1);small=p.table.viewport.winfo_height();self.assertGreater(large,small);self.assertGreaterEqual(small/p.table.rowheight,4-.01);self.assertEqual(p.table.selection(),chosen);self.assertFalse(errors)
     def test_mode_editor_updates_only_its_bound_session_then_restores_automatic(self):
         app,root,errors,p=self.best();folder=Path(p.selected['folder']);original=p.selected['race_mode'];before=(folder/'session.json').read_bytes();selected=p.table.selection();window=p.correct_mode();controls=window.mode_controls;controls['choice'].set('online');self.assertTrue(controls['save']());self.pump(app,.35)
         p=app.record_loaders['best'].page;self.assertEqual(p.table.selection(),selected);self.assertEqual(p.selected['race_mode'],'online');self.assertIn('人工确认',p.date_label.cget('text'));self.assertEqual((folder/'session.json').read_bytes(),before)

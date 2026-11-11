@@ -39,6 +39,69 @@ def polygon_points(x,y,w,h,r):
     return (x+r,y,x+w,y,x+w,y+h-r,x+w-r,y+h,x,y+h,x,y+r)
 
 
+def glyph(canvas,kind,cx,cy,s,color):
+    """Small drawn icons (moon, sun), so no platform needs an icon font."""
+    import math
+    if kind=='moon':
+        # A crescent: the outer disc minus an offset disc of the same radius.
+        r=6.5*s;ix,iy=cx+r*.62,cy-r*.42;n=48
+        def ring(x,y):return [(x+r*math.cos(2*math.pi*i/n),y+r*math.sin(2*math.pi*i/n)) for i in range(n)]
+        def run(points,keep):
+            start=next((i for i in range(n) if keep(points[i]) and not keep(points[i-1])),None)
+            if start is None:return []
+            out=[]
+            for k in range(n):
+                point=points[(start+k)%n]
+                if not keep(point):break
+                out.append(point)
+            return out
+        outer=run(ring(cx,cy),lambda p:math.hypot(p[0]-ix,p[1]-iy)>r)
+        inner=run(ring(ix,iy),lambda p:math.hypot(p[0]-cx,p[1]-cy)<r)
+        if outer and inner and math.dist(outer[-1],inner[0])>math.dist(outer[-1],inner[-1]):inner.reverse()
+        points=[value for point in outer+inner for value in point]
+        if len(points)>=6:canvas.create_polygon(*points,fill=color,outline='')
+    elif kind=='sun':
+        r=3.4*s;canvas.create_oval(cx-r,cy-r,cx+r,cy+r,fill=color,outline='')
+        for i in range(8):
+            a=math.pi*i/4;inner,outer=5.4*s,7.8*s
+            canvas.create_line(cx+inner*math.cos(a),cy+inner*math.sin(a),cx+outer*math.cos(a),cy+outer*math.sin(a),fill=color,width=max(1,1.4*s),capstyle='round')
+
+
+class Link(tk.Label):
+    """A quiet text action for secondary commands beside a result line.
+
+    It underlines on hover and focus, answers Return and Space, and dims
+    while unavailable; ``label`` keeps its untranslated caption.
+    """
+    def __init__(self,parent,text,command,size=9):
+        self.size=size;self.label=text;self.command=command;self.enabled=True;self.hovered=False
+        super().__init__(parent,text=tr(text),bg=parent.cget('bg'),fg=T.ACCENT,font=(T.FONT,size),cursor='hand2',takefocus=True,padx=0,pady=0,bd=0,highlightthickness=0)
+        self.bind('<Enter>',lambda _:self.mark(True));self.bind('<Leave>',lambda _:self.mark(False))
+        self.bind('<FocusIn>',lambda _:self.paint());self.bind('<FocusOut>',lambda _:self.paint())
+        self.bind('<Button-1>',lambda _:(self.focus_set(),self.invoke()));self.bind('<Return>',lambda _:keyboard_action(self,self.invoke));self.bind('<space>',lambda _:keyboard_action(self,self.invoke))
+    def mark(self,value):self.hovered=value;self.paint()
+    def paint(self):
+        try:focused=self.focus_get() is self
+        except (KeyError,tk.TclError):focused=False
+        active=self.enabled and (self.hovered or focused)
+        super().configure(fg=(T.FG if active else T.ACCENT) if self.enabled else T.MUTED,font=(T.FONT,self.size,'underline') if active else (T.FONT,self.size),cursor='hand2' if self.enabled else '')
+    def invoke(self):
+        if self.enabled and self.command:self.command()
+    def configure(self,cnf=None,**kwargs):
+        if isinstance(cnf,dict):kwargs={**cnf,**kwargs};cnf=None
+        # Queries (no options, or one option name) answer like any Label.
+        if not kwargs:return super().configure(cnf)
+        if 'state' in kwargs:
+            self.enabled=kwargs.pop('state')!='disabled';kwargs['takefocus']=self.enabled
+        if 'text' in kwargs:self.label=kwargs['text'];kwargs['text']=tr(kwargs['text'])
+        result=super().configure(**kwargs)
+        self.paint();return result
+    config=configure
+    def cget(self,key):
+        if key=='state':return 'normal' if self.enabled else 'disabled'
+        return super().cget(key)
+
+
 class Pill(tk.Canvas):
     def __init__(self,parent,text,command,width=140,primary=False):
         self.s=scale(parent);self.font=tkfont.Font(parent,family=T.FONT,size=10,weight='bold')
@@ -191,8 +254,10 @@ class Segmented(tk.Canvas):
     caption shortened on purpose (titles) or clipped by width names its full
     text on hover.
     """
-    def __init__(self,parent,variable,values,command=None,captions=None,titles=None):
+    def __init__(self,parent,variable,values,command=None,captions=None,titles=None,icons=None):
         self.s=scale(parent);self.variable=variable;self.values=list(values);self.command=command;self.captions=dict(captions or {});self.titles=dict(titles or {});self.clipped=set()
+        # Values drawn as an icon (see glyph) instead of text; titles name them on hover.
+        self.icons=dict(icons or {})
         self.font=tkfont.Font(parent,family=T.FONT,size=10);self.bold=tkfont.Font(parent,family=T.FONT,size=10,weight='bold')
         super().__init__(parent,height=px(parent,40),bg=parent.cget('bg'),highlightthickness=0,takefocus=True,cursor='hand2')
         self.hovered=-1;self.focused=False;self.enabled=True;self.spans=[];self.position=float(self.index());self.motion=Motion(self);self.setting=False
@@ -207,7 +272,7 @@ class Segmented(tk.Canvas):
         if event.widget is not self:return
         self.tip.hide()
         try:self.variable.trace_remove('write',self.trace)
-        except tk.TclError:pass
+        except (tk.TclError,AttributeError):pass  # already retired by its owner
         for font in (self.font,self.bold):font.__del__();font.delete_font=False
     def index(self):
         try:return self.values.index(self.variable.get())
@@ -246,7 +311,7 @@ class Segmented(tk.Canvas):
     def layout(self,width):
         """Equal segments when every caption fits, otherwise widths follow the captions."""
         s=self.s;inner=max(1,width-6*s);count=max(1,len(self.values))
-        natural=[self.bold.measure(self.caption(v))+30*s for v in self.values]
+        natural=[34*s if v in self.icons else self.bold.measure(self.caption(v))+30*s for v in self.values]
         if max(natural)*count<=inner:sizes=[inner/count]*count
         else:
             spare=inner-sum(natural);sizes=[n+spare/count for n in natural] if spare>=0 else [n*inner/sum(natural) for n in natural]
@@ -275,6 +340,8 @@ class Segmented(tk.Canvas):
         for i,((x0,x1),value) in enumerate(zip(self.spans,self.values)):
             font=self.bold if i==selected else self.font
             color=(T.FG if i in (selected,self.hovered) else T.MUTED) if self.enabled else T.MUTED
+            if value in self.icons:
+                glyph(self,self.icons[value],(x0+x1)/2,h/2-2*s,s,T.ACCENT if i==selected and self.enabled else color);continue
             text=self.clip(font,self.caption(value),x1-x0-16*s)
             if text!=self.caption(value):self.clipped.add(i)
             self.create_text((x0+x1)/2,h/2-2*s,text=text,font=font,fill=color)
@@ -335,8 +402,8 @@ class LaunchArtwork(tk.Canvas):
         super().__init__(parent,bg=T.CARD,height=px(parent,78),highlightthickness=0);self.bind('<Configure>',self.paint)
     def paint(self,_=None):
         self.delete('all');s=scale(self);w=self.winfo_width()
-        self.create_text(0,20*s,text='LE MANS ULTIMATE',anchor='w',fill=T.FG,font=('Segoe UI',15,'bold'))
-        self.create_text(1*s,48*s,text='DRIVE  /  RECORD  /  REFLECT',anchor='w',fill=T.ACCENT,font=('Segoe UI',8,'bold'))
+        self.create_text(0,20*s,text='LE MANS ULTIMATE',anchor='w',fill=T.FG,font=(T.LATIN,15,'bold'))
+        self.create_text(1*s,48*s,text='DRIVE  /  RECORD  /  REFLECT',anchor='w',fill=T.ACCENT,font=(T.LATIN,8,'bold'))
         if w>=px(self,500):
             from lmu_mark import draw
             draw(self,285*s,20*s,80*s,'#FFFFFF' if T.mode=='dark' else '#FF1D43')

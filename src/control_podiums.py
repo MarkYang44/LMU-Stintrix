@@ -55,7 +55,7 @@ def show(app):
     query=page.query
     row=app.row(body);page.search(row)
     page.button(row,'refresh','刷新记录',lambda:refresh_records(),lambda:not page.loader.running)
-    hint=app.label(body,'成绩数量随当前搜索与筛选更新；双击记录或按 Enter 可快捷打开。',9,T.MUTED);hint.pack(fill='x',pady=4);hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
+    # Double-click or Enter runs the toolbar's primary action (F1 lists it); no extra hint line.
     modes=ModeControls(body,app,lambda:populate(),'podium_mode_filters');page.modes=modes
     modes.bind_query(query)
     table=SessionList(body,columns=('award','date','track','class','mode','car','start','finish','lap'),height=7,selectmode='browse')
@@ -72,6 +72,8 @@ def show(app):
     hero.bind('<Configure>',lambda e:hero.configure(wraplength=max(100,e.width)))
     message=page.variable('message');message_label=app.label(header.text,message,9,T.MUTED);message_label.pack(fill='x',pady=5);message_label.bind('<Configure>',lambda e:message_label.configure(wraplength=max(100,e.width)))
     actions=page.row(info)
+    # Retry belongs to the details themselves and appears only after a failed read.
+    retry_row=tk.Frame(info,bg=T.CARD);retry_row.retry_only=True;retry_row.pack(fill='x')
     app.label(info,'赛事成绩',12,T.FG,True).pack(anchor='w',pady=(12,8))
     results=Metrics(info,[('date','比赛时间 (UTC)'),('race_time','比赛用时'),('recorded','已记录时长'),('grid','总发车名次'),('finish','总完赛名次'),('class_grid','同组发车名次'),('class_finish','同组完赛名次'),('count','同组参赛车数'),('best','个人最快圈'),('laps','已记录完整圈')]);results.pack(fill='x')
     app.label(info,'车辆身份',12,T.FG,True).pack(anchor='w',pady=(12,8))
@@ -167,7 +169,12 @@ def show(app):
         for category,button in buttons.items():
             title=tr(LABELS[category] if category else '全部')+' · '+str(counts[category])
             button.configure(text=title,selected=category==state['category'],width=max(px(button,96),button.font.measure(title)+px(button,36)))
-        page.populate(rows)
+        page.populate(rows);empty()
+    def reset_all():
+        state['category']=0;page.context['category']=0;modes.reset()
+    def empty():
+        page.show_empty(('没有匹配的领奖台记录；清空搜索后保留筛选。','当前分类或筛选下没有领奖台记录。','还没有同组领奖台：确认的同组前三正赛完赛后会自动出现在这里。'),narrowed=lambda:bool(state['category']),reset=reset_all)
+    page.refresh_empty=empty
     def choose(category):
         state['category']=category;page.context['category']=category;populate()
     from control_video_widgets import Tab
@@ -204,10 +211,13 @@ def show(app):
     page.button(actions,'notes','收藏与标签',lambda:edit_note(app,page.selected,lambda:page.loader.read(True)),lambda:page.selected is not None and not page.loader.running)
     page.button(actions,'folder','打开赛事目录',lambda:page.open(page.selected['folder']),lambda:page.selected is not None)
     page.button(actions,'xml','查看原始 XML',lambda:page.open(xml_path()),lambda:bool(xml_path()))
-    page.button(actions,'retry','重试详情',lambda:page.details.select(page.selected,True),lambda:page.selected is not None and state['error'] and not state['loading'])
+    page.button(retry_row,'retry','重试详情',lambda:page.details.select(page.selected,True),lambda:page.selected is not None and state['error'] and not state['loading']).pack_forget()
+    # The fixed toolbar carries these record actions (see RecordPage.install_actions).
+    page.bar_keys=('review','laps','journal','card');page.menu_keys=(('xml','查看'),('folder','查看'),('notes','整理'));page.action_rows=(actions,)
+    page.menu_context=lambda:(tr(LABELS[page.selected['place']])+' · '+display(page.selected['track'])) if page.selected else ''
     def headers():
         for key,title in [('award','成绩'),('date','比赛时间 (UTC)'),('track','赛道'),('class','组别'),('mode','参赛方式'),('car','车辆'),('start','同组发车'),('finish','同组完赛'),('lap','最快圈')]:table.heading(key,text=tr(title))
-        table.set_empty('没有匹配的领奖台记录；可切换成绩分类、清除搜索或重置筛选。')
+        empty()
     def refresh_records():
         if page.loader.running:return
         if state['error'] and page.selected is not None:page.details.select(page.selected,True)

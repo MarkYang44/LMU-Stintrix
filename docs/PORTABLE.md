@@ -12,7 +12,7 @@
 
 LMU Qualify / Race、EVO 计时赛／正赛自动记录；可在 **设置 → 记录练习赛** 开启 Practice 完整记录，默认关闭，EVO 同时支持按需记录巡航，LMU Warmup 仅实时显示。点击 **停止并保存** 会立即隐藏 HUD，并在后台完整收尾；正常退出或切换游戏会等待写入与后台任务完成。LMU 记录保存在 `data/`，EVO 记录保存在 `data/Simulators/ac_evo/`；两者分别显示，旧 LMU 数据不搬迁。
 
-EVO 提供完整物理／仪表输入曲线、有效圈 A/B 对比、个人纪录、圈速单和赛事日志；缺少完整圈证据的旧记录仍可读取，不补造圈速或完赛成绩。条件训练、实时参考圈、官方成绩导入与附加车辆面板仍属于 LMU 功能。EVO 车型图库支持品牌／类别筛选，赛道卡可切换已核实布局；官方照片和线路图需明确点击下载，只保存在本机。详细边界见 [LMU 与 AC EVO](docs/SIMULATORS.md)。
+EVO 提供完整物理／仪表输入曲线、有效圈 A/B 对比、个人纪录、圈速单和比赛日志；缺少完整圈证据的旧记录仍可读取，不补造圈速或完赛成绩。条件训练、实时参考圈、官方成绩导入与附加车辆面板仍属于 LMU 功能。EVO 车型图库支持品牌／类别筛选，赛道卡可切换已核实布局；官方照片和线路图需明确点击下载，只保存在本机。详细边界见 [LMU 与 AC EVO](docs/SIMULATORS.md)。
 
 **图像与数据 → 报告与存储** 可查看分步报告状态、批量重试失败项及查看缓存／导出占用；赛事包和存储共用列表，保留筛选与选择。EVO 采集期间延期处理派生报告与压缩，HUD 默认手动 60 Hz，输入采样率独立保留。实机驾驶兼容性仍需验收，不承诺游戏帧率提升比例。
 
@@ -37,7 +37,7 @@ EVO 提供完整物理／仪表输入曲线、有效圈 A/B 对比、个人纪�
 控制中心顶部 **EN / 中文** 可切换整个菜单语言，重启后保留；主题和语言分别保存到本机 `data/interface_settings.json`。赛道指南与车型图鉴随菜单语言切换，赛事记录、配置值和文件名不因语言切换而改变。
 
 
-图像与数据页可选择 ZIP / 7z 导出，并一次导入多个赛事包。当前 v2 清单不保存或核对内容哈希；重复导入按本机收据与元数据复用，不表示通过完整性认证。路径、大小上限、格式检查与正常解压保留。旧 v1 比赛包仍可读取；新 v2 包直接导入需 v0.2.40 或更新版本。7z 精简工具随便携版包含，不需要额外安装。详见 [无损存储与归档](docs/STORAGE_OPTIMIZATION.md)。
+图像与数据页可选择 ZIP / 7z 导出，并一次导入多个赛事包。当前 v2 清单不保存或核对内容哈希；重复导入按本机收据与元数据复用，不表示通过完整性认证。路径、大小上限、格式检查与正常解压保留。旧 v1 赛事包仍可读取；新 v2 包直接导入需 v0.2.40 或更新版本。7z 精简工具随便携版包含，不需要额外安装。详见 [无损存储与归档](docs/STORAGE_OPTIMIZATION.md)。
 
 **Archive options:** Export ZIP or 7z session packages. Current v2 manifests do not store or verify content hashes; duplicate handling uses local receipts and metadata, without claiming integrity certification. Path, size, format, and decompression checks remain. Legacy v1 packages are readable; direct v2 import requires v0.2.40 or newer.
 

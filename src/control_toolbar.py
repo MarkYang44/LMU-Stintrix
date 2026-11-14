@@ -26,10 +26,12 @@ def install(app):
         toolbar(app)
     elif app.page==1:
         host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
-        app.review_actions={'open':app.button(host,'打开赛事复盘',lambda:app.report('review.html'),True,130,compact=True),
-            'laps':app.button(host,'圈速单',lambda:app.report('圈速单.png'),False,96,compact=True),
-            'journal':app.button(host,'比赛日志',lambda:app.report('比赛日志.png'),False,104,compact=True),
-            'compare':app.button(host,'圈 A / 圈 B',app.selected_laps,False,124,compact=True)}
+        app.review_actions={'open':app.button(host,'打开赛事复盘',lambda:app.report('review.html'),True,100,compact=True),
+            'laps':app.button(host,'圈速单',lambda:app.report('圈速单.png'),False,88,compact=True),
+            'journal':app.button(host,'比赛日志',lambda:app.report('比赛日志.png'),False,88,compact=True),
+            'compare':app.button(host,'圈 A / 圈 B',app.selected_laps,False,100,compact=True)}
+        # Compact buttons hug their labels (small minimums), so the row fits the
+        # minimum window in either language instead of wrapping its menu.
         from control_action_menu import ActionMenu,MenuAction
         from control_event_filters import edit_note
         from control_split_checks import show as split_checks
@@ -37,10 +39,14 @@ def install(app):
         from control_participation import edit as edit_mode,eligible
         count=lambda:len(app.tree.selection()) if app.tree else 0
         single=lambda:count()==1;any_selected=lambda:count()>0
-        button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110,compact=True)
+        button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,96,compact=True)
         from control_danger import Danger
-        delete=Danger(host,'删除选中记录',lambda:remove(app),140);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
+        delete=Danger(host,'删除选中记录',lambda:remove(app),120);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
         app.review_actions['delete']=delete
+        # Delete on the list asks the same confirmation as the button.
+        import sys
+        for sequence in ('<Delete>',)+(('<Command-BackSpace>',) if sys.platform=='darwin' else ()):
+            app.tree.viewport.bind(sequence,lambda _:(delete.invoke() if delete.winfo_exists() else None,'break')[1])
         actions=[
             MenuAction('copy-cell','复制此单元格',lambda:app.tree.copy_cell(),'复制',any_selected,'Ctrl+Shift+C；复制当前单元格的完整文字',visible=any_selected),
             MenuAction('copy-rows','复制选中行',lambda:app.tree.copy_rows(),'复制',any_selected,'Ctrl+C；复制显示列，可粘贴到表格',visible=any_selected),
@@ -75,9 +81,10 @@ def install(app):
         if browser is not None and browser.alive():browser.install_actions(host)
     elif app.page in (4,5) and app.guide_page is not None:
         app.guide_page.install_actions(host)
-    elif app.page==6 and getattr(app,'personal_record_view','best')=='best':
-        page=getattr(app,'record_loaders',{}).get('best')
-        if page is not None and page.page is not None and page.page.alive():page.page.install_actions(host)
+    elif app.page==6:
+        # Every records view keeps its record actions in this fixed row.
+        loader=getattr(app,'record_loaders',{}).get(getattr(app,'personal_record_view','best'))
+        if loader is not None and loader.page is not None and loader.page.alive():loader.page.install_actions(host)
     elif app.page==2:
         from platform_runtime import offline_only
         if offline_only():return

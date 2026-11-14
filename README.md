@@ -18,11 +18,11 @@ See your inputs while driving. Compare braking, throttle application, and pace a
 ![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[Download Windows x64 · v0.4.1](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-macos-arm64.dmg) · [Mac guide](docs/MACOS.md) · [Other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
+**[Download Windows x64 · v0.4.3](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-macos-arm64.dmg) · [Mac guide](docs/MACOS.md) · [Other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 
 ## Overview
 
-**macOS offline edition:** Apple Silicon Macs can import Windows Stintrix session folders, ZIP / 7z archives and LMU telemetry, then use the shared analysis, lap comparison, charts, reports and personal records. Its native `.app` keeps the industrial interface and removes capture/HUD/game-connection controls. Data stays outside the application. [Mac installation, compatibility and build guide](docs/MACOS.md) · [macOS Release](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.1). Windows retains all live features. Mac builds are ad-hoc signed; Developer ID notarization is a separate distribution step.
+**macOS offline edition:** Apple Silicon Macs can import Windows Stintrix session folders, ZIP / 7z archives and LMU telemetry, then use the shared analysis, lap comparison, charts, reports and personal records. Its native `.app` keeps the industrial interface and removes capture/HUD/game-connection controls. Data stays outside the application. [Mac installation, compatibility and build guide](docs/MACOS.md) · [macOS Release](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.3). Windows retains all live features. Mac builds are ad-hoc signed; Developer ID notarization is a separate distribution step.
 
 Stintrix brings live driving feedback, automatic recording, and post-session analysis into one desktop app. Review complete laps from the same layout, compare your inputs and lap times, then revisit personal records as you practice.
 
@@ -78,7 +78,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 - Personal bests and record history for both simulators: LMU by layout and vehicle class, EVO by layout and specific model.
 - EVO record details show available facts, without unknown placeholders or repeated model names. Car and track photos sit side by side on wide windows and stack on narrow ones; input curves follow below.
-- Lap sheets, race journals, and locally exported achievement cards. LMU also supports confirmed class podiums and read-only game-result XML integration.
+- Lap sheets, race logs, and locally exported achievement cards. LMU also supports confirmed class podiums and read-only game-result XML integration.
 - EVO car galleries filter by brand and category, with two-car comparison that keeps your selections and browsing position. Track cards show verified layouts and available official circuit maps. Artwork downloads are optional and stay local.
 
 ### Review video inputs · Experimental
@@ -88,7 +88,7 @@ Real LMU windows captured from v0.2.43, using generated sample sessions and the 
 
 ## Installation
 
-1. [Download the Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip), or browse [other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
+1. [Download the Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip), or browse [other releases](https://github.com/MarkYang44/LMU-Stintrix/releases/latest).
 2. Extract the entire archive into a writable folder.
 3. Run **`LMU-Stintrix.exe`**.
 
@@ -109,9 +109,9 @@ Source setup uses **Python 3.13 x64 with Tcl/Tk**. The script can install it thr
 2. Click **Start Recording**. Use **中文 / EN** to switch menu language.
 3. Enter the track in windowed or borderless mode.
 4. Drive a qualifying / timed session or race; recording starts automatically when supported driving data arrives. Practice recording is off by default; enable it under **Settings** if needed.
-5. Afterward, open **Session Review** to inspect the recording or compare laps.
+5. Afterward, open **Session review** to inspect the recording or compare laps.
 
-Use **Stop & Save** to hide the HUD and finish saving in the background. Switching games safely closes the current HUD and waits for pending work before opening the selected mode. Try **Demo Mode** or `Demo.cmd` to explore the LMU interface without connecting to a game.
+Use **Stop & save** to hide the HUD and finish saving in the background. Switching games safely closes the current HUD and waits for pending work before opening the selected mode. Try **Demo mode** or `Demo.cmd` to explore the LMU interface without connecting to a game.
 
 ## Compatibility and data sources
 
@@ -123,7 +123,7 @@ Use **Stop & Save** to hide the HUD and finish saving in the background. Switchi
 
 EVO personal records and A/B comparison require observed valid complete laps with game-reported timing. Older recordings without that evidence remain readable but do not become verified lap records. **More actions → Manage Recordings** opens the shared full library for layout searches, notes, archives and verified-lap selection. Report tasks can open directly on the selected sessions and keep the report browser's filters. EVO supports direct CSV export of session bests or the valid laps selected in A/B. Condition-based training, live reference laps, official results, and additional vehicle panels remain LMU features. [Detailed scope](docs/SIMULATORS.md).
 
-Lap-sheet and journal images can use the built-in compatible generator. Personal achievement cards use the selected game's branding and matching artwork; EVO shows recorded lap facts in place of unavailable LMU conditions. Reusing the original RaceCom engine requires your own local installation; it is not bundled. Optional EVO artwork is downloaded from official game or circuit-operator sources and is not redistributed in releases. [Credits and sources](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering).
+Lap-sheet and race-log images can use the built-in compatible generator. Personal achievement cards use the selected game's branding and matching artwork; EVO shows recorded lap facts in place of unavailable LMU conditions. Reusing the original RaceCom engine requires your own local installation; it is not bundled. Optional EVO artwork is downloaded from official game or circuit-operator sources and is not redistributed in releases. [Credits and sources](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering).
 
 ## Project status
 

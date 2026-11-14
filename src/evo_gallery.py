@@ -6,6 +6,7 @@ from control_fields import Select
 from control_flow import install
 from control_search import SearchField
 from control_motion import keyboard_action
+from control_widgets import px
 from guide_cards import Picture
 from evo_art import catalog,item,local_asset
 from i18n import tr
@@ -31,43 +32,53 @@ class Gallery(tk.Frame):
             names={e['name'] for e in self.entries}
             self.state['comparison']=list(dict.fromkeys(n for n in self.state.get('comparison',[]) if n in names))[:2]
         self.browse=tk.Frame(self,bg=T.BG);self.browse.pack(fill='x');self.detail=tk.Frame(self,bg=T.BG)
-        outer=app.content;app.content=self.browse
-        try:body=app.card('AC EVO · 车型图库' if kind=='cars' else 'AC EVO · 赛道与布局','按品牌、车型组别筛选；仅在可见时加载图片。' if kind=='cars' else '点击赛道卡查看布局；线路图来自游戏官方网站。',compact=True)
-        finally:app.content=outer
         self.variables={k:tk.StringVar(self,value=self.state.get(k,'')) for k in ('query','brand','group')}
-        self.status=tk.StringVar(self);self.variables['status']=self.status
-        # The field names what it matches, like every list search; no separate caption.
-        row=app.row(body)
-        self.search=SearchField(row,textvariable=self.variables['query'],command=self.filter_changed,placeholder='搜索车型、品牌或赛道布局',height=38)
-        self.search.pack(side='left',fill='x',expand=True);app.search_target=self.search
+        self.status=tk.StringVar(self);self.variables['status']=self.status;self.page_text=tk.StringVar(self)
+        # The same browsing pattern as the LMU guide: search, filters and paging
+        # sit in the fixed page toolbar (install_actions); the header below has
+        # no card chrome: the filter panel while open, one quiet result line with
+        # its links, then the active-filter chips. The grid keeps its card.
+        self.search=self.filter_button=None;self.toolbar_pager=()
+        header=tk.Frame(self.browse,bg=T.BG);header.pack(fill='x',pady=(0,px(self,10)));self.header=header
         self.selectors={}
+        from control_guide_chips import Chips
+        from control_widgets import GlassCard,Link
         if kind=='cars':
-            facets=tk.Frame(body,bg=T.CARD);facets.pack(fill='x',pady=8)
+            self.filter_panel=tk.Frame(header,bg=T.BG);panel=GlassCard(self.filter_panel,compact=True);panel.pack(fill='x');facets=panel.body
             specs=[('brand','品牌',['',*sorted({e['brand'] for e in self.entries})],{'':'全部品牌'}),
                 ('group','车型组别',['',*GROUPS],{'':'全部车型组别',**GROUPS})]
             for i,(key,label,values,labels) in enumerate(specs):
-                panel=tk.Frame(facets,bg=T.CARD);panel.grid(row=0,column=i,sticky='ew',padx=(0,10) if not i else 0)
-                app.label(panel,label,9,T.MUTED).pack(anchor='w',pady=(0,5))
-                select=Select(panel,textvariable=self.variables[key],values=values,labels={k:tr(v) for k,v in labels.items()});select.pack(fill='x');self.selectors[key]=select
+                tile=tk.Frame(facets,bg=T.CARD);tile.grid(row=0,column=i,sticky='ew',padx=(0,10) if not i else 0)
+                app.label(tile,label,9,T.MUTED).pack(anchor='w',pady=(0,5))
+                select=Select(tile,textvariable=self.variables[key],values=values,labels={k:tr(v) for k,v in labels.items()});select.pack(fill='x');self.selectors[key]=select
                 facets.columnconfigure(i,weight=1,uniform='evo-facets')
                 self.traces.append((self.variables[key],self.variables[key].trace_add('write',self.filter_changed)))
-            app.button(app.row(body),'重置筛选',self.reset,False,120)
-        nav=app.row(body);install(nav)
-        self.previous=app.button(nav,'← 上一页',lambda:self.step(-1),False,120)
-        app.label(nav,self.status,10,T.MUTED).pack(side='left',padx=10)
-        self.following=app.button(nav,'下一页 →',lambda:self.step(1),False,120)
-        app.button(nav,'官方图片来源',lambda:webbrowser.open(catalog()['source']),False,145)
-        if kind=='cars':
-            from control_guide_chips import Chips
-            selection=app.row(body);install(selection)
-            self.selection_status=tk.StringVar(self)
-            app.label(selection,self.selection_status,10,T.ACCENT).pack(side='left',padx=(0,10))
-            self.compare_button=app.button(selection,'查看车型对比',self.open_compare,True,145)
-            self.clear_button=app.button(selection,'清空选择',self.clear_selection,False,115)
-            self.selection_chips=Chips(body,self.select_car,lambda:self.search.focus_set())
+        line=tk.Frame(header,bg=T.BG);line.pack(fill='x');self.result_line=line
+        app.label(line,self.status,9,T.MUTED).pack(side='left')
+        self.source_link=Link(line,'官方图片来源 ↗',lambda:webbrowser.open(catalog()['source']));self.source_link.pack(side='right')
+        # Reset appears only while a search or filter narrows the catalogue.
+        self.reset_gap=tk.Label(line,text='·',bg=T.BG,fg=T.MUTED,font=(T.FONT,9));self.reset_link=Link(line,'重置筛选',self.reset)
+        self.filter_chips=Chips(header,self.remove_filter,self.focus_search)
+        card=GlassCard(self.browse,compact=True);card.pack(fill='x');body=card.body
         self.host=tk.Frame(body,bg=T.CARD);self.host.pack(fill='x');self.host.bind('<Configure>',self.layout)
+        nav=app.row(body);install(nav)
+        self.previous=app.button(nav,'← 上一页',lambda:self.step(-1),False,120,compact=True)
+        app.label(nav,self.status,10,T.MUTED).pack(side='left',padx=10)
+        self.following=app.button(nav,'下一页 →',lambda:self.step(1),False,120,compact=True)
+        if kind=='cars':
+            # The comparison tray rests under the page (the shell's tray), like
+            # the guide's: the chosen cars and the way into the comparison stay
+            # in view; one action toggles between the comparison and the list.
+            tray=GlassCard(app.shell.tray_host,compact=True);tray.pack(fill='x');self.tray=tray
+            row=tk.Frame(tray.body,bg=T.CARD);row.pack(fill='x')
+            self.selection_status=tk.StringVar(self)
+            app.label(row,self.selection_status,10,T.FG,True).pack(side='left',padx=(0,px(row,12)))
+            tools=tk.Frame(row,bg=T.CARD);tools.pack(side='right')
+            self.clear_button=app.button(tools,'清空选择',self.clear_selection,False,115,compact=True)
+            self.compare_button=app.button(tools,'查看车型对比',self.toggle_compare,True,145,compact=True);self.compare_button.pack_configure(padx=0)
+            self.selection_chips=Chips(row,self.select_car,self.focus_search);self.selection_chips.pack_configure(side='left',fill='x',expand=True,padx=(0,px(row,12)))
         self.bind('<Destroy>',self.dispose,add='+');app.evo_gallery_refresh=(self,self.refresh)
-        self.render()
+        self.render();self.sync_filters()
         selected=next((e for e in self.entries if e['name']==self.state.get('detail')),None)
         if selected:self.open_track(selected,remember=False)
         if kind=='cars' and self.state.get('mode')=='compare':self.open_compare(remember=False)
@@ -77,7 +88,7 @@ class Gallery(tk.Frame):
 
     def filter_changed(self,*_):
         if self.restoring:return
-        self.snapshot();self.state['page']=0;self.render()
+        self.snapshot();self.state['page']=0;self.render();self.sync_filters()
 
     def reset(self):
         self.restoring=True
@@ -86,8 +97,70 @@ class Gallery(tk.Frame):
         finally:self.restoring=False
         self.filter_changed()
 
+    def remove_filter(self,key):
+        self.variables[key].set('')
+
     def step(self,delta):
         self.state['page']+=delta;self.render();self.app.scroll.yview_moveto(0)
+
+    def install_actions(self,host):
+        """The fixed toolbar: search, filters, a compact pager and the image update."""
+        from control_widgets import px
+        host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,8));install(host)
+        hint='搜索车型或品牌' if self.kind=='cars' else '搜索赛道或布局'
+        field=SearchField(host,textvariable=self.variables['query'],command=self.filter_changed,placeholder=hint,height=38);field.flow_stretch=True
+        field.configure(width=px(host,200));field.last=self.variables['query'].get()
+        self.search=field;self.app.search_target=field
+        if self.kind=='cars':self.filter_button=self.app.button(host,'筛选条件',self.toggle_filters,False,110,compact=True)
+        previous=self.app.button(host,'‹',lambda:self.step(-1),False,44,compact=True)
+        self.app.label(host,self.page_text,10,T.MUTED).pack(side='left',padx=4)
+        following=self.app.button(host,'›',lambda:self.step(1),False,44,compact=True)
+        from control_tooltip import Tooltip
+        for button,text in ((previous,'上一页'),(following,'下一页')):
+            tip=Tooltip(button);button.bind('<Enter>',lambda _,b=button,t=text,h=tip:h.request(t,tr(t),b.winfo_rootx(),b.winfo_rooty()+b.winfo_height()),add='+');button.bind('<Leave>',lambda _,h=tip:h.hide(),add='+')
+        self.toolbar_pager=(previous,following)
+        from evo_control import download_art
+        self.app.button(host,'下载 / 更新官方图片',lambda:download_art(self.app),False,195,compact=True)
+        self.update_pager();self.sync_filters()
+
+    def update_pager(self):
+        page=self.state['page'];pages=getattr(self,'page_count',1)
+        self.page_text.set(f'{page+1} / {pages}')
+        browsing=not self.state.get('detail') and self.state.get('mode')!='compare'
+        for previous,following in [(self.previous,self.following)]+([self.toolbar_pager] if self.toolbar_pager else []):
+            if previous.winfo_exists():previous.configure(state='normal' if browsing and page else 'disabled')
+            if following.winfo_exists():following.configure(state='normal' if browsing and page+1<pages else 'disabled')
+
+    def toggle_filters(self):
+        self.state['filters_open']=not self.state.get('filters_open',False);self.sync_filters(True)
+
+    def sync_filters(self,animate=False):
+        """Filter panel, its button title, the chips of active filters and the reset link."""
+        from control_widgets import px
+        active=[key for key in ('brand','group') if self.kind=='cars' and self.state.get(key)]
+        opened=self.kind=='cars' and bool(self.state.get('filters_open',False))
+        if self.kind=='cars':
+            if opened and not self.filter_panel.winfo_manager():
+                show=lambda:self.filter_panel.pack(fill='x',pady=(0,px(self,6)),before=self.result_line)
+                if animate:
+                    from control_motion import expand
+                    expand(self.filter_panel,show)
+                else:show()
+            elif not opened:self.filter_panel.pack_forget()
+            button=self.filter_button
+            if button is not None and button.winfo_exists():
+                title=tr('筛选条件')+(f' · {len(active)}' if active else '')
+                button.configure(text=title,selected=opened,width=max(px(button,110),button.font.measure(title)+px(button,36)))
+        titles=dict(brand='品牌',group='车型组别')
+        shown=lambda key:tr(GROUPS[self.state[key]]) if key=='group' else self.state[key]
+        self.filter_chips.set([] if opened else [(key,tr(titles[key])+' · '+shown(key)) for key in active])
+        resettable=bool(active or self.state.get('query'));self.reset_link.configure(state='normal' if resettable else 'disabled')
+        if resettable and not self.reset_link.winfo_manager():
+            # Packed right to left after the source link: "Reset · Official image source".
+            self.reset_gap.pack(side='right',padx=px(self,8));self.reset_link.pack(side='right')
+        elif not resettable and self.reset_link.winfo_manager():
+            if self.reset_link.focus_get() is self.reset_link:self.focus_search()
+            self.reset_link.pack_forget();self.reset_gap.pack_forget()
 
     def layout(self,event=None):
         columns=2 if self.host.winfo_width()>=650 else 1
@@ -103,7 +176,7 @@ class Gallery(tk.Frame):
         values=matches(self.entries,self.state['query'],self.state['brand'] if self.kind=='cars' else '',self.state['group'] if self.kind=='cars' else '')
         pages=max(1,(len(values)+self.PAGE_SIZE-1)//self.PAGE_SIZE);self.state['page']=max(0,min(self.state['page'],pages-1));page=self.state['page']
         self.status.set(tr('第 {page} / {pages} 页 · {count} 项').format(page=page+1,pages=pages,count=len(values)))
-        self.previous.configure(state='normal' if page else 'disabled');self.following.configure(state='normal' if page+1<pages else 'disabled')
+        self.page_count=pages;self.update_pager()
         self.visible_entries=values[page*self.PAGE_SIZE:(page+1)*self.PAGE_SIZE]
         for entry in self.visible_entries:
             card=tk.Frame(self.host,bg=T.FIELD,takefocus=self.kind=='tracks',highlightthickness=1,highlightbackground=T.FIELD,highlightcolor=T.ACCENT);self.cards.append(card)
@@ -113,7 +186,10 @@ class Gallery(tk.Frame):
             self.app.label(card,caption,9,T.MUTED).pack(anchor='w',padx=10,pady=(0,8))
             art=item(self.kind,entry['name'],root=self.app.data_path)
             if art:Picture(card,self.app,art)
-            else:self.app.label(card,'图片尚未下载或该型号暂无匹配官方图。',10,T.MUTED).pack(fill='x',pady=28)
+            else:
+                # The note wraps inside its card in every language instead of being clipped.
+                note=self.app.label(card,'图片尚未下载或该型号暂无匹配官方图。',10,T.MUTED);note.pack(fill='x',padx=10,pady=28)
+                note.bind('<Configure>',lambda e:e.widget.configure(wraplength=max(100,e.width)))
             if self.kind=='tracks':
                 def activate(event=None,e=entry,owner=card):
                     if event is not None and event.type==tk.EventType.KeyPress:return keyboard_action(owner,lambda:self.open_track(e))
@@ -128,14 +204,22 @@ class Gallery(tk.Frame):
         if self.kind=='cars':self.update_selection()
 
     def update_selection(self):
-        names=self.state['comparison'];full=len(names)==2
+        from control_widgets import px
+        names=self.state['comparison'];full=len(names)==2;comparing=self.state.get('mode')=='compare'
         self.selection_status.set(tr('已选 {count} / 2 台车型').format(count=len(names)))
-        self.compare_button.configure(state='normal' if full else 'disabled')
+        button=self.compare_button;title='返回车型列表' if comparing else '查看车型对比'
+        button.configure(text=title,state='normal' if comparing or full else 'disabled',width=max(px(button,145),button.font.measure(tr(title))+px(button,36)))
         self.clear_button.configure(state='normal' if names else 'disabled')
         self.selection_chips.set([(n,chr(65+i)+' · '+n) for i,n in enumerate(names)])
         for name,button in self.car_buttons.items():
             selected=name in names
             button.configure(text='移出对比' if selected else '加入对比',selected=selected,state='normal' if selected or not full else 'disabled')
+        # The tray appears with the first chosen car and leaves with the last.
+        self.app.shell.show_tray(bool(names))
+
+    def toggle_compare(self):
+        if self.state.get('mode')=='compare':self.back()
+        else:self.open_compare()
 
     def select_car(self,name):
         names=self.state['comparison']
@@ -152,19 +236,21 @@ class Gallery(tk.Frame):
         self.state['mode']='compare';self.browse.pack_forget();self.detail.pack(fill='x')
         for child in self.detail.winfo_children():child.destroy()
         outer=self.app.content;self.app.content=self.detail
+        # The tray's action returns to the list; the comparison needs no second way back.
         try:body=self.app.card('AC EVO · 车型对比','选择保留在当前进程；返回后继续原筛选与位置。',compact=True)
         finally:self.app.content=outer
-        self.app.button(self.app.row(body),'← 返回车型列表',self.back,False,185)
         from evo_gallery_compare import Comparison
         entries=[next(e for e in self.entries if e['name']==n) for n in self.state['comparison']]
         self.comparison=Comparison(body,self.app,entries)
-        self.app.scroll.yview_moveto(0)
+        self.app.scroll.yview_moveto(0);self.update_selection();self.update_pager()
 
     def focus_search(self):
         if self.kind=='cars' and self.state.get('mode')=='compare':self.back()
         elif self.state.get('detail'):self.back()
         self.app.root.update_idletasks();self.app.scroll.yview_moveto(0)
-        self.search.focus_set();self.search.entry.selection_range(0,'end');return 'break'
+        field=self.search
+        if field is None or not field.winfo_exists():return 'break'
+        field.focus_set();field.entry.selection_range(0,'end');return 'break'
 
     def bind_card(self,widget,command):
         widget.configure(cursor='hand2');widget.bind('<Button-1>',command,add='+')
@@ -197,7 +283,7 @@ class Gallery(tk.Frame):
         self.source_button=self.app.button(self.app.row(body),'官方图片来源',lambda:webbrowser.open(self.selected_layout.get('source',catalog()['source'])),False,185)
         wanted=self.state.get('layout_selection',{}).get(entry['name'])
         if configs:self.show_layout(next((c for c in configs if c['name']==wanted),configs[0]))
-        self.app.scroll.yview_moveto(0)
+        self.app.scroll.yview_moveto(0);self.update_pager()
 
     def show_layout(self,config):
         if getattr(self,'selected_layout',None)==config and getattr(self,'map_picture',None) is not None and self.map_picture.winfo_exists():return
@@ -225,7 +311,10 @@ class Gallery(tk.Frame):
         return 'break'
 
     def back(self):
-        self.state['detail']=None;self.state['mode']='browse';self.detail.pack_forget();self.browse.pack(fill='x');self.app.search_target=self.search
+        self.state['detail']=None;self.state['mode']='browse';self.detail.pack_forget();self.browse.pack(fill='x')
+        if self.search is not None and self.search.winfo_exists():self.app.search_target=self.search
+        if self.kind=='cars':self.update_selection()
+        self.update_pager()
         if self.restore_job:self.after_cancel(self.restore_job)
         def restore():
             self.restore_job=None
@@ -246,4 +335,7 @@ class Gallery(tk.Frame):
         for var,trace in self.traces:
             try:var.trace_remove('write',trace)
             except tk.TclError:pass
+        # Retire the gallery's own variables on the GUI thread (see control_guide.retire).
+        from control_guide import retire
+        retire(self.app.root,[*self.variables.values(),self.page_text,*([self.selection_status] if hasattr(self,'selection_status') else [])])
         if self.restore_job:self.after_cancel(self.restore_job);self.restore_job=None

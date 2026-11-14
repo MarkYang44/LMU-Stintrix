@@ -66,9 +66,9 @@ def build(app):
         else:
             hint(app,body,'使用完整精度的 STX 无损列式存储；macOS 不调用 Windows NTFS 压缩。')
         app.choice(body,'可重建缓存上限 / MiB',app.cache_limit,['128','256','512','1024','2048'],app.storage_save.submit)
-        app.storage_buttons={};actions=app.row(body);install(actions)
-        for key,title,command in [('compress','压缩选中赛事',app.compress_selected),('columnar','转换选中赛事为列式',lambda:app.storage_operation('columnar')),('restore','恢复选中赛事为 CSV',lambda:app.storage_operation('restore'))]:
-            app.storage_buttons[key]=app.button(actions,title,command,False,150)
+        # This card holds preferences only: compressing, converting and restoring
+        # the selected sessions are toolbar actions (compress on the bar, the rest
+        # under 更多操作), beside the list they act on.
         body=app.card('报告与缓存维护','分步重试失败报告，查看缓存与用户导出文件占用',compact=True)
         from control_maintenance import reports,caches
         actions=app.row(body);install(actions);app.button(actions,'报告任务与分步重试',lambda:reports(app),False,190);app.button(actions,'缓存与导出文件',lambda:caches(app),False,175)

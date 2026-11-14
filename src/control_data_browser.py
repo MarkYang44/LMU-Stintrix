@@ -27,6 +27,10 @@ class DataBrowser:
         app.label(row,self.count,9,T.MUTED).pack(side='left',fill='x',expand=True)
         from control_sections import Disclosure
         self.details=Disclosure(summary_host,app,'storage-selection-details','查看已选赛事',header=row)
+        # Collapsing the list is a view choice, so it sits beside the list it
+        # changes, not among the toolbar's actions.
+        from control_widgets import Link
+        self.picker_link=Link(row,'收起赛事列表',self.toggle_picker);self.picker_link.pack(side='right',padx=(px(row,12),0))
         self.selection_text=tk.Text(self.details.body,height=4,wrap='word',bg=T.CARD,fg=T.FG,insertbackground=T.FG,selectbackground=T.SELECT,font=(T.FONT,9),relief='flat',highlightthickness=0,state='disabled')
         bar=ttk.Scrollbar(self.details.body,orient='vertical',command=self.selection_text.yview,style='Lab.Vertical.TScrollbar');bar.pack(side='right',fill='y');self.selection_text.configure(yscrollcommand=bar.set);self.selection_text.pack(fill='x',expand=True)
         self.picker_button=None
@@ -53,8 +57,8 @@ class DataBrowser:
     def show_picker(self):
         if self.picker_open:self.storage.pack(fill='x',pady=5)
         else:self.storage.pack_forget()
-        button=self.toolbar.get('picker')
-        if button is not None and button.winfo_exists():button.configure(text=tr('收起赛事列表' if self.picker_open else '选择赛事'))
+        link=getattr(self,'picker_link',None)
+        if link is not None and link.winfo_exists():link.configure(text='收起赛事列表' if self.picker_open else '选择赛事')
     def toggle_picker(self):
         self.picker_open=not self.picker_open;self.app.storage_picker_open=self.picker_open;self.show_picker()
     def toggle_filters(self):
@@ -74,9 +78,11 @@ class DataBrowser:
         from simulator_profiles import capabilities
         supported=capabilities(getattr(app,'simulator','lmu'))
         if section not in ('packages','storage'):return
-        host.pack(fill='x',before=app.shell.scroll.master,pady=(0,6));row=app.row(host);install(row);self.toolbar={};self.conditions={}
+        # The same toolbar as review and records: compact everyday actions on
+        # the selected sessions from the left, 更多操作 closing the row.
+        host.pack(fill='x',before=app.shell.scroll.master,pady=(0,6));self.toolbar={};self.conditions={}
         def button(key,title,command,condition,primary=False):
-            b=app.button(row,title,command,primary,125);b.configure(height=px(b,38));self.toolbar[key]=b;self.conditions[key]=condition
+            self.toolbar[key]=app.button(host,title,command,primary,125,compact=True);self.conditions[key]=condition
         if section=='packages':
             button('export','导出赛事包',app.export_package,lambda:self.ready(),True)
             button('import','导入赛事包',app.import_package,lambda:running(app) is None)
@@ -84,9 +90,10 @@ class DataBrowser:
         else:
             button('csv','导出原始 CSV',lambda:app.storage_operation('csv'),lambda:self.ready(True),True)
             if supported.full_review:button('html','导出独立复盘页',lambda:app.storage_operation('html'),lambda:self.ready(True))
-            button('picker','收起赛事列表' if self.picker_open else '选择赛事',self.toggle_picker,lambda:True)
-            self.picker_button=self.toolbar['picker'];b=self.picker_button;b.configure(width=max(b.font.measure(tr(text))+px(b,36) for text in ('选择赛事','收起赛事列表')))
-        trigger=app.button(row,'更多操作 ▾',lambda:menu.toggle(),False,110);trigger.configure(height=px(trigger,38))
+            button('compress','压缩选中赛事',app.compress_selected,lambda:self.ready())
+        trigger=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110,compact=True)
+        from control_toolbar import split_row
+        split_row(app,host,list(self.toolbar.values()),[trigger])
         from control_event_filters import edit_note
         from control_split_checks import show as split
         from control_maintenance import reports,caches
@@ -98,8 +105,8 @@ class DataBrowser:
             MenuAction('note','收藏与标签',lambda:app.with_selection(lambda items:edit_note(app,items[0],app.refresh)),'整理',lambda:len(self.selected())==1 and running(app) is None),
             MenuAction('split','检查疑似拆分',lambda:split(app),'整理',visible=lambda:supported.full_review)]
         if section=='storage':
-            actions.extend([MenuAction('compress','压缩选中赛事',app.compress_selected,'存储',lambda:self.ready()),
-                MenuAction('columnar','转换选中赛事为列式',lambda:app.storage_operation('columnar'),'存储',lambda:self.ready(True)),
+            # Compression is on the bar; the rarer conversions wait here.
+            actions.extend([MenuAction('columnar','转换选中赛事为列式',lambda:app.storage_operation('columnar'),'存储',lambda:self.ready(True)),
                 MenuAction('restore','恢复选中赛事为 CSV',lambda:app.storage_operation('restore'),'存储',lambda:self.ready(True))])
         from control_table_layouts import actions as column_actions
         actions.extend(column_actions(self.table));menu=ActionMenu(trigger,actions,'数据操作',lambda:app.selected_count.get());self.menu=menu;self.sync()
@@ -123,11 +130,7 @@ class DataBrowser:
             if b.winfo_exists():
                 state='normal' if self.conditions[key]() else 'disabled'
                 if b.cget('state')!=state:b.configure(state=state)
-        ready=self.ready(True)
-        for key,b in getattr(self.app,'storage_buttons',{}).items():
-            enabled=self.ready() if key=='compress' else ready
-            if b.winfo_exists() and b.enabled!=enabled:b.configure(state='normal' if enabled else 'disabled')
     def translate(self):
         self.token=None;self.sync();self.show_picker()
-        for b in [self.filter_button,*self.toolbar.values(),*getattr(self.app,'storage_buttons',{}).values()]:
+        for b in [self.filter_button,*self.toolbar.values()]:
             if b.winfo_exists():b.configure(width=max(px(b,110),b.font.measure(tr(b.label))+px(b,36)));b.paint()

@@ -363,7 +363,12 @@ class SessionList(tk.Frame):
                 self.checkbox(c,16*s,y+self.rowheight/2,iid in self.chosen)
             if self.cursor==iid and c.focus_get() is c:
                 c.create_rectangle(5*s,y+3*s,w-3*s,y+self.rowheight-3*s,outline=T.EDGE)
-        if not self.order:self.empty_frame.place(relx=.5,y=round(12*self.s),anchor='n')
+        if not self.order:
+            # An empty list lowers its message into the room it has (a little above
+            # the middle reads as centred), but never more than about three rows:
+            # a tall list may run past the window and the message must stay in view.
+            room=self.viewport.winfo_height();need=self.empty_frame.winfo_reqheight()
+            self.empty_frame.place(relx=.5,y=max(round(12*self.s),min(round((room-need)*.42),round(3*self.rowheight))),anchor='n')
         else:self.empty_frame.place_forget()
         if self.checkboxes:
             self.header.delete('check');self.header.create_rectangle(0,0,self.gutter,35*s,fill=T.FIELD,outline='',tags='check')

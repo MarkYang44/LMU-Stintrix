@@ -27,11 +27,11 @@ DEVICE=re.compile(r'^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)',re.I)
 
 def _safe_path(name):
     if not isinstance(name,str) or not name or '\\' in name:
-        raise ValueError('比赛包包含无效路径')
+        raise ValueError('赛事包包含无效路径')
     parts=name.split('/')
     if any(not p or p in ('.','..') or p.endswith((' ','.')) or len(p)>180
            or DEVICE.match(p) or any(c in '<>:"|?*' or ord(c)<32 for c in p) for p in parts):
-        raise ValueError('比赛包包含不安全的路径：'+name)
+        raise ValueError('赛事包包含不安全的路径：'+name)
     return PurePosixPath(name)
 
 
@@ -68,7 +68,7 @@ def _files(folder):
         rel=p.relative_to(folder).as_posix();_safe_path(rel)
         if p.name in LOCAL_FILES or p.name.endswith(('.pending','.tmp')):continue
         size=p.stat().st_size;total+=size;out.append((rel,p,size))
-    if len(out)>MAX_FILES or total>MAX_BYTES:raise ValueError('比赛包超过 50000 个文件或 32 GiB 上限')
+    if len(out)>MAX_FILES or total>MAX_BYTES:raise ValueError('赛事包超过 50000 个文件或 32 GiB 上限')
     return out
 
 
@@ -117,35 +117,35 @@ def export_session(root,key,destination,format='zip'):
 
 def _validate(archive,verify=False):
     infos=archive.infolist();names={};total=0
-    if len(infos)>MAX_FILES+1:raise ValueError('比赛包文件数量过多')
+    if len(infos)>MAX_FILES+1:raise ValueError('赛事包文件数量过多')
     for info in infos:
         _safe_path(info.filename)
         folded=info.filename.casefold()
         mode=info.external_attr>>16
         if folded in names or info.is_dir() or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0,stat.S_IFREG)):
-            raise ValueError('比赛包包含重复路径、目录或链接')
+            raise ValueError('赛事包包含重复路径、目录或链接')
         if info.flag_bits&1 or info.compress_type not in (zipfile.ZIP_STORED,zipfile.ZIP_DEFLATED):
-            raise ValueError('比赛包加密或使用了不支持的压缩格式')
+            raise ValueError('赛事包加密或使用了不支持的压缩格式')
         total+=info.file_size;names[folded]=info
-    if total>MAX_BYTES:raise ValueError('比赛包展开后超过 32 GiB')
+    if total>MAX_BYTES:raise ValueError('赛事包展开后超过 32 GiB')
     info=names.get('manifest.json')
-    if info is None or info.filename!='manifest.json' or info.file_size>MAX_MANIFEST:raise ValueError('不是有效的 Stintrix 比赛包')
+    if info is None or info.filename!='manifest.json' or info.file_size>MAX_MANIFEST:raise ValueError('不是有效的 Stintrix 赛事包')
     manifest=json.loads(archive.read(info).decode('utf-8'))
     if not isinstance(manifest,dict) or manifest.get('format') not in (FORMAT,ARCHIVE_FORMAT) or manifest.get('version') not in (1,2):
-        raise ValueError('比赛包格式或版本不支持')
+        raise ValueError('赛事包格式或版本不支持')
     files=manifest.get('files');note=manifest.get('note')
-    if not isinstance(manifest.get('original_key'),str):raise ValueError('比赛包来源路径无效')
+    if not isinstance(manifest.get('original_key'),str):raise ValueError('赛事包来源路径无效')
     if not isinstance(files,dict) or not files or not isinstance(note,dict) or not isinstance(note.get('text'),str) or len(note['text'])>2000 or not isinstance(note.get('traffic'),bool):
-        raise ValueError('比赛包清单或备注无效')
+        raise ValueError('赛事包清单或备注无效')
     for name,entry in files.items():
         _safe_path(name)
-        if PurePosixPath(name).name in LOCAL_FILES:raise ValueError('比赛包包含保留文件')
+        if PurePosixPath(name).name in LOCAL_FILES:raise ValueError('赛事包包含保留文件')
         info=names.get(('session/'+name).casefold())
         if (not isinstance(entry,dict) or info is None or info.filename!='session/'+name
                 or type(entry.get('bytes')) is not int or entry['bytes']!=info.file_size):
-            raise ValueError('比赛包清单与文件不一致')
-    if len(names)!=len(files)+1 or not {'inputs.csv','session.json'}.issubset(files):raise ValueError('比赛包缺少记录文件或包含未声明文件')
-    if not re.fullmatch('[0-9a-f]{64}',str(manifest.get('archive_id',''))):raise ValueError('比赛包编号无效')
+            raise ValueError('赛事包清单与文件不一致')
+    if len(names)!=len(files)+1 or not {'inputs.csv','session.json'}.issubset(files):raise ValueError('赛事包缺少记录文件或包含未声明文件')
+    if not re.fullmatch('[0-9a-f]{64}',str(manifest.get('archive_id',''))):raise ValueError('赛事包编号无效')
     return manifest
 
 
@@ -187,7 +187,7 @@ def import_session(root,package,verify=False):
             except (OSError,ValueError):continue
         # Extract into staging first. Neither mode publishes partially extracted data.
         if shutil.disk_usage(collection).free<sum(e['bytes'] for e in manifest['files'].values())+16*CHUNK:
-            raise OSError('可用磁盘空间不足以导入比赛包')
+            raise OSError('可用磁盘空间不足以导入赛事包')
         with tempfile.TemporaryDirectory(prefix='.stintrix-import-',dir=collection) as temporary:
             stage=Path(temporary)/'session';stage.mkdir()
             for name,entry in manifest['files'].items():
@@ -195,9 +195,9 @@ def import_session(root,package,verify=False):
                 with path.open('xb') as target:_verify_member(archive,'session/'+name,entry,target,verify=verify)
             if manifest['files']['session.json']['bytes']>MAX_MANIFEST:raise ValueError('比赛信息文件过大')
             meta=json.loads((stage/'session.json').read_text(encoding='utf-8-sig'))
-            if not isinstance(meta,dict) or meta.get('status')=='recording':raise ValueError('比赛包不是已结束的记录')
+            if not isinstance(meta,dict) or meta.get('status')=='recording':raise ValueError('赛事包不是已结束的记录')
             if any(not isinstance(meta.get(k,''),str) for k in ('track','vehicle','driver','started_utc','status')):
-                raise ValueError('比赛包的基本信息字段无效')
+                raise ValueError('赛事包的基本信息字段无效')
             (stage/'_archive_note.json').write_text(json.dumps(manifest['note'],ensure_ascii=False),encoding='utf-8')
             receipt=dict(archive_id=manifest['archive_id'],imported_utc=datetime.now(timezone.utc).isoformat(),verification='none',files={n:[(stage/n).stat().st_size,(stage/n).stat().st_mtime_ns] for n in manifest['files']})
             (stage/'_archive_receipt.json').write_text(json.dumps(receipt),encoding='utf-8')

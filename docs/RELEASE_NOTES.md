@@ -1,3 +1,26 @@
+## v0.4.3 — 纪录操作与 AC EVO 图库统一
+
+- 个人赛道纪录的四个视图统一操作位置：所选纪录的常用操作固定在页头下方一行，靠左排列，「更多操作」在同一行最右，与赛事复盘一致。领奖台记录（打开赛事复盘、圈速单、比赛日志、战绩卡）、纪录履历（完整圈曲线、战绩卡、圈 A / 圈 B）和官方战绩（关联复盘、原始 XML、收藏与标签）不再把操作放在详情卡片里，滚动时不会被带走；其余操作在「更多操作」中。
+- 赛道最快圈的「更多操作」从详情卡片移到工具栏最右；详情卡片只保留上一条 / 下一条和返回纪录列表。领奖台的「重试详情」只在详情读取失败时出现。
+- 四个纪录视图的空列表统一说明原因并给出下一步：读取中显示「正在读取纪录…」（不再先闪一下「还没有纪录」），读取失败提示可刷新重试；搜索无结果时「清空搜索」（保留筛选）；筛选或领奖台分类挡住全部记录时「重置筛选」；还没有任何记录时说明记录从哪里来，并提供「前往运行与 HUD」（macOS 离线版为「导入赛事包」）或官方战绩的「同步游戏成绩」。此前领奖台、纪录履历和官方战绩在没有任何数据时也提示「清除搜索或重置筛选」。
+- 切换纪录视图后，底部状态栏显示当前视图的摘要，不再沿用上一个视图的「0 场同组领奖台赛事」。
+- 每个视图最多只有一个主色（填充）按钮：赛道指南 / 车型图鉴里已加入对比的卡片改为「选中」状态（与 AC EVO 一致），主色只留给对比栏的「查看对比」；官方战绩的「同步游戏成绩」改为普通按钮，主色留给「打开关联复盘」。
+- 赛事复盘列表可按 Delete 删除选中赛事（与「删除选中记录」相同，仍需确认；macOS 为 Command ⌫）。快捷键一览（F1）补充 F2 查看单元格完整内容、Shift F10 打开操作菜单和删除快捷键。
+- 离开赛道指南 / 车型图鉴时，页面变量在界面线程释放，不再可能由后台线程回收而让后台任务卡顿约一秒。
+- 列表的操作提示只出现在一处：赛事复盘的选择要点行，其余由工具栏的主操作和 F1 快捷键一览说明（双击或 Enter 即执行主操作）。领奖台和纪录履历去掉了单独的提示行，纪录履历的「筛选结果」并入状态行右侧，搜索框与列表之间只剩一行；赛事复盘页、纪录详情卡片和 AC EVO 赛事记录卡片的副标题改为说明用途。
+- 图像与数据的「赛事包」「报告与存储」工具栏同样改为：所选赛事的常用操作靠左，「更多操作」在最右。「压缩选中赛事」移到工具栏；「转换为列式」「恢复为 CSV」只在「更多操作」中，不再在「无损节省磁盘空间」卡片里重复，该卡片只保留设置项。「收起赛事列表 / 选择赛事」从工具栏移到列表上方的已选数量旁。
+
+- AC EVO 的车型图鉴 / 赛道指南改用与 LMU 赛道指南相同的浏览方式：搜索、「筛选条件」、翻页和「下载 / 更新官方图片」固定在页头下方的一行，滚动时不移动；结果数量、「重置筛选」（有可重置内容时才出现）和「官方图片来源」合成一行文字，不再全部堆在一张卡片里；已启用的筛选显示为可单独移除的标签，展开的筛选条件单独成卡。
+- AC EVO 车型对比改为固定在页面底部的对比栏：加入第一台车后出现，滚动时始终可见，可单独移除或清空；「查看车型对比」和「返回车型列表」合为同一个按钮，对比页不再重复放返回按钮。
+- 赛道指南的搜索框改为「搜索赛道或布局」，车型图鉴为「搜索车型或品牌」，与实际能搜到的内容一致；没有官方图片的卡片提示在英文界面下也会自动换行。
+- 列表为空时，提示与操作按钮下移到列表区域中部（最多约三行），不再贴在顶部；列表超出窗口时提示仍留在可见范围内。
+- 统一术语，同一概念只用一个名称：「赛事包」（不再混用「比赛包」）、「赛事记录」、「比赛日志」（AC EVO 不再称「赛事日志」，与图片文件名和报告内容一致）、「完整记录管理」（窗口标题与打开它的命令一致，HUD 右键菜单同步）；导入导出的错误提示用同样的词。英文界面同步统一为 session package、race log、Recording Manager。已导出的报告内容不变。
+- 「完整记录管理」窗口和视频历史对比里的圈速改为与其他页面一致的「分:秒.毫秒」（如 2:26.100），排序仍按数值；稳定性 σ 仍以秒显示。
+- 英文界面统一为 Windows 风格的句首大写（如 Session review、Car catalog、Demo mode），不再混用逐词大写；专有名词、缩写和 Lap A / Lap B 保持原样。赛事复盘工具栏的英文按钮更简短（Open review、Delete selected、Refresh），紧凑按钮随文字收窄，最小窗口下中英文都不再换行。
+- 仅调整界面结构与交互，不改记录数据、分析结果、保存格式或报告内容。
+
+English: Every personal-records view now keeps the selected record's everyday actions in the fixed toolbar, with More at the far end as on session review, instead of inside detail cards that scroll away; the fastest-lap details keep only previous / next and back to list. Every records list now says why it is empty and offers the next step (clear the search, reset filters, or where records come from), and the footer always describes the view on screen. Each view fills at most one primary button, the session list deletes with Delete (Cmd+Backspace on macOS) after the usual confirmation, and the shortcut sheet lists F2, Shift+F10 and delete. Lists teach their open gesture in one place, so record views lose their extra hint lines and subtitles describe purpose. The package and storage tasks in Reports & Data use the same toolbar (compress joins the bar, conversions stay under More), the storage card keeps only preferences, and the list collapse link sits beside the selection count. AC EVO's car catalog and circuit guide now browse like the LMU guide. Search, filters, paging and the image update share one fixed toolbar line; the result count, reset and image source sit in one quiet line; active filters become removable chips. The car comparison moved into a tray under the page that stays in view, with one button that toggles between the comparison and the list. Search placeholders name what each page matches, card notes wrap in English, and empty lists lower their message while keeping it in view. Interface text now uses one name per concept (session package, race log, Recording manager) and English follows Windows sentence case throughout, with shorter review toolbar labels that fit the minimum window, and the Recording Manager shows lap times as m:ss.sss like every other page. Recordings, analysis and file formats are unchanged.
+
 ## v0.4.2 — 导航重组与窗口统一
 
 - 左侧导航按「实时 / 分析 / 资料 / 工具」分组，「设置」固定在底部；「个人赛道纪录」紧跟「赛事复盘」。Ctrl+1–7（macOS 离线版 Command+1–6）按新的显示顺序切换：运行与 HUD、赛事复盘、个人赛道纪录、赛道指南、车型图鉴、图像与数据、设置。窗口较矮时先收起分组标题，再压缩行高。

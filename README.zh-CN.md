@@ -18,11 +18,11 @@
 ![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[下载 Windows x64 · v0.4.1](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
+**[下载 Windows x64 · v0.4.3](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 
 ## 项目简介
 
-**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.1)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
+**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.3)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
 
 Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌面应用里。查看同一布局的完整圈，比较输入与圈速差异，再结合个人纪录回顾练习效果。
 
@@ -55,7 +55,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 ### 赛后，留下可复盘的记录
 
 - 排位／计时赛与正赛自动记录，练习赛录制可按需开启，EVO 同时支持按需记录巡航。
-- 无损保存遥测，支持 CSV 导出、赛事搜索与 ZIP / 7z 比赛包。
+- 无损保存遥测，支持 CSV 导出、赛事搜索与 ZIP / 7z 赛事包。
 - 后台报告显示分步状态，失败任务可重试；EVO 在停止采集后处理报告与压缩，减少驾驶期间的后台负载。
 - 支持批量更正线上／线下分类，原始赛事保留；赛事菜单提供来源目录、全选与清除选择入口。两款游戏的赛事页顶部均提供红色“删除选中记录”按钮，执行前确认所选整场记录。
 
@@ -78,7 +78,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 - 两款游戏均支持个人最快圈与纪录履历：LMU 按布局／车辆组别区分，EVO 按布局／具体车型区分。
 - EVO 纪录详情只显示已有数据，省去未知占位与重复车型名；宽窗口并排展示车辆／赛道照片，窄窗口自动纵排，下接输入曲线。
-- 生成圈速单、赛事日志与个人战绩卡；LMU 另支持已确认的同组领奖台和游戏结果 XML 只读关联。
+- 生成圈速单、比赛日志与个人战绩卡；LMU 另支持已确认的同组领奖台和游戏结果 XML 只读关联。
 - EVO 车型图库支持品牌／类别筛选与双车并排比较，保留已选车型和浏览位置；赛道卡展示已核实布局与可用官方线路图，图片可按需下载到本机。
 
 ### 从视频回看油刹 · 实验功能
@@ -88,7 +88,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 下载安装
 
-1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.1/LMU-Stintrix-v0.4.1-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
+1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
 2. 将整个压缩包解压到可写文件夹。
 3. 双击 **`LMU-Stintrix.exe`**。
 
@@ -123,7 +123,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 EVO 个人纪录与 A/B 对比只使用已观测到完整有效边界、带游戏计时的圈；缺少证据的旧记录仍可读取，不自动补造成有效圈。**更多操作 → 完整记录管理**可按布局搜索、整理备注、管理赛事包并选择有效圈。报告任务可直接定位所选赛事，并保留报告列表原筛选。EVO 支持最快圈及 A/B 指定有效圈 CSV 直出，完整字段与采样保留。条件训练、实时参考圈、官方成绩与附加车辆面板仍属于 LMU 功能。详见[适配范围](docs/SIMULATORS.md)。
 
-圈速单和赛事日志可使用内置兼容生成器；个人战绩卡使用所选游戏的标识和匹配图片，EVO 展示已有圈记录信息，避免套用缺失的 LMU 条件。复用 RaceCom 原版引擎需自行在本机配置，发布包不附带该第三方引擎。EVO 图片按需从游戏或赛道运营方官方来源下载，不随源码或发行包分发。详见[素材与来源声明](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering)。
+圈速单和比赛日志可使用内置兼容生成器；个人战绩卡使用所选游戏的标识和匹配图片，EVO 展示已有圈记录信息，避免套用缺失的 LMU 条件。复用 RaceCom 原版引擎需自行在本机配置，发布包不附带该第三方引擎。EVO 图片按需从游戏或赛道运营方官方来源下载，不随源码或发行包分发。详见[素材与来源声明](THIRD_PARTY_NOTICES.md#evo-official-artwork-and-svg-rendering)。
 
 ## 项目状态
 

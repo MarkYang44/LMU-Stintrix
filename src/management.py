@@ -95,7 +95,7 @@ def show_library(app,root,render_review,make_report,initial=()):
 
 def show_lap_selection(app,root,folder):
     root=Path(root).resolve();folder=Path(folder).resolve()
-    if not folder.is_relative_to(root):raise ValueError('只能选择本插件目录中的比赛记录')
+    if not folder.is_relative_to(root):raise ValueError('只能选择本插件目录中的赛事记录')
     dialogs=getattr(app,'lap_selection_windows',None)
     if dialogs is None:dialogs=app.lap_selection_windows={}
     existing=dialogs.get(str(folder))

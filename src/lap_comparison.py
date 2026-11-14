@@ -59,7 +59,7 @@ def export_pair(root,selections,template):
     if not isinstance(selections,(list,tuple)) or len(selections)!=2:
         raise ValueError('请选择圈 A 和圈 B')
     if any(not Path(folder).resolve().is_relative_to(root) for folder,_ in selections):
-        raise ValueError('只能选择本插件目录中的比赛记录')
+        raise ValueError('只能选择本插件目录中的赛事记录')
     identities=[(Path(folder).resolve(),number) for folder,number in selections]
     if any(type(number) is not int or number<0 for _,number in identities):raise ValueError('请选择有效圈号')
     if identities[0]==identities[1]:raise ValueError('圈 A 和圈 B 必须选择不同圈')

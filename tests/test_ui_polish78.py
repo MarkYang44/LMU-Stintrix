@@ -110,14 +110,17 @@ class UI(unittest.TestCase):
         forms['mode'].set('dynamic');forms['draw_mode'].set('manual');self.pump(app,.05)
         self.assertEqual([w.cget('text') for w in notes()],['仅固定采样时生效']);self.assertFalse(errors)
 
-    def test_record_details_keep_navigation_and_menu_without_repeating_toolbar_actions(self):
+    def test_record_details_keep_navigation_and_the_menu_closes_the_toolbar(self):
         app,root,errors=self.app(True);app.request_page(6)
         loaded=lambda:getattr(app,'record_loaders',{}).get('best') is not None and app.record_loaders['best'].page is not None and app.record_loaders['best'].page.fixed
         self.settle(app,loaded);p=app.record_loaders['best'].page
-        self.assertFalse(p.detail_actions.winfo_manager());self.assertIs(p.buttons['more'].master,p.navigation);self.assertLessEqual({'curve','card','details'},set(p.fixed))
+        self.assertFalse(p.detail_actions.winfo_manager());self.assertNotIn('more',p.buttons);self.assertLessEqual({'curve','card','details'},set(p.fixed))
+        # The record menu ends the fixed toolbar, as on session review (v0.4.3).
+        host=app.shell.action_host;more=p.menu.trigger;self.assertIs(more.master,host)
+        self.assertAlmostEqual(more.winfo_x()+more.winfo_width(),host.winfo_width(),delta=2)
         self.pump(app,.1);label=next(w for w in p.navigation.winfo_children() if w.winfo_class()=='Label')
         self.assertAlmostEqual(centre(label),centre(p.buttons['previous']),delta=1)
-        p.buttons['more'].invoke();self.pump(app,.1);self.assertIsNotNone(p.menu.popup);p.menu.close();self.assertFalse(errors)
+        more.invoke();self.pump(app,.1);self.assertIsNotNone(p.menu.popup);p.menu.close();self.assertFalse(errors)
 
     def test_run_tools_centre_the_silent_switch_and_card_tools_on_their_rows(self):
         from unittest.mock import patch

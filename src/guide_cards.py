@@ -203,7 +203,9 @@ class Cards:
         button=self.center.button(row,title,lambda:self.page.favorite(kind,slug),width=92)
         self.page.favorite_buttons.setdefault((kind,slug),[]).append(button)
         if key:
-            button=self.center.button(row,tr('移出对比','Remove') if key in self.page.state['comparison'] else tr('加入对比','Compare'),lambda:self.page.select(key),key in self.page.state['comparison'],width=100)
+            # Chosen cards show the selected state; the filled primary stays with the tray's comparison action.
+            button=self.center.button(row,tr('移出对比','Remove') if key in self.page.state['comparison'] else tr('加入对比','Compare'),lambda:self.page.select(key),False,width=100)
+            button.configure(selected=key in self.page.state['comparison'])
             self.page.compare_buttons.setdefault(key,[]).append(button)
         return row
     def disclosure(self,row,title,count,toggle,opened):

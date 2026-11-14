@@ -115,7 +115,7 @@ with patch.object(ControlCenter,'repair_windows_entry'):
  assert (app.data_path/'Logs/keep/inputs.csv').read_bytes()==b'keep full samples' and (app.data_path/'Simulators/ac_evo/Logs/foreign/inputs.csv').read_bytes()==b'foreign samples'
  accepted[0][1](result);pump(.5);assert len(app.tree.get_children())==1 and not app.review_actions['delete'].enabled
  app.tree.selection_set(app.tree.get_children());app.update_toolbar();app.set_theme('light');app.toggle_language();app.root.minsize(800,650);app.root.geometry('900x760');pump(.4);button=app.review_actions['delete']
- assert button.enabled and button.cget('text')=='Delete selected records' and button.font.measure(button.cget('text'))<button.winfo_width()
+ assert button.enabled and button.cget('text')=='Delete selected' and button.font.measure(button.cget('text'))<button.winfo_width()
  host=app.shell.action_host;assert all(w.winfo_rootx()+w.winfo_width()<=host.winfo_rootx()+host.winfo_width()+1 for w in app.review_actions.values())
  line=app.selection_line;assert not [w for w in host.winfo_children() if w.winfo_class()=='Label'] and any(line.full) and line.winfo_rootx()+line.winfo_width()<=app.root.winfo_rootx()+app.root.winfo_width()+1
  app.show_page(0);pump(.1);app.show_page(1);pump(.4);assert isinstance(app.review_actions['delete'],Danger) and app.review_actions['delete'].enabled

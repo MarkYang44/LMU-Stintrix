@@ -50,7 +50,7 @@ def preferences(app):
     body=app.card('本机数据目录','应用更新或替换不会改动资料库；原始数据按完整精度保留。')
     app.label(body,str(app.data_path),10,T.MUTED).pack(fill='x',pady=6)
     app.button(app.row(body),'打开数据目录',lambda:open_path(app.data_path),False,160)
-    body=app.card('报告与可视化','HTML 报告可离线打开；圈速单与赛事日志由内置原生引擎生成。')
+    body=app.card('报告与可视化','HTML 报告可离线打开；圈速单与比赛日志由内置原生引擎生成。')
     app.label(body,'已导入的 Windows 报告图片保留；需要时可在赛事操作中重新生成。',10,T.MUTED).pack(fill='x',pady=6)
     app.button(app.row(body),'报告与存储',lambda:app.request_page(3),False,160)
     from control_app_preferences import build as app_preferences

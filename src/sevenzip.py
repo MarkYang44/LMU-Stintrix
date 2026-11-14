@@ -86,9 +86,9 @@ class Reader:
                 _safe_path(name.rstrip('/'));continue
             self._infos.append(info);self._raw[mapped]=raw
         manifest=next((info for info in self._infos if info.filename=='manifest.json'),None)
-        if manifest is None or manifest.file_size>8*1024**2:raise ValueError('不是有效的 Stintrix 比赛包')
+        if manifest is None or manifest.file_size>8*1024**2:raise ValueError('不是有效的 Stintrix 赛事包')
         header=json.loads(self.read(manifest).decode('utf-8'))
-        if not isinstance(header,dict):raise ValueError('比赛包清单无效')
+        if not isinstance(header,dict):raise ValueError('赛事包清单无效')
         flat=header.get('container_layout')=='flat' or any(info.filename!='manifest.json' and not info.filename.startswith('session/') for info in self._infos)
         mapping={}
         for info in self._infos:

@@ -10,6 +10,14 @@ from guide_library import Library
 from guide_cards import Cards
 
 
+def retire(root,variables):
+    """Release variables on the GUI thread after the current destruction settles."""
+    from control_widgets import release
+    chosen=[variable for variable in variables if getattr(variable,'_tk',None) is not None]
+    try:root.after_idle(lambda:[release(variable) for variable in chosen if variable._tk is not None])
+    except (tk.TclError,RuntimeError):[release(variable) for variable in chosen]
+
+
 class GuidePage:
     PAGE_SIZE=3
     def __init__(self,center,view):
@@ -41,6 +49,10 @@ class GuidePage:
                 try:self.center.root.after_cancel(job)
                 except tk.TclError:pass
         self.job=None;self.card_job=None
+        # The page's own variables sit on no widget the page disposal walks, so a
+        # worker thread could finalize them later (stalling Tcl for a second);
+        # retire them on the GUI thread once destruction has finished.
+        retire(self.center.root,self.variables.values())
 
     def build(self):
         center=self.center;tr=self.tr
@@ -345,7 +357,7 @@ class GuidePage:
         else:
             self.update_selection()
             for button in self.compare_buttons.get(key,[]):
-                button.label=self.tr('移出对比','Remove') if key in self.state['comparison'] else self.tr('加入对比','Compare');button.primary=key in self.state['comparison'];button.paint()
+                button.configure(text=self.tr('移出对比','Remove') if key in self.state['comparison'] else self.tr('加入对比','Compare'),selected=key in self.state['comparison'])
             self.center.status.set(self.tr('已选 ','Selected ')+str(len(self.state['comparison']))+'/3')
     def compare(self):
         if len(self.state['comparison'])<2:self.center.status.set(self.tr('请先选择至少 2 项。','Choose at least 2 items first.'));return

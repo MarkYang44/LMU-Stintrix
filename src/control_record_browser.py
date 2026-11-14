@@ -29,8 +29,11 @@ class Loader:
             if self.app.closing:return
             if page and page.alive():
                 page.feedback.busy('load',False)
-                if error:page.say('读取或同步未完成，可重试：{error}',error=error)
-                else:page.accept(value)
+                if error:
+                    page.say('读取或同步未完成，可重试：{error}',error=error);page.load_failed=True
+                    refresh=getattr(page,'refresh_empty',None)
+                    if refresh:refresh()
+                else:page.load_failed=False;page.accept(value)
                 page.sync()
             elif writing or error:self.app.status.set(tr('读取或同步未完成，可重试：{error}').format(error=error) if error else tr('官方成绩同步完成，可返回查看'))
             self.writing=False
@@ -39,6 +42,11 @@ class Loader:
 
 
 class RecordPage:
+    # Every records view keeps its record actions in the fixed page toolbar:
+    # everyday ones (bar_keys) read from the left, the rest (menu_keys, with
+    # their menu group) wait under 更多操作 at the far end, as on session
+    # review. The card rows that held them (action_rows) stand down.
+    bar_keys=();menu_keys=();action_rows=();menu_title='纪录操作'
     def __init__(self,app,kind,body):
         self.app=app;self.kind=kind;self.host=app.content;self.generation=app.scan_generation;self.disposed=False;self.variables={};self.buttons={};self.conditions={};self.rows=[];self.selected=None;self.notice=('',{});self.actions=[];self.identity=lambda e:e['id'];self.render=lambda:None
         contexts=getattr(app,'record_browser_context',{});app.record_browser_context=contexts;self.context=contexts.setdefault(kind,{})
@@ -66,9 +74,62 @@ class RecordPage:
         return b
     def alive(self):return not self.disposed and not self.app.closing and self.generation==self.app.scan_generation and bool(self.host.winfo_exists())
     def say(self,text,**values):self.notice=(text,values);self.status.set(tr(text).format(**values))
+    def menu_context(self):return ''
+    def where_records_begin(self):
+        """(label, command) for the step that creates records: the live page on
+        Windows, an import in the offline edition (which has no live page)."""
+        from platform_runtime import offline_only
+        if offline_only():return '导入赛事包',self.app.import_package
+        return '前往运行与 HUD',lambda:self.app.request_page(0)
+    def show_empty(self,texts,nothing_action=None,narrowed=lambda:False,reset=None):
+        """One empty-state grammar for every records list.
+
+        texts is (search, filtered, nothing). Before the first rows arrive the
+        list says it is reading (or that the read failed); a search that finds
+        nothing offers to clear it and keeps the filters; filters that hide
+        everything offer a reset; an empty library says where its records come
+        from and offers that step.
+        """
+        from event_filters import DEFAULTS
+        if not self.populated:
+            self.table.set_empty('纪录读取失败；可刷新重试。' if getattr(self,'load_failed',False) else '正在读取纪录…');return
+        search,filtered,nothing=texts;modes=getattr(self,'modes',None)
+        narrowing=narrowed() or bool(modes is not None and any(value!=DEFAULTS.get(key) for key,value in modes.state.items() if key not in ('query','sort')))
+        if self.query.get().strip():self.table.set_empty(search,'清空搜索',self.search_field.clear)
+        elif narrowing:self.table.set_empty(filtered,'重置筛选',reset or modes.reset)
+        else:
+            label,command=nothing_action or self.where_records_begin()
+            self.table.set_empty(nothing,label,command)
+    def install_actions(self,host):
+        """Fixed toolbar: the view's everyday record actions, then 更多操作 at the far end."""
+        from control_toolbar import split_row
+        from control_action_menu import ActionMenu,MenuAction
+        bar=[key for key in self.bar_keys if key in self.buttons]
+        menu=[(key,group) for key,group in self.menu_keys if key in self.buttons]
+        if not bar and not menu:return
+        host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,6));self.fixed={}
+        for key in bar:
+            source=self.buttons[key]
+            self.fixed[key]=self.app.button(host,source.label,source.action,source.primary,110,compact=True)
+        tail=[]
+        if menu:
+            more=self.app.button(host,'更多操作 ▾',lambda:self.menu.toggle(),False,110,compact=True)
+            actions=[MenuAction(key,self.buttons[key].label,self.buttons[key].action,group,self.conditions[key]) for key,group in menu]
+            self.menu=ActionMenu(more,actions,self.menu_title,self.menu_context);tail=[more]
+        split_row(self.app,host,list(self.fixed.values()),tail)
+        for row in self.action_rows:
+            if row.winfo_exists():row.pack_forget()
+        self.sync()
     def sync(self):
         if not self.alive():return
         for key,b in self.buttons.items():b.configure(state='normal' if self.conditions[key]() else 'disabled')
+        for key,b in getattr(self,'fixed',{}).items():
+            if key in self.conditions and b.winfo_exists():b.configure(state='normal' if self.conditions[key]() else 'disabled')
+        # A retry action only takes room while a detail read has actually failed.
+        retry=self.buttons.get('retry')
+        if retry is not None and getattr(retry.master,'retry_only',False):
+            if retry.enabled and not retry.winfo_manager():retry.pack(side='left')
+            elif not retry.enabled and retry.winfo_manager():retry.pack_forget()
         if hasattr(self,'participation_notice'):self.participation_notice.sync()
         if hasattr(self,'filter_panel'):self.filter_panel.sync()
     def populate(self,rows):

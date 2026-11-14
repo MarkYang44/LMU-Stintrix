@@ -35,13 +35,15 @@ def show(app):return OfficialPage(app)
 
 
 class OfficialPage(RecordPage):
+    # The fixed toolbar carries the record actions (see RecordPage.install_actions).
+    bar_keys=('review','xml','note')
     def __init__(self,app):
         body=app.card('官方战绩','只读导入游戏结果 XML；没有遥测的赛事只展示成绩与官方圈计时');super().__init__(app,'official',body)
         idle=lambda:not self.loader.running
         # Bringing results in comes first: sync from the game or import a
         # folder, with the driver name a sync applies; the list follows.
         tools=self.row(body)
-        self.button(tools,'sync','同步游戏成绩',self.sync_game,idle,True);self.button(tools,'folder','导入结果文件夹',self.folder,idle)
+        self.button(tools,'sync','同步游戏成绩',self.sync_game,idle);self.button(tools,'folder','导入结果文件夹',self.folder,idle)
         driver_row=self.row(body);app.label(driver_row,'多人赛事车手姓名',9).pack(side='left')
         from race_model import read_json
         saved=read_json(app.data_path/'OfficialResults/preferences.json',{});saved=saved if isinstance(saved,dict) else {}
@@ -56,7 +58,7 @@ class OfficialPage(RecordPage):
         install(app,self.table,'official',self.modes);self.table.pack(fill='x',pady=8)
         info=app.card('官方成绩详情','成绩来自游戏 XML；燃油、油刹曲线和赛道条件只在存在关联遥测时可查看')
         self.link_note=self.hint(info,'双击记录或按 Enter：优先打开关联复盘，否则查看原 XML。')
-        actions=self.row(info);self.button(actions,'review','打开关联复盘',self.open_review,lambda:bool(self.review_path()),True);self.button(actions,'xml','查看原始 XML',self.open_xml,lambda:bool(self.xml_path()));self.button(actions,'note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),lambda:self.selected is not None and not self.loader.running)
+        actions=self.row(info);self.action_rows=(actions,);self.button(actions,'review','打开关联复盘',self.open_review,lambda:bool(self.review_path()),True);self.button(actions,'xml','查看原始 XML',self.open_xml,lambda:bool(self.xml_path()));self.button(actions,'note','收藏与标签',lambda:edit_note(app,self.selected,lambda:self.loader.read(True)),lambda:self.selected is not None and not self.loader.running)
         self.metrics=Metrics(info,[('driver','车手姓名'),('mode','参赛方式'),('date','比赛时间 (UTC)'),('track','赛道'),('layout','赛道布局 / 长度'),('phase','阶段'),('vehicle','使用车型'),('team','车型所在车队'),('class','车辆类别'),('grid','发车 / 同组'),('finish','完赛 / 同组'),('best','个人最快圈'),('finish_time','官方 FinishTime / 秒'),('laps','完成圈数'),('status','完赛状态'),('source','数据来源')]);self.metrics.pack(fill='x',pady=8)
         self.hint(info,'官方圈计时：XML 未提供完整有效圈验证，不计入遥测圈速纪录。')
         self.lap_table=SessionList(info,columns=('lap','time','s1','s2','s3'),height=5);self.lap_table.pack(fill='x',pady=6)
@@ -72,15 +74,23 @@ class OfficialPage(RecordPage):
         for key,title,width in COLUMNS:self.table.heading(key,text=tr(title))
         for key,title in (('lap','圈'),('time','圈速'),('s1','S1 / s'),('s2','S2 / s'),('s3','S3 / s')):self.lap_table.heading(key,text=tr(title))
         for key,title in (('field','冲突字段'),('telemetry','遥测观测值'),('official','官方 XML 值'),('decision','处理建议')):self.conflicts.heading(key,text=tr(title))
-        self.table.set_empty('没有匹配的官方成绩；可清除搜索、重置筛选或同步结果。')
+        self.empty_state()
     def accept(self,result):
         self.entries={e['id']:e for e in result['entries']};self.modes.update_options(list(self.entries.values()));self.populate_results();self.say('官方赛事 {count} · 未读取记录 {errors} · 冲突记录 {conflicts}',count=len(self.entries),errors=len(result['errors']),conflicts=len(result['conflicts']))
+        # The footer speaks for the view on screen, never for the one before it.
+        self.app.status.set(tr('{count} 场官方赛事').format(count=len(self.entries)))
     def populate_results(self,*_):
         if not self.alive():return
         self.modes.describe();rows=[]
         for _,e in self.modes.pairs(list(self.entries.values()),self.query.get()):
             rows.append((e['id'],e,(e['started_utc'][:19].replace('T',' '),tr(e['phase']),tr(LABELS[mode(e)]),display(e['layout']),e['vehicle'],place(e['finish_place'],e['finish_class_place']),lap_time(e['best_lap_s']) if e['best_lap_s'] else '—',tr(LINKS.get(e.get('link_status'),'无关联遥测')))))
-        self.populate(rows)
+        self.populate(rows);self.empty_state()
+    def empty_state(self):
+        # Official results come from the game's XML: sync it, or import a folder in the offline edition.
+        from platform_runtime import offline_only
+        action=('导入结果文件夹',self.folder) if offline_only() else ('同步游戏成绩',self.sync_game)
+        self.show_empty(('没有匹配的官方成绩；清空搜索后保留筛选。','当前筛选下没有官方成绩。','还没有官方成绩：同步游戏成绩或导入结果文件夹后会显示在这里。'),action)
+    refresh_empty=empty_state
     def render_selection(self):
         e=self.selected;self.modes.describe(e)
         if not e:self.metrics.set();self.detail_text.set('');self.lap_table.replace([],());self.conflicts.replace([],());return

@@ -26,13 +26,17 @@ def show(app):return HistoryPage(app)
 
 
 class HistoryPage(RecordPage):
+    # The fixed toolbar carries the record actions (see RecordPage.install_actions).
+    bar_keys=('curve','card','lap-pair')
+    menu_keys=(('folder','查看与整理'),('note','查看与整理'),('lap-overview','分析与训练'),('comparable','分析与训练'),('reopen','最近导出'),('export-folder','最近导出'))
     def __init__(self,app):
         body=app.card('纪录履历','同赛道布局、同车型分别统计刷新过程；默认最新记录优先');super().__init__(app,'history',body)
         self.identity=lambda e:(str(e['folder']),e['lap']['number']);self.entries=[];row=app.row(body);self.search(row)
         self.button(row,'refresh','刷新记录',self.loader.read,lambda:not self.loader.running)
-        self.hint(body,'双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。')
         from control_mode_filters import ModeControls
-        self.modes=ModeControls(body,app,self.populate_history,'history_event_filters');self.modes.bind_query(self.query);self.count=CountBadge(body);self.count.pack(fill='x',pady=4)
+        self.modes=ModeControls(body,app,self.populate_history,'history_event_filters');self.modes.bind_query(self.query);self.count=CountBadge(body)
+        # The filtered count closes the status line: one line between search and rows.
+        self.count.pack(in_=self.feedback,side='right',before=self.feedback.label,padx=(12,0))
         self.table=SessionList(body,columns=tuple(k for k,_,_ in COLUMNS),height=5)
         for key,_,width in COLUMNS:self.table.column(key,width=width*self.table.s,minwidth=(80 if key=='class' else 45)*self.table.s,stretch=key in ('track','layout','car'))
         from control_table_preferences import install
@@ -41,7 +45,7 @@ class HistoryPage(RecordPage):
         self.chosen=self.variable('chosen');self.hint(chart_body,self.chosen,11,T.FG);self.summary=self.variable('summary');self.hint(chart_body,self.summary,10,T.ACCENT)
         self.chart=ProgressChart(chart_body,self.select_point);self.chart.pack(fill='x',pady=8)
         self.exporter=getattr(app,'history_curve_export',None) or CurveExport(app);app.history_curve_export=self.exporter
-        actions=self.row(chart_body);actions.pack_configure(before=self.chart);self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:self.selected is not None and not self.exporter.busy,True)
+        actions=self.row(chart_body);actions.pack_configure(before=self.chart);self.action_rows=(actions,);self.button(actions,'curve','打开完整圈曲线',self.curve,lambda:self.selected is not None and not self.exporter.busy,True)
         self.button(actions,'folder','打开赛事目录',lambda:self.open(self.selected['folder']),lambda:self.selected is not None)
         self.button(actions,'card','生成个人战绩卡',self.card,lambda:self.selected is not None)
         # Notes belong to the chosen record, beside its other actions.
@@ -61,16 +65,21 @@ class HistoryPage(RecordPage):
         label=self.app.label(parent,text,size,color);label.pack(fill='x',pady=5);label.bind('<Configure>',lambda e:label.configure(wraplength=max(100,e.width)));return label
     def headers(self):
         for key,title,width in COLUMNS:self.table.heading(key,text=tr(title))
-        self.table.set_empty('没有匹配的纪录；可清除搜索或重置筛选。')
+        self.empty_state()
     def accept(self,value):
         self.entries=value['entries'];self.modes.update_options(self.entries);self.populate_history();self.say('纪录刷新 {count} · 缺失日期排除 {missing} · 冲突记录 {conflicts}',count=len(self.entries),missing=value['missing_dates'],conflicts=value['conflicts'])
+        # The footer speaks for the view on screen, never for the one before it.
+        self.app.status.set(tr('{count} 次纪录刷新').format(count=len(self.entries)))
     def populate_history(self,*_):
         if not self.alive():return
         rows=[]
         for i,e in self.modes.pairs(self.entries,self.query.get()):
             gain=e['improvement_s'];rows.append((str(i),e,(e['observed_utc'][:19].replace('T',' '),display(e['track']),layout(e['track'],e['layout'],e['length_m']),e['vehicle_class'],tr(LABELS[mode(e)]),e['session'].get('vehicle',''),e['lap']['number'],lap_time(e['time_s']),tr('首次记录') if gain is None else f'-{gain:.3f} s')))
         self.table.viewport.configure(height=round(min(5,max(2,len(rows)))*self.table.rowheight))
-        self.count.set(len(rows));self.populate(rows)
+        self.count.set(len(rows));self.populate(rows);self.empty_state()
+    def empty_state(self):
+        self.show_empty(('没有匹配的纪录履历；清空搜索后保留筛选。','当前筛选下没有纪录履历。','还没有纪录履历：同一赛道布局、同一车型刷新最快圈后会记录在这里。'))
+    refresh_empty=empty_state
     def render_selection(self):
         e=self.selected;self.modes.describe(e)
         if not e:self.chosen.set('');self.summary.set('');self.chart.set([]);return

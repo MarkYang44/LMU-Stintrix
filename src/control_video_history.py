@@ -70,8 +70,10 @@ def show(app,root,video_path=None):
     def changed(*_):binding.set(False);identity_text()
     box.bind('<<ComboboxSelected>>',changed)
     def item_label(item,index):
+        # Lap times read as m:ss.sss here as everywhere else in the app.
+        from race_model import lap_time
         lap=tr('第 {number} 圈').format(number=item['number'])
-        return f"{str(item['date'])[:19]} · {item['vehicle']} · {lap} · {item['time_s']:.3f} s · {item['identity']['track_layout']} / {item['identity']['length_m']:.1f} m [{index}]"
+        return f"{str(item['date'])[:19]} · {item['vehicle']} · {lap} · {lap_time(item['time_s'])} · {item['identity']['track_layout']} / {item['identity']['length_m']:.1f} m [{index}]"
     def add(item):
         label=item_label(item,len(state['items'])+1);state['items'][label]=item;return label
     def refresh():

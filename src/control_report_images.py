@@ -13,7 +13,7 @@ from report_images import ImageLoader,stamp
 from i18n import tr,Label
 from control_motion import fade_in
 
-NAMES={'圈速单.png':'圈速单','比赛日志.png':'赛事日志'}
+NAMES={'圈速单.png':'圈速单','比赛日志.png':'比赛日志'}
 
 
 def show(app,folder,name):
@@ -56,7 +56,7 @@ class ReportViewer:
         hint=Label(footer,text='滚轮浏览 · Ctrl+滚轮缩放 · 拖动平移 · ←/→ 切换报告 · Esc 关闭',bg=T.BG,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left');hint.pack(fill='x',pady=(4,0));hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(80,e.width)))
         context=Label(w,textvariable=self.context,bg=T.BG,fg=T.MUTED,font=(T.FONT,9),anchor='w',justify='left');context.pack(fill='x',padx=18,pady=(12,4));context.bind('<Configure>',lambda e:context.configure(wraplength=max(80,e.width)))
         actions=tk.Frame(w,bg=T.BG);actions.pack(fill='x',padx=16,pady=(0,6));self.actions=actions
-        commands=[('圈速单.png','圈速单',lambda:self.open(self.folder,'圈速单.png'),105),('比赛日志.png','赛事日志',lambda:self.open(self.folder,'比赛日志.png'),105),
+        commands=[('圈速单.png','圈速单',lambda:self.open(self.folder,'圈速单.png'),105),('比赛日志.png','比赛日志',lambda:self.open(self.folder,'比赛日志.png'),105),
             ('width','适应宽度',lambda:self.viewport.fit('width'),110),('all','适应整图',lambda:self.viewport.fit('all'),110),('one','100%',lambda:self.viewport.fit('one'),75),
             ('minus','−',lambda:self.viewport.zoom(1/1.2),48),('plus','＋',lambda:self.viewport.zoom(1.2),48),
             ('system','系统查看器',self.open_system,125),('folder','赛事目录',self.open_folder,110),('reload','重新读取',self.reread,110),('generate','重新生成图片',self.regenerate,145)]
@@ -111,7 +111,7 @@ class ReportViewer:
             if allow_generate:
                 self.awaiting=True;job=getattr(self.app,'image_report_job',None)
                 self.say('正在后台生成报告图片…' if not job or job['folder']==self.folder else '另一场图片正在生成，完成后将处理当前赛事。');generate(self.app,self.folder)
-            else:self.say('这张图片尚未生成；无完成圈时请切换赛事日志。')
+            else:self.say('这张图片尚未生成；无完成圈时请切换比赛日志。')
             self.viewport.canvas.itemconfigure(self.hint,text=tr('报告图片尚未生成'));self.sync()
         except OSError as error:
             self.key=None;self.loader.cancel();self.viewport.clear();self.failed(str(error))
@@ -145,7 +145,7 @@ class ReportViewer:
     def open_system(self):
         path=self.folder/self.name
         try:
-            if not path.is_file():self.say('这张图片尚未生成；无完成圈时请切换赛事日志。');return
+            if not path.is_file():self.say('这张图片尚未生成；无完成圈时请切换比赛日志。');return
             open_path(str(path))
         except OSError as error:self.say('系统查看器未能打开图片；可继续使用内置查看器',error)
     def open_folder(self):

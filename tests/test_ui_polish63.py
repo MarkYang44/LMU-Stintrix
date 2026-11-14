@@ -150,7 +150,9 @@ class UI(unittest.TestCase):
             p=app.record_loaders['podium'].page;self.assertEqual(p.identity(p.selected),selected)
             for mode in ('light','dark'):
                 app.set_theme(mode);app.root.geometry('1060x700');self.pump(app,.15)
-                for b in p.buttons.values():self.assertGreater(b.winfo_width(),b.font.measure(i18n.tr(b.label))+15);self.assertLessEqual(b.winfo_rootx()+b.winfo_width(),app.root.winfo_rootx()+app.root.winfo_width()+1)
+                # Record actions live in the fixed toolbar (v0.4.3); placings are tabs.
+                visible=[*p.fixed.values(),p.menu.trigger,*p.category_buttons.values()];self.assertTrue(p.fixed)
+                for b in visible:self.assertGreater(b.winfo_width(),b.font.measure(i18n.tr(b.label))+15);self.assertLessEqual(b.winfo_rootx()+b.winfo_width(),app.root.winfo_rootx()+app.root.winfo_width()+1)
             self.assertFalse(errors)
         finally:i18n.set_language('zh')
 

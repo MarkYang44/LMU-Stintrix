@@ -26,7 +26,7 @@ def unavailable(app):
 
 
 def review_page(app):
-    body=app.card('AC EVO 赛事记录','这里只显示 AC EVO 数据；布局与圈速独立保存，双击打开记录概览。',compact=True)
+    body=app.card('AC EVO 赛事记录','这里只显示 AC EVO 数据；布局与圈速独立保存。',compact=True)
     app.sessions(body,True,True,False,compact_actions=True,fill=True)
     preview=app.card('赛道与车辆','官方图片保存在本机；选中赛事即可预览对应赛道和车型。',compact=True)
     app.evo_preview=RecordPreview(preview,app)
@@ -87,22 +87,27 @@ def data_page(app):
 
 def toolbar(app):
     if app.page in (4,5):
-        host=app.shell.action_host;host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8));install(host)
+        host=app.shell.action_host
+        gallery=getattr(app,'evo_gallery',None)
+        # The galleries browse like the LMU guide: search, filters and paging
+        # in this fixed row, then the image update.
+        if gallery is not None and gallery.winfo_exists():gallery.install_actions(host);return
+        host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8));install(host)
         app.button(host,'下载 / 更新官方图片',lambda:download_art(app),False,195,compact=True)
         return
     if app.page not in (1,):return
     host=app.shell.action_host;host.pack(fill='x',before=app.shell.scroll.master,pady=(0,8))
-    app.review_actions={'open':app.button(host,'打开记录概览',lambda:app.report('review.html'),True,140,compact=True)}
-    for key,label,name in [('laps','圈速单','圈速单.png'),('journal','赛事日志','比赛日志.png')]:
-        app.review_actions[key]=app.button(host,label,lambda n=name:app.report(n),False,100,compact=True)
-    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',lambda:app.compare_sessions() if len(app.tree.selection())>2 else app.selected_laps(),False,124,compact=True)
+    app.review_actions={'open':app.button(host,'打开记录概览',lambda:app.report('review.html'),True,100,compact=True)}
+    for key,label,name in [('laps','圈速单','圈速单.png'),('journal','比赛日志','比赛日志.png')]:
+        app.review_actions[key]=app.button(host,label,lambda n=name:app.report(n),False,88,compact=True)
+    app.review_actions['compare']=app.button(host,'圈 A / 圈 B',lambda:app.compare_sessions() if len(app.tree.selection())>2 else app.selected_laps(),False,100,compact=True)
     from control_delete import remove
     from control_danger import Danger
     from control_list_context import install as context_menu
     from control_action_menu import ActionMenu,MenuAction
     count=lambda:len(app.tree.selection()) if app.tree else 0
     single=lambda:count()==1;chosen=lambda:count()>0
-    button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,110,compact=True)
+    button=app.button(host,'更多操作 ▾',lambda:menu.toggle(),False,96,compact=True)
     from control_event_filters import edit_note
     from control_participation import edit as edit_mode,eligible
     from control_maintenance import reports,offline_ready
@@ -136,8 +141,12 @@ def toolbar(app):
         actions.insert(0,MenuAction('import-folder','导入 Windows 赛事文件夹',lambda:import_folder(app),'导入'))
     from control_table_layouts import actions as column_actions
     actions.extend(column_actions(app.tree))
-    delete=Danger(host,'删除选中记录',lambda:remove(app),140);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
+    delete=Danger(host,'删除选中记录',lambda:remove(app),120);delete.configure(height=px(delete,38));delete.pack(side='left',padx=(0,6))
     app.review_actions['delete']=delete
+    # Delete on the list asks the same confirmation as the button.
+    import sys
+    for sequence in ('<Delete>',)+(('<Command-BackSpace>',) if sys.platform=='darwin' else ()):
+        app.tree.viewport.bind(sequence,lambda _:(delete.invoke() if delete.winfo_exists() else None,'break')[1])
     # The same row as the LMU review: commands left, menu and delete at the far end.
     from control_toolbar import split_row
     split_row(app,host,[value for key,value in app.review_actions.items() if key!='delete'],[button,delete])

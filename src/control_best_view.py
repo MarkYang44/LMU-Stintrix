@@ -26,13 +26,9 @@ class Layout:
         target=round(rows*p.table.rowheight)
         if int(p.table.viewport.cget('height'))!=target:p.table.viewport.configure(height=target)
     def empty(self):
-        p=self.page;active=any(value!=DEFAULTS.get(key) for key,value in p.modes.state.items() if key not in ('query','sort'))
-        if p.query.get().strip():text='没有匹配的纪录；清空搜索后保留筛选。';label='清空搜索';command=p.search_field.clear
-        elif active:text='当前筛选下没有纪录。';label='重置筛选';command=p.modes.reset
-        # Nothing recorded yet: point to where records come from, not to the
-        # refresh button that already sits above the list.
-        else:text='还没有有效赛道纪录；记录一场完整比赛后会自动出现。';label='前往运行与 HUD';command=lambda:p.app.request_page(0)
-        p.table.set_empty(text,label,command)
+        # The shared records grammar (RecordPage.show_empty): nothing recorded
+        # yet points to where records come from, not to the refresh button.
+        self.page.show_empty(('没有匹配的纪录；清空搜索后保留筛选。','当前筛选下没有纪录。','还没有有效赛道纪录；记录一场完整比赛后会自动出现。'))
     def details(self):
         p=self.page
         if not p.alive() or p.selected is None:return

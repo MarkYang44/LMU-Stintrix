@@ -293,11 +293,11 @@ class Engine:
                     if fresh:
                         self.status = ('DEMO' if self.demo else 'REC' if recording else 'LIVE · 此阶段不录制') + ' · ' + sample['track']
                     if ended_key == key:
-                        self.status = ('ERROR · '+self.recording_failure if getattr(self,'recording_failure',None) else 'SAVED · 比赛记录已保存')
+                        self.status = ('ERROR · '+self.recording_failure if getattr(self,'recording_failure',None) else 'SAVED · 赛事记录已保存')
                     if sample['finish'] in (1, 2, 3) and self.recorder.file:
                         self.finish_recording('finish flag ' + str(sample['finish']))
                         ended_key = key
-                        self.status = 'SAVED · 比赛记录已保存'
+                        self.status = 'SAVED · 赛事记录已保存'
                 if now - last_fresh > 3:
                     # Missing/frozen frames are not evidence of a new race.
                     # Retain the writer and identity until explicit phase/reset,

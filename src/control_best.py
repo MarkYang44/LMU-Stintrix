@@ -54,9 +54,9 @@ class BestPage(RecordPage):
         from control_table_preferences import install as preferences
         preferences(app,self.table,'best',self.modes,frozen=('track','time'));self.table.pack(fill='x',pady=8)
         self.modes.compact(self.table)
-        info=app.card('纪录详情','最快圈、赛道布局与驾驶输入。' if self.evo else '双击记录或按 Enter 打开完整圈曲线；刷新保留选择与滚动位置。',compact=True)
+        info=app.card('纪录详情','最快圈、赛道布局与驾驶输入。' if self.evo else '这一圈的赛道条件、车辆与轮胎，以及油门与刹车曲线。',compact=True)
         from control_best_view import Layout
-        self.view_layout=Layout(self,info)
+        self.view_layout=Layout(self,info);self.refresh_empty=self.view_layout.empty
         from control_evo_record import Header,Facts
         self.header=(Header if self.evo else RecordHeader)(info,app);self.header.pack(fill='x',pady=(4,8))
         self.track_title=self.hint(self.header.text,'尚无选择',17,T.FG,True)
@@ -83,11 +83,11 @@ class BestPage(RecordPage):
         if supported.training:self.button(actions,'training','训练优先级报告',self.training,ready)
         self.button(actions,'card','生成个人战绩卡',self.card,ready)
         from control_action_menu import ActionMenu,MenuAction
-        # The menu lives beside record navigation, so the detail card keeps it
-        # even when the fixed page toolbar replaces the duplicate action row.
-        more=self.button(navigation,'more','更多操作 ▾',lambda:self.menu.toggle())
+        # The record menu opens from the list (right click) and, once the fixed
+        # page toolbar is installed, from its 更多操作 at the far end, as on
+        # session review; the detail card keeps only record navigation.
         from control_maintenance import offline_ready
-        self.menu=ActionMenu(more,[
+        self.menu=ActionMenu(self.table.viewport,[
             MenuAction('lap-overview','圈速总览与节奏',self.lap_overview,'分析与训练',lambda:ready() and offline_ready(app),visible=lambda:evo),
             MenuAction('lap-pair','圈 A / 圈 B',self.lap_pair,'分析与训练',ready,visible=lambda:supported.selected_laps),
             MenuAction('comparable','同条件进步分析',self.comparable,'分析与训练',ready,visible=lambda:supported.training),
@@ -269,14 +269,21 @@ class BestPage(RecordPage):
         except (OSError,ValueError) as error:self.say('读取或同步未完成，可重试：{error}',error=str(error))
 
     def install_actions(self,host):
-        host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,6));row=self.app.row(host);install(row);self.fixed={}
+        from control_toolbar import split_row
+        host.pack(fill='x',before=self.app.shell.scroll.master,pady=(0,6));self.fixed={}
         from simulator_profiles import capabilities
         supported=capabilities(getattr(self.app,'simulator','lmu'))
         # Occasional corrections stay in the record menu and the unknown-mode
-        # notice; the fixed bar keeps only the actions used on every visit.
+        # notice; the bar keeps only the actions used on every visit, and the
+        # menu waits at its far end, as on every records view.
         for key,title,command in [('curve','打开完整圈曲线',self.curve),('training','训练优先级报告',self.training),('card','生成个人战绩卡',self.card),('details','纪录详情',self.view_layout.details)]:
             if key=='training' and not supported.training:continue
-            b=self.app.button(row,title,command,key=='curve',100 if key=='details' else 140);b.configure(height=px(b,38));self.fixed[key]=b
+            self.fixed[key]=self.app.button(host,title,command,key=='curve',100 if key=='details' else 140,compact=True)
+        more=self.app.button(host,'更多操作 ▾',lambda:self.menu.toggle(),False,110,compact=True);self.fixed_more=more
+        self.menu.trigger=more;more.bind('<Destroy>',self.menu.dispose,add='+')
+        # When the toolbar goes, the menu falls back to the list it also serves.
+        more.bind('<Destroy>',lambda e:setattr(self.menu,'trigger',self.table.viewport) if e.widget is more and self.table.winfo_exists() else None,add='+')
+        split_row(self.app,host,list(self.fixed.values()),[more])
         # The fixed toolbar already offers curve, training and card actions.
         self.detail_actions.pack_forget()
         self.sync()

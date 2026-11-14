@@ -81,11 +81,13 @@ class UI(unittest.TestCase):
         self.assertIsNone(app.renderer_draft);self.assertFalse(errors)
     def test_storage_summary_is_collapsed_complete_and_no_duplicate_export_buttons(self):
         app,root,errors=self.app(True);self.mount(app,3,'storage');b=app.data_browser;b.table.selection_set(b.table.get_children());b.sync();self.pump(app,.1)
-        self.assertFalse(b.details.body.winfo_manager());self.assertEqual(b.count.get(),'已选 8 场赛事');self.assertEqual(len(b.selection_text.get('1.0','end-1c').splitlines()),9);self.assertEqual(set(app.storage_buttons),{'compress','columnar','restore'})
+        self.assertFalse(b.details.body.winfo_manager());self.assertEqual(b.count.get(),'已选 8 场赛事');self.assertEqual(len(b.selection_text.get('1.0','end-1c').splitlines()),9);self.assertNotIn('picker',b.toolbar);self.assertIn('compress',b.toolbar)
+        # Selected-session storage operations live in the toolbar (v0.4.3): compress on the bar, the rest under 更多操作.
+        self.assertLessEqual({'columnar','restore'},{a.key for a in b.menu.actions});self.assertNotIn('compress',{a.key for a in b.menu.actions})
         visible=(app.scroll.winfo_rooty()+app.scroll.winfo_height()-b.table.viewport.winfo_rooty())/b.table.rowheight;self.assertGreaterEqual(visible,3);b.details.set_open(True);self.assertTrue(b.details.body.winfo_manager());self.assertFalse(errors)
     def test_storage_picker_label_tracks_state_in_both_languages_and_keeps_selection(self):
-        app,root,errors=self.app(True);self.mount(app,3,'storage');b=app.data_browser;b.table.selection_set(b.table.get_children()[:2]);self.assertEqual(b.toolbar['picker'].cget('text'),'收起赛事列表');b.toolbar['picker'].invoke();self.assertFalse(b.picker_open);self.assertEqual(b.toolbar['picker'].cget('text'),'选择赛事')
-        app.toggle_language();self.pump(app,.15);b=app.data_browser;self.assertEqual(len(b.selected()),2);self.assertEqual(b.toolbar['picker'].cget('text'),'Select sessions');b.toolbar['picker'].invoke();self.assertEqual(b.toolbar['picker'].cget('text'),'Hide session list');self.assertFalse(errors)
+        app,root,errors=self.app(True);self.mount(app,3,'storage');b=app.data_browser;b.table.selection_set(b.table.get_children()[:2]);self.assertEqual(b.picker_link.cget('text'),'收起赛事列表');b.picker_link.invoke();self.assertFalse(b.picker_open);self.assertEqual(b.picker_link.cget('text'),'选择赛事')
+        app.toggle_language();self.pump(app,.15);b=app.data_browser;self.assertEqual(len(b.selected()),2);self.assertEqual(b.picker_link.cget('text'),'Select sessions');b.picker_link.invoke();self.assertEqual(b.picker_link.cget('text'),'Hide session list');self.assertFalse(errors)
     def test_default_compact_columns_keep_lap_and_car_visible_without_saving_preferences(self):
         app,root,errors=self.app(True);self.mount(app,1);table=app.tree;positions={k:x for k,x,_ in table.positions()}
         for key in ('lap','car'):self.assertLessEqual(positions[key]+table.actual[key],table.viewport.winfo_width())

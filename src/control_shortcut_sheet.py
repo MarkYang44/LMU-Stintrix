@@ -4,6 +4,7 @@ Like the command palette it floats inside the main window and opens without
 motion; Esc, F1 or a click outside closes it and returns focus. Game hotkeys
 for the HUD stay in their own window, one click away.
 """
+import sys
 import tkinter as tk
 from control_theme import T
 from i18n import tr
@@ -11,7 +12,7 @@ from control_widgets import px
 
 GROUPS=(
     ('全局',(('Ctrl K','快速跳转：页面、操作、设置、赛道与车型'),('Ctrl 1–7','切换到左侧对应页面'),('Ctrl F','聚焦当前页的搜索框'),('F1','打开或关闭快捷键一览'))),
-    ('列表',(('↑ ↓','移动选中行'),('Enter','打开复盘或完整圈曲线'),('Ctrl A','全选当前列表'),('Ctrl C','复制选中行'),('Ctrl Shift C','复制当前单元格'),('F5','刷新赛事与纪录列表'))),
+    ('列表',(('↑ ↓','移动选中行'),('Enter','打开复盘或完整圈曲线'),('Ctrl A','全选当前列表'),('Ctrl C','复制选中行'),('Ctrl Shift C','复制当前单元格'),('F2','查看单元格完整内容'),('Shift F10','打开选中行的操作菜单'),('Delete' if sys.platform!='darwin' else 'Cmd ⌫','删除选中赛事（需确认）'),('F5','刷新赛事与纪录列表'))),
     ('输入与选择',(('Esc','清空搜索框，或关闭浮层'),('← →','切换分段选项与分区标签'),('Home End','跳到第一个或最后一个选项'),('Ctrl S','保存当前参数模块'))),
 )
 

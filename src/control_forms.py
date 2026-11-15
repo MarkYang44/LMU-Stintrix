@@ -6,11 +6,18 @@ from control_theme import T
 from i18n import tr
 
 LABELS={'mode':{'fixed':'固定频率','dynamic':'动态频率'},'draw_mode':{'sync':'跟随采样','manual':'手动刷新'},'target_mode':{'auto':'自动识别','laps':'按圈数','time':'按时间'},'rate_mode':{'conservative':'保守估算','median':'中位数'}}
-# Sampling fields that only apply to one mode, grouped so each condition is
+# Fields that only apply under one choice, grouped so each condition is
 # explained once above its fields instead of beneath every affected value.
-CONDITIONS={'fixed_hz':'fixed','min_hz':'dynamic','max_hz':'dynamic','change_pct_s':'dynamic','hold_s':'dynamic','brake_pct':'dynamic','draw_hz':'manual'}
+# A group names the choice it follows and the values that make it apply.
+GROUPS={'fixed':('mode',('fixed',)),'dynamic':('mode',('dynamic',)),'manual':('draw_mode',('manual',)),'target':('target_mode',('laps','time'))}
+CONDITIONS={'sampling':{'fixed_hz':'fixed','min_hz':'dynamic','max_hz':'dynamic','change_pct_s':'dynamic','hold_s':'dynamic','brake_pct':'dynamic','draw_hz':'manual'},
+    'vehicle':{'target_value':'target'}}
 NOTES={'fixed':('仅固定采样时生效','以下 {count} 项仅固定采样时生效'),'dynamic':('仅动态采样时生效','以下 {count} 项仅动态采样时生效'),
-    'manual':('仅手动刷新时生效','以下 {count} 项仅手动刷新时生效')}
+    'manual':('仅手动刷新时生效','以下 {count} 项仅手动刷新时生效'),'target':('仅按圈数或按时间时生效','以下 {count} 项仅按圈数或按时间时生效')}
+# A value whose meaning follows a choice says which meaning applies.
+CAPTIONS={'target_value':('target_mode',{'laps':'手动总圈数','time':'手动剩余分钟'})}
+# Sampling presets (sampling.PRESETS) as one choice; edited values read as custom.
+PRESET_LABELS={'节能':'节能','均衡':'均衡','高细节':'高细节','custom':'自定义'}
 
 FILES={'sampling':'settings.json','vehicle':'vehicle_settings.json','endurance':'endurance_settings.json'}
 
@@ -73,6 +80,45 @@ def close_forms(center,done):
         center.status.set(tr('设置未保存')+' · '+text)
         from control_confirm import notice
         notice(center.root,'设置未保存',text)
+
+
+def matching_preset(variables):
+    """The sampling preset these values equal, else 'custom'."""
+    from sampling import PRESETS
+    for name,values in PRESETS.items():
+        if all(key in variables and equal(variables[key].get(),value) for key,value in values.items()):return name
+    return 'custom'
+
+
+class LiveRates:
+    """While a HUD runs, the sampling card shows what the settings achieve.
+
+    Targets, the sampler's current reason and the measured polling, new-data
+    and drawing rates refresh twice a second while the card is on screen.
+    """
+    def __init__(self,center,body):
+        from control_widgets import px
+        self.center=center;self.label=center.label(body,'',9,T.MUTED);self.label.pack(fill='x',pady=(px(body,10),0))
+        self.label.bind('<Configure>',lambda e:self.label.configure(wraplength=max(100,e.width)),add='+')
+        body.live_rates=self;self.tick()
+    def text(self):
+        center=self.center
+        if not center.active():return tr('启动 HUD 后，这里显示实际采样与绘制频率。')
+        hud=center.hud;engine=hud.engine
+        poll,fresh=engine.actual_rates()
+        # '固定' alone translates as 'pin' elsewhere; the sampler means the fixed rate.
+        reason=tr({'固定':'固定频率'}.get(engine.reason,engine.reason)) if engine.reason else ''
+        return tr('HUD 运行中 · 目标采样 {target} Hz / 绘制 {draw} Hz{reason} · 实测轮询 {poll:.1f} / 新数据 {fresh:.1f} / 绘制 {drawn:.1f} Hz').format(
+            target=engine.target_hz,draw=hud.drawing_target(),reason=(' · '+reason) if reason else '',poll=poll,fresh=fresh,drawn=hud.actual_draw_rate())
+    def tick(self):
+        label=self.label
+        if not label.winfo_exists():return
+        if label.winfo_ismapped():
+            # The text changes every tick; it is set without becoming a translation source.
+            try:value=self.text()
+            except Exception:value=''
+            tk.Label.configure(label,text=value)
+        label.after(500 if label.winfo_ismapped() else 1000,self.tick)
 
 
 def equal(a,b):
@@ -145,16 +191,16 @@ def build(center,body,module,specs,choices=()):
     drafts=getattr(center,'form_drafts',{}).get(module,{})
     # A quiet header status replaces the old status line and per-card save
     # button: the fixed form bar (and Ctrl+S) is the single save surface.
-    badge=Status(body,center);body.form_status=badge;complete=False;conditions={}
+    badge=Status(body,center);body.form_status=badge;complete=False;conditions={};captions={};preset=None;applying=[False]
     grid=FormGrid(body);body.form_grid=grid
     def dirty(*_):
         changed=sum(not equal(v.get(),baseline[k]) for k,v in variables.items())
         badge.show('● '+tr('已修改 {count} 项').format(count=changed) if changed else '',T.ACCENT)
         bar=getattr(center,'form_bar',None)
         if complete and bar and bar.winfo_exists():bar.refresh(module)
-        mode=variables.get('mode');draw=variables.get('draw_mode')
         for group,(note,anchor,members) in conditions.items():
-            active=(draw is None or draw.get()=='manual') if group=='manual' else mode is None or mode.get()==group
+            choice,values=GROUPS[group];selector=variables.get(choice)
+            active=selector is None or selector.get() in values
             for field,label in members:
                 label.configure(fg=T.FG if active else T.MUTED)
                 # Keep fields editable: an invalid retained value can always be repaired.
@@ -163,6 +209,10 @@ def build(center,body,module,specs,choices=()):
             single,several=NOTES[group]
             note.configure(text=tr(single) if len(members)==1 else tr(several).format(count=len(members)))
             grid.show(note,True)
+        for key,(caption,default) in captions.items():
+            choice,names=CAPTIONS[key];selector=variables.get(choice)
+            caption.configure(text=names.get(selector.get(),default) if selector is not None else default)
+        if preset is not None and not applying[0]:preset.set(matching_preset(variables))
     def refresh():
         current=load(path)
         for key,var in variables.items():
@@ -190,13 +240,32 @@ def build(center,body,module,specs,choices=()):
         tile=tk.Frame(body,bg=T.CARD);grid.add(tile,'modes');field=segmented(center,tile,label,variable(key),options,LABELS.get(key))
         feedback.add(key,field,label,center.label(tile,'',9,T.RED));register(center,key,label,field,module)
         variables[key].trace_add('write',lambda *_,k=key:feedback.clear(k));yield
+    if module=='sampling':
+        # The presets that used to live only in the HUD's own dialog. Choosing
+        # one fills the dynamic-sampling values as an unsaved draft.
+        from sampling import PRESETS
+        preset=tk.StringVar(center.root,value=matching_preset(variables));body.form_preset=preset
+        def apply_preset():
+            name=preset.get()
+            if name not in PRESETS:return
+            applying[0]=True
+            try:
+                for key,value in PRESETS[name].items():
+                    if key in variables:variables[key].set(str(value))
+            finally:applying[0]=False
+            preset.set(matching_preset(variables))
+        tile=tk.Frame(body,bg=T.CARD);grid.add(tile,'presets')
+        field=segmented(center,tile,'采样预设',preset,[*PRESETS,'custom'],PRESET_LABELS)
+        field.command=apply_preset;register(center,'sampling_preset','采样预设',field,module)
+        yield
     for key,label in specs:
-        group=CONDITIONS.get(key) if module=='sampling' else None
+        group=CONDITIONS.get(module,{}).get(key)
         tile=tk.Frame(body,bg=T.CARD)
         if group and group not in conditions:
             # One caption per group, placed above it only while the group is inactive.
             note=center.label(body,'',9,T.MUTED);grid.note(note,group);conditions[group]=(note,tile,[])
         grid.add(tile,group);row=center.row(tile);caption=center.label(row,label,10,T.MUTED);caption.pack(side='left')
+        if key in CAPTIONS:captions[key]=(caption,label)
         field=Field(row,textvariable=variable(key),width=15,font=(T.LATIN,11));field.pack(side='right',padx=4)
         if group:conditions[group][2].append((field,caption))
         error_hint=center.label(tile,'',9,T.RED);feedback.add(key,field,label,error_hint);register(center,key,label,field,module)
@@ -215,6 +284,7 @@ def build(center,body,module,specs,choices=()):
         current=load(path)
         for key,var in variables.items():var.set(str(current[key]))
         baseline.update({key:str(value) for key,value in current.items()});center.form_drafts.pop(module,None);feedback.clear();dirty()
+    if module=='sampling':LiveRates(center,body)
     body.form_feedback=feedback;body.form_validate=validation;body.form_save=save;body.form_module=module
     body.form_reset=reset;body.form_changed=lambda:sum(not equal(var.get(),baseline[key]) for key,var in variables.items())
     if not hasattr(center,'form_panels'):center.form_panels={}

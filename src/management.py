@@ -21,12 +21,10 @@ from control_motion import fade_in
 
 def panel(app,title,width,height):
     from control_window import fit
+    # A normal tool window like every other: not always on top of other
+    # applications, and it leaves the app-wide ttk styles alone.
     window=tk.Toplevel(app.root);fade_in(window);window.title(tr(title))
-    window.configure(bg=T.BG);window.attributes('-topmost',True);fit(window,width,height,owner=app.root)
-    style=ttk.Style(window);style.theme_use('clam')
-    style.configure('Scope.Treeview',background=T.CARD,foreground=T.FG,fieldbackground=T.CARD,rowheight=29)
-    style.configure('Scope.Treeview.Heading',background=T.FIELD,foreground=T.MUTED)
-    style.map('Scope.Treeview',background=[('selected',T.SELECT)])
+    window.configure(bg=T.BG);fit(window,width,height,owner=app.root)
     return window
 
 

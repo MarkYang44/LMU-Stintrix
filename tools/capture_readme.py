@@ -17,6 +17,42 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def window_image(window):
+    """Render this application's own window with PrintWindow and keep its client area.
+
+    Unlike a grab of the screen, other windows (a browser in front, notifications)
+    can never appear in the image, and nothing is raised or focused to take it.
+    """
+    import ctypes
+    from ctypes import wintypes
+    from PIL import Image
+    user=ctypes.WinDLL('user32',use_last_error=True);gdi=ctypes.WinDLL('gdi32',use_last_error=True)
+    for name,args,result in (('GetWindowRect',[wintypes.HWND,ctypes.POINTER(wintypes.RECT)],wintypes.BOOL),('GetClientRect',[wintypes.HWND,ctypes.POINTER(wintypes.RECT)],wintypes.BOOL),
+            ('ClientToScreen',[wintypes.HWND,ctypes.POINTER(wintypes.POINT)],wintypes.BOOL),('GetWindowDC',[wintypes.HWND],wintypes.HDC),
+            ('ReleaseDC',[wintypes.HWND,wintypes.HDC],ctypes.c_int),('PrintWindow',[wintypes.HWND,wintypes.HDC,wintypes.UINT],wintypes.BOOL)):
+        function=getattr(user,name);function.argtypes=args;function.restype=result
+    for name,args,result in (('CreateCompatibleDC',[wintypes.HDC],wintypes.HDC),('CreateCompatibleBitmap',[wintypes.HDC,ctypes.c_int,ctypes.c_int],wintypes.HBITMAP),
+            ('SelectObject',[wintypes.HDC,wintypes.HGDIOBJ],wintypes.HGDIOBJ),('DeleteObject',[wintypes.HGDIOBJ],wintypes.BOOL),('DeleteDC',[wintypes.HDC],wintypes.BOOL),
+            ('GetDIBits',[wintypes.HDC,wintypes.HBITMAP,wintypes.UINT,wintypes.UINT,ctypes.c_void_p,ctypes.c_void_p,wintypes.UINT],ctypes.c_int)):
+        function=getattr(gdi,name);function.argtypes=args;function.restype=result
+    class Header(ctypes.Structure):
+        _fields_=[('biSize',wintypes.DWORD),('biWidth',ctypes.c_long),('biHeight',ctypes.c_long),('biPlanes',wintypes.WORD),('biBitCount',wintypes.WORD),('biCompression',wintypes.DWORD),
+            ('biSizeImage',wintypes.DWORD),('biXPelsPerMeter',ctypes.c_long),('biYPelsPerMeter',ctypes.c_long),('biClrUsed',wintypes.DWORD),('biClrImportant',wintypes.DWORD)]
+    window.update_idletasks();hwnd=int(window.frame(),16)
+    rect=wintypes.RECT();user.GetWindowRect(hwnd,ctypes.byref(rect));width,height=rect.right-rect.left,rect.bottom-rect.top
+    source=user.GetWindowDC(hwnd);memory=gdi.CreateCompatibleDC(source);bitmap=gdi.CreateCompatibleBitmap(source,width,height);previous=gdi.SelectObject(memory,bitmap)
+    try:
+        if not user.PrintWindow(hwnd,memory,2):raise OSError('PrintWindow failed')  # PW_RENDERFULLCONTENT
+        buffer=ctypes.create_string_buffer(width*height*4)
+        gdi.GetDIBits(memory,bitmap,0,height,buffer,ctypes.byref(Header(ctypes.sizeof(Header),width,-height,1,32,0,0,0,0,0,0)),0)
+        image=Image.frombuffer('RGB',(width,height),buffer,'raw','BGRX',0,1).copy()
+    finally:
+        gdi.SelectObject(memory,previous);gdi.DeleteObject(bitmap);gdi.DeleteDC(memory);user.ReleaseDC(hwnd,source)
+    client=wintypes.RECT();user.GetClientRect(hwnd,ctypes.byref(client));origin=wintypes.POINT(0,0);user.ClientToScreen(hwnd,ctypes.byref(origin))
+    left,top=origin.x-rect.left,origin.y-rect.top
+    return image.crop((left,top,left+client.right,top+client.bottom))
+
+
 def sessions(data):
     from app_config import COLUMNS
     from laps import export_fastest
@@ -55,8 +91,12 @@ def main():
     if not work.is_relative_to(ROOT/'_local') or work.exists():raise ValueError('Use a new directory inside this project _local')
     data=work/'fixture-data';data.mkdir(parents=True);out=work/'screenshots'
     os.environ['LMU_STINTRIX_DATA_DIR']=str(data);os.environ['LMU_STINTRIX_REDUCED_MOTION']='1'
+    # Captures are taken at 100 % interface scale (1280 × 900 pixels), whatever
+    # the display scaling, so both locales and every release compare like for like.
+    import ctypes
+    user=ctypes.WinDLL('user32',use_last_error=True);user.SetProcessDpiAwarenessContext.argtypes=[ctypes.c_void_p]
+    user.SetProcessDpiAwarenessContext(ctypes.c_void_p(-1))  # DPI_AWARENESS_CONTEXT_UNAWARE
     sys.path.insert(0,str(ROOT/'src'))
-    from PIL import ImageGrab
     import control_center,i18n
     from control_record_art import RecordHeader
     from control_fields import Select
@@ -74,28 +114,26 @@ def main():
                 return
         raise RuntimeError('Actual screenshot UI did not settle')
     def capture(window,path,center):
-        window.lift();pump(center);window.update_idletasks()
-        # Capture this application's client area only. Never paint or relabel it.
-        bitmap=ImageGrab.grab(window=int(window.frame(),16),include_layered_windows=True)
-        x=window.winfo_rootx();y=window.winfo_rooty()
-        # Window-handle capture includes decorations; the client crop is identical in both locales.
-        import ctypes
-        from ctypes import wintypes
-        rect=wintypes.RECT();user=ctypes.WinDLL('user32',use_last_error=True)
-        user.GetWindowRect.argtypes=[wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
-        user.GetWindowRect(int(window.frame(),16),ctypes.byref(rect))
-        if bitmap.size!=(window.winfo_width(),window.winfo_height()):
-            bitmap=bitmap.crop((x-rect.left,y-rect.top,x-rect.left+window.winfo_width(),y-rect.top+window.winfo_height()))
+        pump(center);window.update_idletasks()
+        # This application's client area only, rendered by the window itself. Never paint or relabel it.
+        bitmap=window_image(window)
+        if bitmap.size!=(window.winfo_width(),window.winfo_height()):raise RuntimeError(f'Capture size {bitmap.size} differs from the window')
         path.parent.mkdir(parents=True,exist_ok=True);bitmap.save(path,format='WEBP',lossless=True,method=6)
         evidence.append(dict(file=path.relative_to(out).as_posix(),size=list(bitmap.size),bytes=path.stat().st_size))
     with patch.object(control_center.ControlCenter,'repair_windows_entry'):
         center=control_center.ControlCenter();center.root.geometry('1280x900+40+40')
         center.root.report_callback_exception=lambda *args:errors.append(str(args))
         try:
+            # Load the session list once first: it adopts the newest sample session as the
+            # last session, so the Run & HUD page shows the same bar in both locales.
+            center.show_page(1);pump(center,lambda:len(center.items)==8)
             for language in ('en','zh-CN'):
                 target='en' if language=='en' else 'zh'
                 if i18n.language!=target:center.toggle_language()
-                center.show_page(0);pump(center);capture(center.root,out/language/'control-center.webp',center)
+                # Both locales show the same state: wait for the last-session bar, which
+                # appears once the background scan has found the newest sample session.
+                center.show_page(0);pump(center,lambda:getattr(center.recent,'folder',None) is not None and getattr(center,'recent_widgets',None) is not None)
+                capture(center.root,out/language/'control-center.webp',center)
                 center.show_page(1);pump(center,lambda:len(center.items)==8)
                 # Show the actual library table below its optional filter controls.
                 center.scroll.yview_moveto(max(0,center.tree.winfo_rooty()-center.content.winfo_rooty()-35)/max(1,center.content.winfo_height()))

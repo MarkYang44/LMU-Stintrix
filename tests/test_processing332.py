@@ -30,6 +30,32 @@ def entry(root,simulator):
 
 
 class Data(unittest.TestCase):
+    def test_lmu_record_and_report_art_resolve_truncated_names_and_use_guide_fallback(self):
+        from PIL import Image
+        from control_record_art import vehicle_picture
+        from race_art import lmu_art,prepare_photo
+        with tempfile.TemporaryDirectory(dir=ROOT/'_local') as work:
+            root=Path(work)
+            for vehicle,slug in (
+                ('Chevrolet Corvette Z06 LMGT3.','corvette-z06-lmgt3-r'),
+                ('Aston Martin Vantage AMR LMGT','aston-martin-vantage-lmgt3'),
+            ):
+                self.assertEqual(vehicle_picture(vehicle)['slug'],slug)
+                art=lmu_art(vehicle,root)
+                self.assertEqual(art[0].stem,slug)
+                png=root/'report-car.png'
+                prepare_photo(art,png)
+                with Image.open(png) as image:self.assertEqual(image.format,'PNG');image.verify()
+            self.assertIsNone(lmu_art('Chevrolet Corvette unknown prototype',root))
+            private=root/'assets/cars';private.mkdir(parents=True)
+            image=private/'exact.png'
+            (private/'car_calibration.json').write_text(json.dumps({'cars':{'exact.png':{
+                'aliases':['Chevrolet Corvette Z06 LMGT3.'],'subject_bounds':[0,0,1,1]}}}),encoding='utf-8')
+            image.write_bytes(b'invalid image')
+            self.assertEqual(lmu_art('Chevrolet Corvette Z06 LMGT3.',root)[0].stem,'corvette-z06-lmgt3-r')
+            with Image.new('RGB',(100,50),'red') as photo:photo.save(image)
+            self.assertEqual(lmu_art('Chevrolet Corvette Z06 LMGT3.',root)[0],image)
+
     def test_known_alias_repair_backup_idempotence_and_explicit_override(self):
         from race_art import select_car,prepare_renderer_aliases
         with tempfile.TemporaryDirectory(dir=ROOT/'_local') as t:

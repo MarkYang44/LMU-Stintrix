@@ -179,10 +179,10 @@ class DesktopTests(unittest.TestCase):
                 self.assertFalse(job.busy);self.assertEqual(len(job.results),2)
                 self.assertEqual(job.states,['已完成','失败','已完成']);self.assertIn('fixture corrupt record',job.errors[1]);self.assertTrue(job.retry_button.enabled)
                 with patch('control_batch.os.startfile') as opened:
-                    for child in job.window.winfo_children():
-                        for row in child.winfo_children():
-                            for button in row.winfo_children():
-                                if getattr(button,'label',None)=='打开输出目录':button.invoke()
+                    def walk(widget):
+                        for child in widget.winfo_children():yield child;yield from walk(child)
+                    for button in walk(job.window):
+                        if getattr(button,'label',None)=='打开输出目录':button.invoke()
                     opened.assert_called_once_with(directory)
             finally:center.close()
 

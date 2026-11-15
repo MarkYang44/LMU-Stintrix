@@ -44,7 +44,7 @@ def payload(entry,details,show_name=False,show_date=False,root=None):
 
 def compose(value):
     from PIL import Image,ImageDraw,ImageFont,ImageOps
-    from control_record_art import vehicle_picture
+    from race_art import lmu_art
     from paths import ASSETS
     image=Image.new('RGB',(1920,1080),'#f6f7f9');draw=ImageDraw.Draw(image)
     regular=Path('C:/Windows/Fonts/msyh.ttc');bold=Path('C:/Windows/Fonts/msyhbd.ttc')
@@ -80,12 +80,12 @@ def compose(value):
         asset=item('cars',value['vehicle'],root=value.get('data_root'))
         if asset:path=Path(asset['local_image'])
     else:
-        item=vehicle_picture(value['vehicle'])
-        if item:
-            candidate=(ASSETS/'guide'/item['image']).resolve()
-            if candidate.is_relative_to((ASSETS/'guide/media').resolve()):path=candidate
+        art=lmu_art(value['vehicle'],value.get('data_root'))
+        if art:path=art[0]
     if path:
-        with Image.open(path) as source:photo=ImageOps.contain(source.convert('RGB'),(842,460),Image.Resampling.LANCZOS)
+        try:
+            with Image.open(path) as source:photo=ImageOps.contain(source.convert('RGB'),(842,460),Image.Resampling.LANCZOS)
+        except OSError:pass
     if photo:image.paste(photo,(104+(842-photo.width)//2,365+(460-photo.height)//2))
     else:text(value['vehicle'],(120,520),30,width=790)
     text(value.get('vehicle_caption',value['group']+' · '+value['vehicle']),(116,832),25,strong=True,width=805)

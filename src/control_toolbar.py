@@ -59,8 +59,8 @@ def install(app):
             MenuAction('library','完整记录管理',app.library,'整理与管理',hint='打开完整记录管理窗口'),
             MenuAction('all','全选当前列表',lambda:app.tree.selection_set(app.tree.get_children()),'整理与管理',lambda:bool(app.tree and app.tree.get_children())),
             MenuAction('clear','清除选择',lambda:app.tree.selection_set(()),'整理与管理',any_selected),
-            MenuAction('reference','选择实时参考圈',lambda:app.hud_action('select_reference'),'实时参考',app.active,'启动 HUD 后可选择实时参考圈',visible=app.active),
-            MenuAction('toggle','开启 / 关闭参考',app.toggle_reference,'实时参考',app.active,'启动 HUD 后可切换参考状态',visible=app.active),
+            MenuAction('reference','选择参考圈文件…',lambda:app.hud_action('select_reference'),'参考圈',app.active,'启动 HUD 后可选择实时参考圈',visible=app.active),
+            MenuAction('toggle','显示 / 隐藏参考圈差',app.toggle_reference,'参考圈',app.active,'启动 HUD 后可切换参考状态',visible=app.active),
             MenuAction('delete','删除选中赛事',lambda:remove(app),'删除',any_selected,'仅处理已选赛事，执行前仍需确认',True)]
         from platform_runtime import offline_only
         if offline_only():
@@ -95,6 +95,9 @@ def install(app):
         app.settings_search=Search(app,host)
         from control_video_widgets import TabBar,Tab
         anchors=TabBar(host);anchors.pack(anchor='w',pady=(px(host,2),0));tabs=[]
+        # Section jumps are also how the HUD's menu, panels and F10 open one
+        # part of Settings (ControlCenter.open_settings), so there is one editor.
+        app.settings_jumps={}
         for label,target in getattr(app,'settings_anchors',[]):
             def jump(body=target):
                 module=getattr(body,'form_module',None)
@@ -104,7 +107,7 @@ def install(app):
                 app.root.update_idletasks();y=body.winfo_rooty()-app.content.winfo_rooty()-20
                 app.scroll.yview_moveto(max(0,y)/max(1,app.content.winfo_height()))
                 app.settings_spy.show(body)
-            tabs.append((Tab(anchors,label,jump,110),target))
+            tabs.append((Tab(anchors,label,jump,110),target));app.settings_jumps[label]=jump
         # The section buttons double as tabs that follow the reading position.
         from control_feedback import TabIndicator
         from control_sections import ScrollSpy

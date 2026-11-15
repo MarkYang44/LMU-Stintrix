@@ -24,9 +24,9 @@ def diagram_image(original,foreground):
 
 class Picture(ImageSurface):
     """Decode only visible images, release on scroll-away; no global image cache."""
-    def __init__(self,parent,center,item):
+    def __init__(self,parent,center,item,artwork=None):
         super().__init__(parent,height=210)
-        self.center=center;self.item=item;self.photo=None;self.size=None;self.job=None;self.error='';self.loading=None;self.revision=0
+        self.center=center;self.item=item;self.artwork=artwork;self.photo=None;self.size=None;self.job=None;self.error='';self.loading=None;self.revision=0
         self.pack(fill='x',pady=(0,px(parent,16)))
         self.bind('<Configure>',self.changed);self.bind('<Destroy>',self.dispose,add='+')
         self.bind('<Unmap>',self.release,add='+');self.bind('<Map>',self.changed,add='+')
@@ -74,7 +74,9 @@ class Picture(ImageSurface):
             return
         if self.size==(width,height):return
         if self.loading==(width,height):return
-        if self.item.get('local_image'):
+        if self.artwork:
+            path,bounds=self.artwork
+        elif self.item.get('local_image'):
             path=Path(self.item['local_image']).resolve()
             if not path.is_relative_to((Path(self.center.data_path)/'assets/evo').resolve()):self.error='Invalid private image path';return
         else:
@@ -86,6 +88,11 @@ class Picture(ImageSurface):
         def decode():
             from PIL import Image,WebPImagePlugin
             with Image.open(path,formats=['WEBP','JPEG','PNG']) as original:
+                if self.artwork and bounds!=(0,0,1,1):
+                    box=tuple(round(value*axis) for value,axis in zip(bounds,original.size*2))
+                    with original.crop(box) as cropped:
+                        cropped.thumbnail((width,height),Image.Resampling.LANCZOS)
+                        return cropped.copy()
                 original.thumbnail((width,height),Image.Resampling.LANCZOS)
                 if self.item.get('diagram') and self.item.get('diagram_tint',True):
                     return diagram_image(original,tint)

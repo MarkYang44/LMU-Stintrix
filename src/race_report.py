@@ -3,7 +3,7 @@ import json
 import shutil
 from telemetry_file import Path
 import threading
-from race_art import select_car
+from race_art import lmu_art,select_car
 from race_images import pages
 from race_model import build_model,describe,elapsed,lap_status,lap_time,read_json
 from reporting import serialized
@@ -37,16 +37,17 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     if config['mode']=='racecom':
         from racecom_validity import prepare
         prepare(config['executable'])
-    if config['mode']=='racecom' and meta.get('simulator_id','lmu')=='lmu':
-        from race_art import image_model,prepare_renderer_aliases
-        if image_model(meta.get('vehicle','')):
-            base=Path(config['executable']).resolve().parent
-            prepare_renderer_aliases(base/'_customization/car_calibration.json',base/'Source/Cars')
-    art=select_car(meta.get('vehicle',''),car_directory)
-    if meta.get('simulator_id')=='ac_evo' and car_directory is None:
+    vehicle=meta.get('vehicle','')
+    art=None
+    if car_directory is not None:
+        art=select_car(vehicle,car_directory)
+    elif meta.get('simulator_id')=='ac_evo':
         from evo_art import item
-        official=item('cars',meta.get('vehicle',''))
+        official=item('cars',vehicle)
         if official:art=(Path(official['local_image']),(0,0,1,1))
+    else:
+        renderer_cars=Path(config['executable']).parent/'Source/Cars' if config['mode']=='racecom' else None
+        art=lmu_art(vehicle,renderer_cars=renderer_cars)
     inputs={name:signature(folder/name) for name in ('inputs.csv','session.json','race_events.csv','race_summary.json') if (folder/name).is_file()}
     fingerprint=dict(version=RENDER_VERSION,inputs=inputs,car=None,renderer=config['mode'])
     if meta.get('simulator_id')=='ac_evo':
@@ -59,7 +60,7 @@ def generate(folder,car_directory=None,renderer=None,force=False):
             base/'_customization'/'racecom_hooks.py',base/'_customization'/'stintrix_game_validity_v1.py',base/'_customization'/'car_calibration.json',base/'Source'/'LMU Logo.png'] if path.is_file()}
         car_path=base/'Source'/'Cars'
         fingerprint['artwork']={path.name:signature(path) for path in car_path.iterdir() if path.is_file() and path.suffix.casefold() in ('.jpg','.png','.jpeg')} if car_path.is_dir() else {}
-    if art:fingerprint['car']=dict(signature=signature(art[0]),bounds=art[1])
+    if art:fingerprint['car']=dict(signature=signature(art[0]),bounds=art[1],path=str(art[0]),selection=1)
     # JSON turns tuples into lists; keep the same canonical representation.
     fingerprint=json.loads(json.dumps(fingerprint))
     receipt=read_json(folder/'race_images.json',{})
@@ -72,7 +73,10 @@ def generate(folder,car_directory=None,renderer=None,force=False):
     files={}
     try:
         old_mode=receipt.get('fingerprint',{}).get('renderer') or ('racecom' if 'RaceCom' in receipt.get('generator','') else 'native')
-        if force or receipt.get('files') and (old_mode!=config['mode'] or receipt.get('fingerprint',{}).get('version')!=RENDER_VERSION or receipt.get('fingerprint',{}).get('lap_rules')!=fingerprint.get('lap_rules') or receipt.get('fingerprint',{}).get('lmu_validity_policy')!=fingerprint.get('lmu_validity_policy')):
+        previous=receipt.get('fingerprint',{})
+        if force or receipt.get('files') and (old_mode!=config['mode'] or any(
+            previous.get(key)!=fingerprint.get(key) for key in ('version','lap_rules','lmu_validity_policy','car')
+        )):
             # Explicit regeneration and renderer changes retain the prior reports.
             from uuid import uuid4
             prior=uuid4().hex[:12]
@@ -91,17 +95,28 @@ def generate(folder,car_directory=None,renderer=None,force=False):
         write_text(folder/'race_log.txt','\n'.join(lines)+'\n')
         if config['mode']=='racecom':
             from racecom_bridge import render
-            for name,path in render(folder,model,config['executable']).items():files[name]=signature(path)
+            # EVO uses its existing renderer setup and branding.
+            report_art=art if meta.get('simulator_id','lmu')=='lmu' else None
+            for name,path in render(folder,model,config['executable'],art=report_art).items():files[name]=signature(path)
         else:
-            for name,canvas in pages(model,art):
-                pending=folder/(name+'.'+str(threading.get_ident())+'.pending')
-                try:canvas.save(pending);pending.replace(folder/name)
-                finally:pending.unlink(missing_ok=True)
-                files[name]=signature(folder/name)
+            from contextlib import ExitStack
+            import sys
+            with ExitStack() as stack:
+                if art and sys.platform=='win32' and art[0].suffix.casefold()=='.webp':
+                    from tempfile import TemporaryDirectory
+                    from race_art import prepare_photo
+                    scratch=Path(stack.enter_context(TemporaryDirectory(prefix='.report-art-',dir=folder)))
+                    prepare_photo(art,scratch/'car.png')
+                    art=(scratch/'car.png',(0,0,1,1))
+                for name,canvas in pages(model,art):
+                    pending=folder/(name+'.'+str(threading.get_ident())+'.pending')
+                    try:canvas.save(pending);pending.replace(folder/name)
+                    finally:pending.unlink(missing_ok=True)
+                    files[name]=signature(folder/name)
         for name in ('race_log.json','race_log.txt'):files[name]=signature(folder/name)
         receipt=dict(version=2,status='complete',generator='RaceCom original / light' if config['mode']=='racecom' else ('Stintrix compatibility / Windows GDI+' if __import__('sys').platform=='win32' else 'Stintrix native / Pillow'),fingerprint=fingerprint,
             files=files,lap_count=len(model['laps']),event_count=len(model['events']),original_files_retained=True,
-            car_image='private calibrated artwork' if art else 'unavailable')
+            car_image='matched artwork' if art else 'unavailable')
         atomic_json(folder/'race_images.json',receipt)
         (folder/'race_images_error.txt').unlink(missing_ok=True)
         return receipt

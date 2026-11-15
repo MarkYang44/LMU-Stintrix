@@ -1,3 +1,20 @@
+## v0.4.4 — HUD 实时控制归位
+
+- HUD 右键菜单重新整理：顶层从 32 项平铺减为 13 项，按「运行与 HUD」页的名称和顺序分组（显示模式、输入通道、波形窗口、附加面板、参考圈、面板尺寸与不透明度、记录与复盘、设置）。菜单每次打开时按当前界面语言生成，英文界面也是英文；当前的显示模式、输入通道、波形、面板尺寸和不透明度带选中标记；F6–F11 显示在右侧快捷键列，不再写进文字；当前游戏不支持的功能直接不出现，而不是显示为灰色。
+- 参数只在一个地方编辑：HUD 菜单的「采样与刷新…」（F10）、「轮胎、燃油与能量策略…」「进站、Stint 与天气…」，以及轮胎、燃油、进站、Stint、天气小面板的右键设置，都直接打开控制中心「设置」的对应分区。原先三个样式不同、保存方式不同、只有中文的 HUD 设置对话框已移除；在「设置」中修改仍会立即应用到运行中的 HUD，并照常写入记录的设置历史。
+- 「设置 → 输入采样」新增「采样预设」：节能 / 均衡 / 高细节（原先只在 HUD 对话框里）。选中后作为未保存的修改填入动态采样参数，保存后生效；手动改动任一参数后显示「自定义」。HUD 运行时，卡片底部每 0.5 秒显示目标与实测的轮询、新数据和绘制频率（原 HUD 采样对话框的实时信息）。
+- 「设置 → 车辆策略」的「手动赛程数值」只在赛程来源为按圈数或按时间时生效：未生效时变暗并在上方说明条件；按圈数时显示为「手动总圈数」，按时间时为「手动剩余分钟」。车辆策略和耐力赛卡片补充了原 HUD 对话框里的说明（耗油估算方式、胎况含义、限速与天气数据来源）。
+- 「运行与 HUD」新增「参考圈」卡片：是否在 HUD 显示参考圈差（F6）、参考来源（自动匹配 / 固定参考圈）、自动匹配的圈（最快完整圈 / 典型稳定圈）、当前参考说明，以及「选择参考圈文件…」「从完整记录管理挑选…」。HUD 运行时修改立即生效；用 F6 或 HUD 菜单修改后，卡片同步更新。此前这些选项只能在 HUD 右键菜单里找到。
+- 「导入 LMU 官方遥测」（HUD 菜单 → 记录与复盘）改用与其他窗口一致的样式：可选填写赛道、车辆、车手和圈长；圈长不合法时对应输入框标红并说明原因；导入失败时窗口保留已填内容。
+- 赛事复盘「更多操作」中的实时参考命令改名为「选择参考圈文件…」「显示 / 隐藏参考圈差」，与参考圈卡片一致。
+- 「圈 A / 圈 B 对比」和批量任务窗口改用与其他窗口相同的结构：标题与说明 → 内容 → 底栏（左侧是状态与进度，右侧是操作按钮），按 Esc 关闭。批量任务窗口关闭后任务仍在后台继续，可从原入口重新打开；导入结果的「打开赛事目录」「打开赛事复盘」「在赛事列表定位」移到列表下方，紧跟所选任务；不适用的操作直接隐藏。
+- 圈 A / 圈 B、视频提取和视频与历史单圈对比窗口不再始终置顶于其他程序之上；打开它们也不再改动整个应用的表格样式。
+- LMU 车型图片匹配更准确：游戏截断或变体的车名（如「Chevrolet Corvette Z06 LMGT3.」「Aston Martin Vantage AMR LMGT」）也能找到对应车型；优先使用本机已校准的车型照片（按车身区域裁切），否则使用车型图鉴中的官方图片。个人纪录详情、个人战绩卡和 RaceCom 赛事报告使用同一套匹配；车型图片变化时，RaceCom 报告会自动重新生成。
+- 首页 README 的中英文截图更新为 v0.4.4 的实机界面（使用生成的示例赛事与内置 DEMO），并补充 HUD 右键菜单、设置与参考圈的说明；截图工具改为只渲染应用自身窗口，并固定 100% 界面缩放。
+- 不改记录数据、分析结果或保存格式；除车型图片外，报告内容不变。
+
+English: The HUD's right-click menu is now built each time it opens: 13 grouped top-level entries instead of 32 in a flat list, in the interface language, with the current display mode, input source, waveform, size and opacity marked, F6–F11 in the shortcut column and features the game doesn't support left out. Sampling, vehicle-strategy and endurance settings opened from the HUD, F10 or a side panel go straight to that section of Settings; the three separate HUD settings dialogs are gone, and changes still apply to a running HUD and its recorded settings history. Settings adds the sampling presets (power saver, balanced, high detail) and, while a HUD runs, live target and measured rates; the manual race length says when it applies and names its unit. Run & HUD gains a Reference lap card (show the delta, match automatically or keep a fixed lap, which lap to match, choose a file) that stays in sync with F6 and the HUD menu. The LMU telemetry import uses the shared window style with inline validation. LMU car artwork now matches truncated or variant car names, prefers your calibrated photos (cropped to the car) and falls back to the catalog picture in record details, achievement cards and RaceCom reports; a RaceCom report re-renders when its car image changes. Lap A / Lap B and batch-task windows use the shared window layout (heading, content, a footer with progress on the left and actions on the right, Esc); a batch task keeps running when its window is closed, and tool windows no longer stay on top of other applications. The README screenshots now show the v0.4.4 interface.
+
 ## v0.4.3 — 纪录操作与 AC EVO 图库统一
 
 - 个人赛道纪录的四个视图统一操作位置：所选纪录的常用操作固定在页头下方一行，靠左排列，「更多操作」在同一行最右，与赛事复盘一致。领奖台记录（打开赛事复盘、圈速单、比赛日志、战绩卡）、纪录履历（完整圈曲线、战绩卡、圈 A / 圈 B）和官方战绩（关联复盘、原始 XML、收藏与标签）不再把操作放在详情卡片里，滚动时不会被带走；其余操作在「更多操作」中。

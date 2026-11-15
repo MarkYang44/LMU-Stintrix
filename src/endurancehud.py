@@ -1,10 +1,8 @@
 """Small optional endurance overlays; independent preferences, all off initially."""
 import tkinter as tk
 from control_theme import T
-from tkinter import ttk,messagebox
 from pathlib import Path
 from storage import atomic_json
-import endurance
 from vehiclehud import fmt
 
 TITLES={'pit':'进站分析','stint':'Stint 长距离','weather':'天气与赛道'}
@@ -42,8 +40,8 @@ class Panels:
         for child in (title,*title.winfo_children()):
             if isinstance(child,tk.Button):continue
             child.bind('<Button-1>',begin);child.bind('<B1-Motion>',move);child.bind('<ButtonRelease-1>',end)
-        menu=tk.Menu(w,tearoff=False);menu.add_command(label='进站 / Stint / 天气设置',command=self.settings_dialog)
-        menu.add_command(label='隐藏该面板',command=lambda:self.hide(kind));w.bind('<Button-3>',lambda e:menu.tk_popup(e.x_root,e.y_root))
+        # Built when opened, like the HUD's own menu (hud_menu.panel).
+        w.bind('<Button-3>',lambda e,k=kind:__import__('hud_menu').popup_panel(self.app,k,self.hide,e))
         body=tk.Frame(w,bg=T.BG);body.pack(fill='both',expand=True,padx=10,pady=5);labels={}
         for key,size in [('main',16),('detail',10),('context',9),('alert',9)]:
             label=tk.Label(body,text='—',fg=T.FG if key=='main' else T.MUTED,bg=T.BG,font=('Segoe UI',size,'bold' if key=='main' else 'normal'),anchor='w',justify='left',wraplength=345)
@@ -101,29 +99,5 @@ class Panels:
         app.root.after(100,self.tick)
 
     def settings_dialog(self):
-        if self.dialog and self.dialog.winfo_exists():self.dialog.lift();return
-        app=self.app;w=tk.Toplevel(app.root);self.dialog=w;w.title('进站 / Stint / 天气设置')
-        x=max(0,(w.winfo_screenwidth()-600)//2);y=max(0,(w.winfo_screenheight()-665)//2)
-        w.geometry(f'600x665+{x}+{y}');w.configure(bg=T.BG);w.transient(app.root);w.attributes('-topmost',app.top.get());w.lift()
-        frame=tk.Frame(w,bg=T.BG);frame.pack(fill='both',expand=True,padx=18,pady=14)
-        tk.Label(frame,text='独立设置 · 不改变油刹采样与参考圈',bg=T.BG,fg=T.ACCENT,font=('Segoe UI',13,'bold')).grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,10))
-        variables={}
-        options=[('pit_limit_kmh','进站限速 km/h（0 = 不警告）'),('pit_tolerance_kmh','超速容差 km/h'),('stationary_kmh','静止速度阈值 km/h'),
-            ('warmup_laps','每段开头暖胎观察圈数'),('pace_window','稳定初段 / 后段各取圈数'),('weather_window_s','天气趋势窗口 秒'),
-            ('rain_change','雨强变化提醒阈值（0–1）'),('wetness_change','湿度变化提醒阈值（0–1）'),('temp_change_c','赛道温度变化提醒 °C'),('alert_cooldown_s','同类提醒冷却 秒')]
-        for row,(key,label) in enumerate(options,1):
-            tk.Label(frame,text=label,bg=T.BG,fg=T.FG,anchor='w').grid(row=row,column=0,sticky='w',pady=7)
-            var=tk.StringVar(value=str(app.endurance_settings[key]));variables[key]=var;ttk.Entry(frame,textvariable=var,width=15).grid(row=row,column=1,sticky='ew',padx=(12,0))
-        tk.Label(frame,text='限速必须按赛事规则手动填写。趋势统计需要完整圈。\n圈速变化不自动归因于轮胎；天气仅反映已观测状态。\n风向量保留 SDK 原始单位，不当作气象预报。',bg=T.BG,fg=T.MUTED,justify='left',wraplength=540).grid(row=11,column=0,columnspan=2,sticky='w',pady=14)
-        def apply():
-            try:
-                new=endurance.settings({**app.endurance_settings,**{k:float(v.get()) for k,v in variables.items()}})
-                app.endurance_settings=new
-                with app.engine.lock:
-                    app.engine.endurance_monitor.configure(new);rec=app.engine.recorder;rec.endurance_settings=new
-                    elapsed=app.engine.latest['et']-rec.origin if app.engine.latest and rec.file else 0
-                if rec.file:
-                    with rec.meta_lock:rec.meta.setdefault('endurance_settings_history',[]).append(dict(time_s=elapsed,settings=new))
-                self.save();w.destroy()
-            except (ValueError,OSError) as e:messagebox.showerror('设置未保存',str(e),parent=w)
-        tk.Button(frame,text='应用并保存',command=apply).grid(row=12,column=0,columnspan=2,sticky='ew',pady=8);frame.columnconfigure(1,weight=1)
+        """These preferences are edited in the control center's Settings page."""
+        self.app.open_settings('耐力与天气')

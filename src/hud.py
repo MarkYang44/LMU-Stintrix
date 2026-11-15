@@ -23,8 +23,8 @@ from hud_geometry import WheelDisplay, hud_layout, pedal_fill, reduce_trace, ste
 from laps import library_laps, write_compare
 from paths import ASSETS, telemetry_directory
 from reference import DistanceAligner, ReferenceLap, best_reference
-from sampling import (FrameDeadline, PRESETS, PreciseWait, drawing_rate, load_settings,
-                      save_settings, validate_settings)
+from sampling import FrameDeadline, PreciseWait, drawing_rate, load_settings, save_settings
+from i18n import tr
 from session_reports import make_report, render_review
 from telemetry_import import import_recording
 
@@ -89,7 +89,6 @@ class App:
         self.reference_locked = tk.BooleanVar(self.root,value=bool(self.reference_settings.get('locked',False)))
         if not self.capabilities.reference_laps:self.reference_on.set(False)
         self.input_channel = tk.StringVar(self.root,value=self.settings['input_channel'])
-        self.settings_dialog = None
         self.hud_mode = tk.StringVar(self.root,value='normal')
         self.applied_hud_mode = 'normal'
         self.user32 = ctypes.WinDLL('user32', use_last_error=True)
@@ -114,69 +113,16 @@ class App:
             if self.drag_origin:
                 x, y = event.x_root - self.drag_origin[0], event.y_root - self.drag_origin[1]
                 self.root.geometry(f'{x:+d}{y:+d}')
-        menu = tk.Menu(self.root, tearoff=False, bg=T.CARD, fg=T.FG)
-        menu.add_command(label='打开控制中心',command=self.open_control_center)
-        menu.add_command(label='打开记录', command=self.open_logs)
-        menu.add_command(label='打开 CSV 复盘', command=self.review_csv)
-        menu.add_command(label='最快圈曲线对比', command=self.open_fastest_compare)
-        menu.add_command(label='完整记录管理 / 稳定性分析',command=self.show_library)
-        menu.add_command(label='性能诊断 / 实赛测量',command=self.show_diagnostics)
-        menu.add_command(label='导入官方 DuckDB 赛事记录（只读）', command=self.import_native_dialog)
-        menu.add_checkbutton(label='比赛中最快圈参考（F6）',variable=self.reference_on,command=self.apply_reference)
-        menu.add_checkbutton(label='自动匹配同车同赛道最快圈',variable=self.reference_auto,command=self.apply_reference)
-        menu.add_command(label='手动选择参考圈 .lap.json',command=self.select_reference)
-        menu.add_checkbutton(label='锁定当前参考圈',variable=self.reference_locked,command=self.apply_reference)
-        menu.add_radiobutton(label='参考类型：最快完整圈',variable=self.reference_kind,value='fastest',command=self.apply_reference)
-        menu.add_radiobutton(label='参考类型：典型稳定圈（至少 3 圈）',variable=self.reference_kind,value='stable',command=self.apply_reference)
-        menu.add_command(label='演示 / 真实遥测', command=self.toggle_demo)
-        menu.add_command(label='采样与刷新设置（F10）', command=self.show_sampling_settings)
-        vehicle_menu=tk.Menu(menu,tearoff=False,bg=T.CARD,fg=T.FG)
-        vehicle_menu.add_checkbutton(label='四轮轮胎 HUD',variable=self.tyres_on,command=lambda:self.vehicle_panels.toggle('tyres'))
-        vehicle_menu.add_checkbutton(label='燃油与能量 HUD',variable=self.strategy_on,command=lambda:self.vehicle_panels.toggle('strategy'))
-        vehicle_menu.add_command(label='车型阈值与策略设置',command=lambda:self.vehicle_panels.settings_dialog())
-        menu.add_cascade(label='轮胎与燃油 / 能量',menu=vehicle_menu)
-        endurance_menu=tk.Menu(menu,tearoff=False,bg=T.CARD,fg=T.FG)
-        for kind,label in [('pit','进站分析 HUD'),('stint','Stint 长距离 HUD'),('weather','天气与赛道 HUD')]:
-            endurance_menu.add_checkbutton(label=label,variable=getattr(self,kind+'_on'),command=lambda k=kind:self.endurance_panels.toggle(k))
-        endurance_menu.add_command(label='进站 / Stint / 天气设置',command=lambda:self.endurance_panels.settings_dialog())
-        menu.add_cascade(label='进站 / Stint / 天气',menu=endurance_menu)
-        menu.add_separator()
-        for label,channel in ((('EVO 物理输入（F7 切换）' if self.simulator=='ac_evo' else '输入：原始（F7 切换）'),'raw'),
-                              (('EVO 仪表输入（F7 切换）' if self.simulator=='ac_evo' else '输入：游戏过滤后（F7 切换）'),'filtered')):
-            menu.add_radiobutton(label=label,variable=self.input_channel,value=channel,
-                                 command=self.apply_input_channel)
-        menu.add_separator()
-        for label,mode in (('普通面板','normal'),('纯净：仅曲线（F9）','curves'),
-                           ('纯净：曲线＋踏板/方向盘（F11）','controls')):
-            menu.add_radiobutton(label=label,variable=self.hud_mode,value=mode,
-                                 command=self.apply_clean_mode)
-        menu.add_separator()
+        # The right-click menu is built when it opens (hud_menu), in the current
+        # language and with the current state marked; these are its variables.
         self.window = tk.StringVar(self.root,value='10')
-        for seconds in ('5', '10', '20'):
-            menu.add_radiobutton(label=seconds + ' 秒波形', variable=self.window, value=seconds)
-        menu.add_separator()
-        menu.add_command(label='小面板 440 × 170', command=lambda: self.root.geometry('440x170'))
-        menu.add_command(label='标准面板 640 × 228', command=lambda: self.root.geometry('640x228'))
-        menu.add_command(label='高清面板 840 × 300', command=lambda: self.root.geometry('840x300'))
-        for opacity in (0.75, 0.90, 1.0):
-            menu.add_command(label=f'不透明度 {int(opacity * 100)}%',
-                             command=lambda value=opacity: self.root.attributes('-alpha', value))
-        menu.add_command(label='鼠标穿透 / 解锁（F8）', command=self.toggle_clickthrough)
-        available={2:self.capabilities.full_review,3:self.capabilities.lap_comparison,4:self.capabilities.training,
-            6:self.capabilities.native_import,15:self.capabilities.vehicle_telemetry,16:self.capabilities.endurance}
-        available.update({index:self.capabilities.reference_laps for index in (7,8,9,10,11,12)})
-        for index,enabled in available.items():
-            if not enabled:menu.entryconfigure(index,state='disabled')
         if self.capabilities.driving_instruments:
-            menu.add_separator()
-            self.evo_hud_vars={}
-            for key,label in (('instruments','AC EVO · 紧凑仪表条'),('assists','AC EVO · ABS / TC / ESC 干预标记')):
-                var=tk.BooleanVar(self.root,value=self.evo_hud_settings[key]);self.evo_hud_vars[key]=var
-                menu.add_checkbutton(label=label,variable=var,command=lambda k=key:self.set_evo_hud(k,self.evo_hud_vars[k].get()))
+            self.evo_hud_vars={key:tk.BooleanVar(self.root,value=self.evo_hud_settings[key]) for key in ('instruments','assists')}
+        self.context_menu = None
         self.canvas = tk.Canvas(self.root, bg=T.BG, highlightthickness=0)
         self.canvas.bind('<Button-1>', begin_drag)
         self.canvas.bind('<B1-Motion>', move_drag)
-        self.canvas.bind('<Button-3>', lambda event: menu.tk_popup(event.x_root, event.y_root))
+        self.canvas.bind('<Button-3>', lambda event: __import__('hud_menu').popup(self, event))
         self.canvas.pack(fill='both', expand=True)
         self.chrome_key = None
         self.trace_key = None
@@ -264,6 +210,10 @@ class App:
             self.engine.aligner=DistanceAligner()
         self.reference_match_key = None
         self.trace_key = None
+        # The Run & HUD page's reference card mirrors F6 and this menu at once.
+        center=self.center()
+        refresh=getattr(center,'reference_refresh',None) if center is not None else None
+        if refresh is not None:refresh()
 
     def toggle_reference(self):
         self.reference_on.set(not self.reference_on.get())
@@ -271,7 +221,7 @@ class App:
 
     def select_reference(self):
         if not self.capabilities.reference_laps:return
-        path = filedialog.askopenfilename(title='选择完整参考圈',initialdir=ROOT/'Logs',filetypes=[('InputScope fastest lap','*.lap.json')])
+        path = filedialog.askopenfilename(parent=self.root,title=tr('选择完整参考圈'),initialdir=ROOT/'Logs',filetypes=[(tr('Stintrix 完整圈'),'*.lap.json')])
         if not path:return
         try:
             reference = ReferenceLap.load(path)
@@ -323,35 +273,21 @@ class App:
 
     def import_native_dialog(self):
         if not self.capabilities.native_import:return
-        path = filedialog.askopenfilename(title='只读导入已结束的 LMU DuckDB 记录',
+        path = filedialog.askopenfilename(parent=self.root,title=tr('导入 LMU 官方遥测（只读）'),
             initialdir=telemetry_directory(),
-            filetypes=[('LMU native telemetry','*.duckdb')])
+            filetypes=[(tr('LMU 遥测'),'*.duckdb')])
         if not path:return
-        dialog=tk.Toplevel(self.root);dialog.title('官方日志导入');dialog.geometry('490x285');dialog.attributes('-topmost',True)
-        tk.Label(dialog,text='源数据库只读，输出保存在 InputScope / ImportedLogs。\n可留空使用日志内元数据；圈长未知时只做估算。',justify='left').pack(padx=12,pady=12)
-        fields={}
-        for key,label in (('track','赛道（可选）'),('vehicle','车辆（可选）'),('driver','车手（可选）'),('track_length','圈长 m（可选）')):
-            row=tk.Frame(dialog);row.pack(fill='x',padx=12,pady=3);tk.Label(row,text=label,width=18,anchor='w').pack(side='left');v=tk.StringVar();tk.Entry(row,textvariable=v).pack(side='left',fill='x',expand=True);fields[key]=v
-        status=tk.Label(dialog,text='',wraplength=460,justify='left');status.pack(pady=8)
-        def begin():
-            values={k:v.get().strip() for k,v in fields.items() if v.get().strip()}
-            if 'track_length' in values:
-                try:
-                    length=float(values['track_length'])
-                    if not math.isfinite(length) or not 100<length<100000:raise ValueError()
-                except ValueError:status.config(text='圈长应为 100–100000 m 之间的数字');return
-            button.config(state='disabled');status.config(text='正在只读导入并生成完整复盘 / 最快圈…')
-            def run():
+        from control_native_import import show
+        def run(values,done):
+            def work():
                 folder=import_recording(path,ROOT,values);make_report(folder)
                 return folder
-            def done(folder,error):
-                if not dialog.winfo_exists():return
-                button.config(state='normal')
-                if error:status.config(text=error)
-                else:
-                    dialog.destroy();self.reference_match_key=None;open_path(folder/'review.html')
-            self.run_background(run,done)
-        button=tk.Button(dialog,text='开始导入',command=begin);button.pack()
+            def finished(folder,error):
+                done(error)
+                if not error:
+                    self.reference_match_key=None;open_path(folder/'review.html')
+            self.run_background(work,finished)
+        show(self,path,run,topmost=True)
 
     def drawing_target(self):
         return drawing_rate(self.settings,self.engine.target_hz)
@@ -490,92 +426,30 @@ class App:
         self.root.title(self.profile.title+(' · DEMO' if demo else ''))
 
     def show_sampling_settings(self):
-        if self.settings_dialog and self.settings_dialog.winfo_exists():
-            self.settings_dialog.lift()
-            return
-        dialog = tk.Toplevel(self.root)
-        self.settings_dialog = dialog
-        dialog.title('InputScope · 采样与刷新设置')
-        dialog.configure(bg=T.BG)
-        dialog.attributes('-topmost', True)
-        dialog.resizable(False, False)
-        panel = tk.Frame(dialog, bg=T.BG, padx=22, pady=18)
-        panel.pack(fill='both', expand=True)
-        tk.Label(panel,text='采样与刷新',bg=T.BG,fg=T.FG,font=('Segoe UI',15,'bold')).grid(row=0,column=0,columnspan=2,sticky='w')
-        variables = {key:tk.StringVar(value=str(value)) for key,value in self.settings.items()
-                     if key != 'input_channel'}
-        modes = tk.Frame(panel,bg=T.BG)
-        modes.grid(row=1,column=0,columnspan=2,sticky='w',pady=(10,6))
-        inputs = {}
-        def mode_changed():
-            dynamic = variables['mode'].get()=='dynamic'
-            for key,widget in inputs.items():
-                enabled = ((key=='draw_hz' and variables['draw_mode'].get()=='manual')
-                           or (key=='fixed_hz' and not dynamic)
-                           or (key not in ('draw_hz','fixed_hz') and dynamic))
-                widget.configure(state='normal' if enabled else 'disabled')
-        for text,value in (('固定采样','fixed'),('动态采样','dynamic')):
-            tk.Radiobutton(modes,text=text,value=value,variable=variables['mode'],command=mode_changed,
-                           bg=T.BG,fg=T.FG,selectcolor=T.FIELD,activebackground=T.BG,activeforeground='#ffffff').pack(side='left',padx=(0,15))
-        for row,(key,label,maximum,increment) in enumerate((
-                ('fixed_hz','固定目标（1–4000 Hz）',4000,1),
-                ('min_hz','动态最低（1–4000 Hz）',4000,1),
-                ('max_hz','动态最高（1–4000 Hz）',4000,1),
-                ('change_pct_s','变化阈值（百分点 / 秒）',10000,0.1),
-                ('hold_s','降频延迟（秒）',30,0.1),
-                ('brake_pct','刹车升频（%，0 为关闭）',100,1),
-                ('draw_hz','手动 HUD 绘制（1–4000 Hz）',4000,1)), start=3):
-            tk.Label(panel,text=label,bg=T.BG,fg=T.MUTED,anchor='w').grid(row=row,column=0,sticky='w',pady=5,padx=(0,28))
-            entry = tk.Spinbox(panel,textvariable=variables[key],from_=0 if key=='brake_pct' else 0.1 if key in ('hold_s','change_pct_s') else 1,
-                               to=maximum,increment=increment,width=12,bg=T.FIELD,fg=T.FG,insertbackground='#ffffff',
-                               disabledbackground=T.CARD,disabledforeground=T.MUTED,buttonbackground=T.EDGE,relief='flat')
-            entry.grid(row=row,column=1,sticky='e',pady=5)
-            inputs[key] = entry
-        presets = tk.Frame(panel,bg=T.BG)
-        presets.grid(row=2,column=0,columnspan=2,sticky='w',pady=(0,8))
-        def preset(name):
-            for key,value in PRESETS[name].items():
-                variables[key].set(str(value))
-            mode_changed()
-        for name in PRESETS:
-            tk.Button(presets,text=name+'预设',command=lambda value=name:preset(value),bg=T.FIELD,fg=T.FG,relief='flat',padx=10).pack(side='left',padx=(0,7))
-        tk.Checkbutton(panel,text='HUD 绘制跟随采样频率（推荐）',variable=variables['draw_mode'],
-                       onvalue='sync',offvalue='manual',command=mode_changed,
-                       bg=T.BG,fg=T.FG,selectcolor=T.FIELD,activebackground=T.BG,
-                       activeforeground='#ffffff').grid(row=10,column=0,columnspan=2,sticky='w',pady=(7,0))
-        info = tk.Label(panel,text='',bg=T.BG,fg='#52b5ff',justify='left',anchor='w')
-        info.grid(row=11,column=0,columnspan=2,sticky='w',pady=(13,5))
-        tk.Label(panel,text='同步模式：HUD 与采样目标一起升降频，无 240 Hz 上限。\n实际新数据受游戏限制，可见帧率受显示器和系统性能限制。\n动态模式：输入变化或刹车升频，平稳后延迟降频。',
-                 bg=T.BG,fg=T.MUTED,justify='left',anchor='w').grid(row=12,column=0,columnspan=2,sticky='w',pady=(2,12))
-        error = tk.Label(panel,text='',bg=T.BG,fg='#ff8194',wraplength=400,justify='left')
-        error.grid(row=13,column=0,columnspan=2,sticky='w')
-        def mark_pending(*_):
-            error.configure(text='参数已修改，点击“应用并保存”生效。',fg='#e8bf7e')
-        for variable in variables.values():
-            variable.trace_add('write',mark_pending)
-        def apply():
-            try:
-                checked = validate_settings(dict({key:var.get() for key,var in variables.items()},
-                                                 input_channel=self.input_channel.get()))
-                save_settings(ROOT/'settings.json', checked)
-                self.settings = checked
-                self.engine.update_settings(checked)
-                error.configure(text='已应用并保存；采集不中断。',fg='#34e59a')
-            except (ValueError,OSError) as problem:
-                error.configure(text=str(problem),fg='#ff8194')
-        actions = tk.Frame(panel,bg=T.BG)
-        actions.grid(row=14,column=0,columnspan=2,sticky='e',pady=(10,0))
-        tk.Button(actions,text='关闭',command=dialog.destroy,bg=T.FIELD,fg=T.FG,relief='flat',padx=16).pack(side='left',padx=6)
-        tk.Button(actions,text='应用并保存',command=apply,bg=T.MARK,fg='#ffffff',relief='flat',padx=16).pack(side='left')
-        def refresh():
-            if not dialog.winfo_exists():
-                return
-            poll, fresh = self.engine.actual_rates()
-            draw = self.actual_draw_rate()
-            info.configure(text=f'采样目标 {self.engine.target_hz} / 绘制目标 {self.drawing_target()} Hz  ·  {self.engine.reason}\n实际轮询 {poll:.1f}  /  新数据 {fresh:.1f}  /  绘制 {draw:.1f} Hz')
-            dialog.after(250,refresh)
-        mode_changed()
-        refresh()
+        """F10: sampling is edited in Settings, the one place for preferences."""
+        self.open_settings('输入采样')
+
+    def center(self):
+        """The open control center that owns or attached to this HUD, if any."""
+        center=getattr(self,'control_center',None) or getattr(getattr(self,'on_menu',None),'__self__',None)
+        if center is not None and not getattr(center,'closing',False) and center.root.winfo_exists():return center
+
+    def open_settings(self,section):
+        """Open the control center's Settings at one section (its tab key)."""
+        self.open_control_center()
+        center=self.center()
+        if center is not None and hasattr(center,'open_settings'):center.open_settings(section)
+
+    def open_center_tool(self,name):
+        """HUD layouts and global shortcuts are control-center windows."""
+        self.open_control_center()
+        center=self.center()
+        if center is None:return
+        if name=='layouts':
+            from control_layouts import show
+        else:
+            from control_shortcuts import show
+        show(center)
 
     def review_csv(self):
         path = filedialog.askopenfilename(title='打开完整输入记录', initialdir=str(self.engine.recorder.output),

@@ -252,6 +252,9 @@ class Upgrades(unittest.TestCase):
                 def set(self,v):self.v=v
             value.reference_locked=Var(False);value.reference_auto=Var(True);value.reference_on=Var(False)
             value.reference_kind=Var('fastest');value.reference_settings={};value.reference_generation=0
+            # A real HUD always has its simulator capabilities and a root for dialogs.
+            from types import SimpleNamespace
+            value.capabilities=SimpleNamespace(reference_laps=True);value.root=None
             class Engine:pass
             value.engine=Engine();value.engine.lock=threading.Lock();value.engine.reference=ReferenceLap(ref_value(),'old')
             value.engine.reference_points=[];value.engine.reference_revision=0

@@ -95,8 +95,9 @@ def write_xlsx(path,rows):
     finally:pending.unlink(missing_ok=True)
 
 
-def write_inputs(folder,model):
+def write_inputs(folder,model,car_name=None):
     folder=Path(folder)/'_racecom';folder.mkdir(exist_ok=True);value=adapt(model)
+    if car_name:value['stintrix_car_image']=car_name
     atomic_json(folder/'race_log.json',value);rows=list(lap_rows(value));write_xlsx(folder/'laps.xlsx',rows)
     position=lambda n:f'第 {n} 名' if n else '未知'
     fastest=next((lap for lap in value['laps'] if lap['best']),None)
@@ -114,10 +115,17 @@ def write_inputs(folder,model):
     return folder
 
 
-def render(folder,model,executable):
-    folder=Path(folder);exe=Path(executable).resolve();inputs=write_inputs(folder,model);outputs={}
-    pending=[]
+def render(folder,model,executable,art=None):
+    folder=Path(folder);exe=Path(executable).resolve();outputs={}
+    pending=[];car=None
     try:
+        if art:
+            from uuid import uuid4
+            from race_art import prepare_photo
+            work=folder/'_racecom';work.mkdir(exist_ok=True)
+            car=work/('stintrix-car-'+uuid4().hex+'.png')
+            prepare_photo(art,car)
+        inputs=write_inputs(folder,model,car.name if car else None)
         # Finish both renders before replacing any existing image.
         sources=[('laps.xlsx','圈速单.png')] if adapt(model)['laps'] else []
         for source,name in [*sources,('race_log.txt','比赛日志.png')]:
@@ -135,3 +143,4 @@ def render(folder,model,executable):
         return outputs
     finally:
         for target,_ in pending:target.unlink(missing_ok=True)
+        if car is not None:car.unlink(missing_ok=True)

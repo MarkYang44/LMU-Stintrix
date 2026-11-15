@@ -1,23 +1,23 @@
 # README screenshot provenance / 首页截图来源
 
-The English and Simplified Chinese READMEs use the same four views, in the same order. Captured from the **v0.2.43 LMU source UI** on Windows; no UI mockups, generated interface artwork, or relabeled screenshots are used. These are historical captures; the current interface also includes a simulator selector and later workflow improvements.
+The English and Simplified Chinese READMEs use the same four views, in the same order. Captured from the **v0.4.4 LMU source UI** on Windows at 100 % interface scale; no UI mockups, generated interface artwork, or relabeled screenshots are used.
 
-中英文首页使用相同的四组视图与展示顺序，来自 Windows 上运行的 **v0.2.43 LMU 源码界面**。没有生成界面、拼接控件或替换截图文字；这些是历史截图，当前界面已增加游戏选择与后续操作优化。
+中英文首页使用相同的四组视图与展示顺序，来自 Windows 上运行的 **v0.4.4 LMU 源码界面**（100% 界面缩放）。没有生成界面、拼接控件或替换截图文字。
 
 | File in `en/` and `zh-CN/` | Capture | Data source |
 | --- | --- | --- |
-| `control-center.webp` | 1280 × 900, dark theme | Actual control center, before HUD startup |
+| `control-center.webp` | 1280 × 900, dark theme | Actual Run & HUD page before HUD startup; the newest sample session is the last session |
 | `personal-best.webp` | 1280 × 900, dark theme | Generated documentation sessions, processed by the normal lap exporter and record browser |
 | `input-hud.webp` | 1280 × 450, clean controls mode | Built-in DEMO; graphics are language-neutral in both captures |
-| `session-library.webp` | 1280 × 900, dark theme | The same eight generated documentation sessions |
+| `session-library.webp` | 1280 × 900, dark theme | Session review list of the same eight generated documentation sessions |
 
 All lap times, dates, conditions, and input traces in these samples are illustrative fixture data. They do not establish real lap performance, recognition accuracy, or game compatibility. Vehicle photos are the app's existing catalog assets; they are not images of a recorded fixture race. No personal sessions are used.
 
 示例圈速、日期、条件和输入曲线均为合成数据，不代表真实驾驶成绩、识别精度或兼容性测试。车型照片来自程序已有图鉴，不表示示例赛事的实录画面；没有读取私人赛事。
 
-The same generated files, selected record, window size, and scroll target are reused for both languages. Font metrics can change the layout slightly. HUD captures are successive frames of the same running demo, so the waveform endpoint can differ. WebP encoding is lossless; screenshots are captured from the application window, without desktop content.
+The same generated files, selected record, window size, and scroll target are reused for both languages. Font metrics can change the layout slightly. HUD captures are successive frames of the same running demo, so the waveform endpoint can differ. WebP encoding is lossless; each window renders itself through PrintWindow, so desktop content and other windows cannot appear.
 
-两种语言使用相同示例文件、选中纪录、窗口尺寸和滚动目标；字体尺寸差异会带来少量布局变化。HUD 为同一演示流的相邻画面，曲线末端可能略有差异。WebP 无损编码，捕获范围仅为应用窗口。
+两种语言使用相同示例文件、选中纪录、窗口尺寸和滚动目标；字体尺寸差异会带来少量布局变化。HUD 为同一演示流的相邻画面，曲线末端可能略有差异。WebP 无损编码；每个窗口通过 PrintWindow 自行绘制，桌面内容和其他窗口不会进入截图。
 
 ## Reproduce / 重新采集
 

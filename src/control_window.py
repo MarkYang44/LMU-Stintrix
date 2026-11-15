@@ -112,7 +112,16 @@ class Footer(tk.Frame):
 
     def ordered(self):
         """Platform order: primary first on Windows, primary nearest the edge on macOS."""
-        return [b for b in (reversed(self.buttons) if MAC else self.buttons) if b.winfo_exists()]
+        return [b for b in (reversed(self.buttons) if MAC else self.buttons) if b.winfo_exists() and not getattr(b, 'hidden', False)]
+
+    def show(self, button, visible=True):
+        """Leave out an action that does not apply now; the rest close up."""
+        if getattr(button, 'hidden', False) == (not visible):
+            return
+        button.hidden = not visible
+        if not visible and button.winfo_exists():
+            button.place_forget()
+        self.arrange()
 
     def natural(self):
         gap = px(self, 8)

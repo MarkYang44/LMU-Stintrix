@@ -331,12 +331,20 @@ class ControlCenter:
             if not self.capabilities.panel(key):switch.configure(state='disabled')
             switches.append((module,key,value))
         self.panel_visibility_switches=switches
+        # The reference lap had no home outside the HUD's right-click menu.
+        reference_refresh=None
+        if self.capabilities.reference_laps:
+            from control_reference import build as reference_card
+            reference_refresh=reference_card(self)
 
         channel=self.channel
+        def refresh_configuration():
+            refresh_display(self)
+            if reference_refresh is not None:reference_refresh()
         def refresh_run():
             channel.set('游戏过滤后' if sampling.load_settings(ROOT/'settings.json')['input_channel']=='filtered' else '原始输入')
-            refresh_display(self)
-        self.refresh_run_configuration=lambda:refresh_display(self)
+            refresh_configuration()
+        self.refresh_run_configuration=refresh_configuration
         refresh_display(self)
         self.pages.on_resume(refresh_run)
 
@@ -622,7 +630,7 @@ class ControlCenter:
         uninstall(self.shell.action_host)
         bar=getattr(self,'form_bar',None)
         if bar and bar.winfo_exists():bar.destroy()
-        self.form_bar=None
+        self.form_bar=None;self.settings_jumps={}
         for child in self.shell.action_host.winfo_children():child.destroy()
         self.shell.action_host.pack_forget();self.review_actions={}
 
@@ -633,6 +641,23 @@ class ControlCenter:
     def update_toolbar(self):
         from control_toolbar import update
         update(self)
+
+    def open_settings(self,section):
+        """Show Settings at one section (its tab's key, e.g. '输入采样').
+
+        The page builds in steps, so the jump waits for the finished page and
+        its section tabs instead of scrolling a half-built list."""
+        if offline_only():return
+        import time
+        self.show();self.request_page(2);deadline=time.monotonic()+8;reached=[False]
+        def attempt():
+            if not self.root.winfo_exists() or getattr(self,'closing',False):return
+            if self.page==2:reached[0]=True
+            elif reached[0]:return  # the user has already moved to another page
+            page=self.pages.active;jump=getattr(self,'settings_jumps',{}).get(section)
+            if self.page==2 and page is not None and page.complete and jump is not None:jump();return
+            if time.monotonic()<deadline:self.root.after(40,attempt)
+        self.root.after_idle(attempt)
 
     def toggle_reference(self):
         if self.active():self.hud.reference_on.set(not self.hud.reference_on.get());self.hud.apply_reference()
@@ -695,7 +720,7 @@ class ControlCenter:
         self.settings_anchors.append(('输入采样',body))
         from control_settings_search import FORMS,TYRES
         yield from self.form(body,'sampling',*map(list,FORMS['sampling']))
-        body=self.card('轮胎、燃油与能量策略')
+        body=self.card('轮胎、燃油与能量策略','耗油按最近完整圈估算；胎况为游戏字段百分比，不等同剩余抓地力')
         self.settings_anchors.append(('车辆策略',body))
         yield from self.form(body,'vehicle',*map(list,FORMS['vehicle']))
         from control_profile import show
@@ -708,7 +733,7 @@ class ControlCenter:
             from control_validation import reveal
             window=layouts(self);window.update_idletasks();field=window.layout_errors.fields['opacity'][0];reveal(field);field.focus_set()
         search_setting(self,'opacity','HUD 透明度 / 不透明度',profile_button,'界面布局',opacity)
-        body=self.card('进站、Stint 与天气')
+        body=self.card('进站、Stint 与天气','限速按赛事规则手动填写；趋势统计需要完整圈，天气只反映已观测状态')
         self.settings_anchors.append(('耐力与天气',body))
         yield from self.form(body,'endurance',list(FORMS['endurance'][0]))
         yield

@@ -8,9 +8,8 @@ from control_fields import Select
 from control_theme import T
 from library import inventory
 from lap_comparison import valid_laps,export_pair
-from management import panel
 from paths import ASSETS
-from control_feedback import StatusFeedback
+
 from track_names import display,layout_label
 from control_video_widgets import Action
 from laps import finished_metadata
@@ -51,24 +50,24 @@ def show(app,root,initial=(),*,selected=()):
     initial=requested if preferred else remembered if restore else requested
     last=saved.get('result')
     last=last if last and Path(last).resolve().is_relative_to(root) and Path(last).is_file() else None
-    window=panel(app,'Stintrix · 圈 A / 圈 B',1000,710);window.minsize(860,680);app.lap_pair_window=window
+    from control_window import window as sheet,fit
+    # The shared tool-window anatomy: heading and purpose, the selectors, then a
+    # footer with the state on the left and the actions on the right; Esc closes.
+    window=sheet(app.root,'Stintrix · 圈 A / 圈 B','先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。',heading='圈 A / 圈 B 对比',transient=False,feedback=True)
+    app.lap_pair_window=window;body=window.body
     state={'events':{},'by_track':{},'search_terms':{},'laps':{'A':{},'B':{}},'rows':{'A':{},'B':{}},'headers':{},'generation':{'A':0,'B':0},'loading':set(),'busy':False,'reason':False,'result':last,'message':'正在读取赛事…','initial':tuple(initial),'inventory_ready':False}
     quick={};csv_button=None
-    status=tk.StringVar(window,value=tr('正在读取赛事…'));events={};numbers={};lap_boxes={};event_boxes={}
-    footer=tk.Frame(window,bg=T.BG);footer.pack(side='bottom',fill='x',padx=22,pady=(10,14));tk.Frame(window,bg=T.EDGE,height=1).pack(side='bottom',fill='x')
+    status=window.status;status.set(tr('正在读取赛事…'));events={};numbers={};lap_boxes={};event_boxes={}
     def say(message):state['message']=str(message);status.set(tr(str(message)))
-    from control_window import Header
-    from control_widgets import px
-    heading=Header(window,'圈 A / 圈 B 对比','先选择赛道，再选择圈 A 和圈 B 的赛事及有效圈；支持跨车型，同布局。');heading.pack(fill='x',padx=px(window,22),pady=(px(window,20),px(window,12)))
-    intro=heading.subtitle
+    intro=window.header.subtitle
     if getattr(app,'simulator','lmu')=='ac_evo':
-        Label(window,text='EVO：对比物理／仪表输入和游戏圈速；保留重复计时样本，不补造圈边界。',bg=T.BG,fg=T.MUTED,wraplength=940,justify='left').pack(fill='x',padx=20,pady=(0,8))
+        Label(body,text='EVO：对比物理／仪表输入和游戏圈速；保留重复计时样本，不补造圈边界。',bg=T.BG,fg=T.MUTED,wraplength=940,justify='left').pack(fill='x',pady=(0,8))
     intro.bind('<Configure>',lambda e:intro.configure(wraplength=max(100,e.width)))
     query=tk.StringVar(window,value=restore.get('query',''));matches=tk.StringVar(window);track=tk.StringVar(window,value=restore.get('track',''))
-    search_row=tk.Frame(window,bg=T.BG);search_row.pack(fill='x',padx=20)
+    search_row=tk.Frame(body,bg=T.BG);search_row.pack(fill='x')
     track_box=Select(search_row,textvariable=track,values=[],state='disabled',width=29,placeholder='正在读取赛道…');track_box.pack(side='left',padx=(0,10))
     search=SearchField(search_row,query,command=lambda:filter_events(),placeholder='在当前赛道搜索日期、车型或赛事');search.pack(side='left',fill='x',expand=True)
-    Label(window,textvariable=matches,bg=T.BG,fg=T.MUTED,anchor='w').pack(fill='x',padx=20,pady=(4,0))
+    Label(body,textvariable=matches,bg=T.BG,fg=T.MUTED,anchor='w').pack(fill='x',pady=(4,0))
     def filter_events(*_):
         words=query.get().strip().casefold().split()
         scoped=state['by_track'].get(track.get(),()) if track.get() else ()
@@ -159,7 +158,7 @@ def show(app,root,initial=(),*,selected=()):
     from control_history_chart import lap_time
     summaries={}
     for key in ('A','B'):
-        area=tk.Frame(window,bg=T.CARD);area.pack(fill='x',padx=20,pady=7)
+        area=tk.Frame(body,bg=T.CARD);area.pack(fill='x',pady=7)
         header=tk.Frame(area,bg=T.CARD);header.pack(fill='x',padx=12,pady=6)
         Label(header,text='圈 '+key,bg=T.CARD,fg=T.ACCENT,font=(T.FONT,13,'bold')).pack(side='left')
         summaries[key]=tk.StringVar(window)
@@ -170,7 +169,7 @@ def show(app,root,initial=(),*,selected=()):
         event_boxes[key].bind('<<ComboboxSelected>>',lambda _,k=key:scan(k))
         lap_boxes[key]=Select(area,textvariable=numbers[key],values=[],state='disabled',placeholder='选择有效圈')
         lap_boxes[key].pack(fill='x',padx=12,pady=(5,12));lap_boxes[key].bind('<<ComboboxSelected>>',lambda _:refresh())
-    actions=tk.Frame(window,bg=T.BG);actions.pack(fill='x',padx=20,pady=6)
+    actions=tk.Frame(body,bg=T.BG);actions.pack(fill='x',pady=6)
     def fastest(key):
         if state['busy'] or state['loading'] or not state['rows'][key]:return
         number=min(state['rows'][key].values(),key=lambda v:v['time_s'])['number'];numbers[key].set(next(label for label,n in state['laps'][key].items() if n==number));refresh()
@@ -213,9 +212,8 @@ def show(app,root,initial=(),*,selected=()):
         if not Path(path).is_file():say('上次对比文件已移动或删除，请重新生成。');return
         try:open_path(path)
         except OSError as error:say(error)
-    bottom_actions=tk.Frame(footer,bg=T.BG);bottom_actions.pack(fill='x')
-    button=Action(bottom_actions,'提取两圈并对比',compare,200,True);button.configure(state='disabled');button.pack(side='left')
-    reopen=Action(bottom_actions,'打开上次对比',open_last,160);reopen.configure(state='disabled');reopen.pack(side='left')
+    button=window.add_action('提取两圈并对比',compare,True,200);button.configure(state='disabled')
+    reopen=window.add_action('打开上次对比',open_last,False,160);reopen.configure(state='disabled')
     from simulators import root_identity
     if root_identity(root)=='ac_evo':
         def export_csv():
@@ -230,9 +228,8 @@ def show(app,root,initial=(),*,selected=()):
                 if not app.closing and window.winfo_exists():say(error)
             else:
                 if job and not app.closing and window.winfo_exists():say('CSV 导出已交给批量任务；圈选择已保留。')
-        csv_button=Action(bottom_actions,'导出 A / B 圈 CSV',export_csv,200);csv_button.configure(state='disabled');csv_button.pack(side='left')
-    install(bottom_actions)
-    feedback=StatusFeedback(footer,status);feedback.pack(fill='x',pady=(6,0));feedback.busy('inventory')
+        csv_button=window.add_action('导出 A / B 圈 CSV',export_csv,False,200);csv_button.configure(state='disabled')
+    feedback=window.footer.feedback;feedback.busy('inventory')
     def select_initial(paths,slots=('A','B'),choices=None):
         if state['busy']:say('当前对比正在生成，请完成后再切换赛事。');return False
         if choices is not None:restore['choices']=choices
@@ -282,9 +279,11 @@ def show(app,root,initial=(),*,selected=()):
             context=getattr(app,'lap_pair_context',{});app.lap_pair_context=context
             context[str(root)]=dict(folders=[choices[k]['folder'] for k in ('A','B') if k in choices],choices=choices,
                 query=query.get(),track=track.get(),result=state['result'])
-            for variable in (query,matches,status,track,*events.values(),*numbers.values(),*summaries.values()):variable.__del__();variable._tk=None
+            for variable in (query,matches,track,*events.values(),*numbers.values(),*summaries.values()):variable.__del__();variable._tk=None
     window.bind('<Destroy>',dispose,add='+')
+    shell_translate=window.retranslate
     def translate():
+        shell_translate()
         selected={key:state['events'].get(events[key].get(),{}).get('folder') for key in ('A','B')}
         state['events']=event_labels(list(state['events'].values()))
         index_events()
@@ -297,8 +296,9 @@ def show(app,root,initial=(),*,selected=()):
             lap_boxes[key].configure(values=list(values));numbers[key].set(next((label for label,number in values.items() if number==chosen),''))
         from control_widgets import px
         for action in [button,reopen,*([csv_button] if csv_button is not None else []),*quick.values()]:action.configure(width=max(px(action,160),action.font.measure(tr(action.label))+px(action,36)));action.paint()
-        for row in (actions,bottom_actions):row.event_generate('<Configure>',width=row.winfo_width())
+        actions.event_generate('<Configure>',width=actions.winfo_width());window.footer.arrange()
         refresh()
     window.retranslate=translate
-    window.pair_controls=dict(root=root,events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,csv=csv_button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=footer,track=track,track_box=track_box,choose_track=choose_track,summaries=summaries)
+    fit(window,1000,710,minimum=(860,680),owner=app.root)
+    window.pair_controls=dict(root=root,events=events,numbers=numbers,state=state,quick=quick,refresh=refresh,scan=scan,compare=button,csv=csv_button,status=status,query=query,search=search,matches=matches,event_boxes=event_boxes,lap_boxes=lap_boxes,select_initial=select_initial,reopen=reopen,footer=window.footer,track=track,track_box=track_box,choose_track=choose_track,summaries=summaries)
     return window

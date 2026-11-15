@@ -7,7 +7,6 @@ from control_list import SessionList
 from i18n import tr
 from control_search import SearchField
 from control_fields import Select
-from control_motion import fade_in
 
 
 def jobs(app):
@@ -27,7 +26,7 @@ def history(app):
         mapping={f'{item.sequence:02} · {tr(item.title)}':item for item in entries};job.history_items=mapping
         job.history_box.configure(values=list(mapping));job.history_choice.set(next(label for label,item in mapping.items() if item is job))
         if job.result_mode:
-            if len(entries)>1:job.history_box.pack(fill='x',padx=12,pady=(0,4),before=job.summary_label)
+            if len(entries)>1:job.history_box.pack(fill='x',pady=(0,8),before=job.tools)
             else:job.history_box.pack_forget()
 
 
@@ -70,58 +69,48 @@ class BatchJob:
         self.app=app;self.values=values;self.operation=operation;self.destination=destination;self.on_done=on_done;self.result_mode=bool(result_actions);self.summary_base=''
         self.states=['等待处理']*len(values);self.errors=['']*len(values);self.results={};self.outputs={};self.result_actions=None;self.busy=False;self.stop=threading.Event();self.events=queue.SimpleQueue();self.timer=None
         self.names=names or [Path(str(value)).name for value in values]
-        self.window=w=tk.Toplevel(app.root);fade_in(w);w.title(tr(title));w.geometry('1000x640');w.minsize(720,560);w.configure(bg=T.BG)
-        footer=tk.Frame(w,bg=T.CARD);footer.pack(side='bottom',fill='x',padx=18,pady=18)
-        body=tk.Frame(w,bg=T.CARD);body.pack(fill='both',expand=True,padx=18,pady=(18,0))
-        app.label(body,title,15 if result_actions else 18,T.FG,True).pack(anchor='w',padx=12,pady=(8,3) if result_actions else 12)
-        self.history_choice=tk.StringVar(w);self.history_box=Select(body,textvariable=self.history_choice,values=[],width=30);self.history_box.pack(fill='x',padx=12,pady=(0,8))
+        from control_window import window as sheet,fit
+        # The shared tool-window anatomy: the task as heading with what filtering
+        # does, the list, then progress on the left of the footer and the task's
+        # actions on its right. Esc and the close box hide it; the task goes on.
+        purpose='筛选只影响显示；重试处理全部失败项。' if result_actions else '搜索文件名或错误；仅筛选显示，重试仍处理全部失败项。'
+        self.window=w=sheet(app.root,title,purpose,transient=False);w.on_close=self.hide;body=w.body
+        self.history_choice=tk.StringVar(w);self.history_box=Select(body,textvariable=self.history_choice,values=[],width=30);self.history_box.pack(fill='x',pady=(0,8))
         def switch(_):
             selected=self.history_items.get(self.history_choice.get())
             if selected:
                 self.window.withdraw();app.batch_job=selected;show(app)
             history(app)
         self.history_box.bind('<<ComboboxSelected>>',switch)
-        self.text=tk.StringVar(w);summary=self.summary_label=app.label(body,self.text,10);summary.pack(fill='x',padx=12,pady=5);summary.bind('<Configure>',lambda e:summary.configure(wraplength=max(100,e.width)))
+        self.text=w.status
         self.query=tk.StringVar(w);self.view=tk.StringVar(w,value='all');self.visible_count=tk.StringVar(w)
-        tools=tk.Frame(body,bg=T.CARD);tools.pack(fill='x',padx=12,pady=5)
+        tools=self.tools=tk.Frame(body,bg=T.BG);tools.pack(fill='x',pady=(0,6))
         self.view_box=Select(tools,textvariable=self.view,values=['all','failed','pending'],labels=dict(all='全部任务',failed='失败 / 部分失败',pending='未完成任务'),width=18)
         self.view_box.pack(side='left',padx=(0,8));self.view_box.bind('<<ComboboxSelected>>',lambda _:self.render())
-        self.search_field=SearchField(tools,self.query,self.render);self.search_field.pack(side='left',fill='x',expand=True)
-        hint=app.label(body,'筛选只影响显示；重试处理全部失败项。' if result_actions else '搜索文件名或错误；仅筛选显示，重试仍处理全部失败项。',9,T.MUTED);hint.pack(fill='x',padx=12)
-        hint.bind('<Configure>',lambda e:hint.configure(wraplength=max(100,e.width)))
-        if not result_actions:app.label(body,self.visible_count,9,T.MUTED).pack(fill='x',padx=12,pady=(4,0))
+        self.search_field=SearchField(tools,self.query,self.render,placeholder='搜索文件名或错误');self.search_field.pack(side='left',fill='x',expand=True)
+        if not result_actions:app.label(body,self.visible_count,9,T.MUTED).pack(fill='x',pady=(0,4))
         w.bind('<Control-f>',lambda _:(self.search_field.entry.focus_set(),'break')[1])
         self.table=SessionList(body,columns=('name','state','error'),height=7,selectmode='extended')
         for key,label,width in [('name','赛事 / 文件',350),('state','处理状态',130),('error','详情',420)]:self.table.heading(key,label);self.table.column(key,width,70,key in ('name','error'))
-        self.table.pack(fill='both',expand=True,padx=12,pady=8)
+        self.table.pack(fill='both',expand=True)
         if result_actions:
+            # The selected task's result sits under the list it belongs to.
             from control_batch_results import BatchResults
-            self.result_actions=BatchResults(self,footer)
-        actions=app.row(footer);self.stop_button=app.button(actions,'当前项完成后停止',self.stop_after,False,190)
-        self.retry_button=app.button(actions,'仅重试失败项',lambda:self.run([i for i,s in enumerate(self.states) if s in ('失败','部分失败')]),False,165)
-        self.resume_button=app.button(actions,'继续剩余项',lambda:self.run([i for i,s in enumerate(self.states) if s=='等待处理']),False,150)
-        self.copy_button=app.button(actions,'复制全部失败详情',self.copy_errors,False,190)
-        if destination:app.button(actions,'打开输出目录',lambda:open_path(destination),False,155)
-        def arrange(event):
-            gap=8;x=y=height=0
-            for child in actions.winfo_children():
-                child.pack_forget();child.place_forget()
-                if not getattr(child,'batch_visible',True):continue
-                width=child.winfo_reqwidth();h=child.winfo_reqheight()
-                if x and x+width>event.width:y+=height+gap;x=height=0
-                child.place(x=x,y=y,width=min(event.width,width),height=h);x+=width+gap;height=max(height,h)
-            actions.pack_propagate(False);actions.configure(height=max(1,y+height))
-        actions.bind('<Configure>',arrange)
-        self.actions_frame=actions
+            self.result_actions=BatchResults(self,body)
+        self.stop_button=w.add_action('当前项完成后停止',self.stop_after,False,190)
+        self.retry_button=w.add_action('仅重试失败项',lambda:self.run([i for i,s in enumerate(self.states) if s in ('失败','部分失败')]),False,165)
+        self.resume_button=w.add_action('继续剩余项',lambda:self.run([i for i,s in enumerate(self.states) if s=='等待处理']),False,150)
+        self.copy_button=w.add_action('复制全部失败详情',self.copy_errors,False,190)
+        if destination:w.add_action('打开输出目录',lambda:open_path(destination),False,155)
         w.bind('<Destroy>',self.dispose,add='+')
+        shell_translate=w.retranslate
         def translate():
-            w.title(tr(self.title))
+            shell_translate()
             for key,label in [('name','赛事 / 文件'),('state','处理状态'),('error','详情')]:self.table.heading(key,label)
             self.render();history(app)
-            for child in actions.winfo_children():
-                if hasattr(child,'paint'):child.paint()
         w.retranslate=translate
-        self.run(list(range(len(values))));w.protocol('WM_DELETE_WINDOW',self.hide)
+        fit(w,1000,640,minimum=(720,560),owner=app.root)
+        self.run(list(range(len(values))))
     def render(self):
         words=self.query.get().casefold().split();view=self.view.get();rows=[]
         for i,state in enumerate(self.states):
@@ -147,7 +136,8 @@ class BatchJob:
     def dispose(self,event):
         if event.widget is not self.window:return
         if self.timer:self.window.after_cancel(self.timer);self.timer=None
-        for variable in (self.query,self.view,self.visible_count,self.text,self.history_choice):variable.__del__();variable._tk=None
+        # The footer releases its own state line (self.text).
+        for variable in (self.query,self.view,self.visible_count,self.history_choice):variable.__del__();variable._tk=None
     def draw(self):
         if not self.window.winfo_exists():return
         self.render()
@@ -165,8 +155,7 @@ class BatchJob:
         self.resume_button.configure(state='normal' if not self.busy and '等待处理' in self.states else 'disabled')
         self.copy_button.configure(state='normal' if failed else 'disabled')
         if self.result_actions:
-            for button,visible in [(self.stop_button,self.busy),(self.retry_button,bool(failed)),(self.resume_button,not self.busy and '等待处理' in self.states),(self.copy_button,bool(failed))]:button.batch_visible=visible
-            self.actions_frame.event_generate('<Configure>')
+            for button,visible in [(self.stop_button,self.busy),(self.retry_button,bool(failed)),(self.resume_button,not self.busy and '等待处理' in self.states),(self.copy_button,bool(failed))]:self.window.footer.show(button,visible)
     def drain(self):
         changed=False
         while not self.events.empty():

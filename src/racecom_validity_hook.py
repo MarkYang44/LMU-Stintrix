@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from collections import defaultdict,deque
 import math
+import re
 
 
 def payload(path):
@@ -119,6 +120,23 @@ def install(ns):
         return output
     pil_type.rows=rows
     renderer=ns['RaceLogRenderer'];original_flags=renderer._lap_row_flags
+    original_car=getattr(renderer,'_car_image',None)
+    if callable(original_car):
+        def car_image(self):
+            source=getattr(self.data,'source_txt',None)
+            value=payload(source) or {}
+            name=value.get('stintrix_car_image','')
+            if isinstance(name,str) and re.fullmatch(r'stintrix-car-[a-f0-9]{32}\.png',name):
+                from PIL import Image
+                folder=Path(source).resolve().parent
+                path=folder/name
+                if not path.is_symlink():
+                    try:
+                        with Image.open(path,formats=('PNG',)) as image:
+                            return image.convert('RGBA')
+                    except OSError:pass
+            return original_car(self)
+        renderer._car_image=car_image
     def flags(self,rows):
         value=payload(self.data.source_txt)
         if value is None:return original_flags(self,rows)

@@ -18,11 +18,11 @@
 ![macOS arm64](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-555555)
 [![MIT License](https://img.shields.io/badge/license-MIT-668B28)](LICENSE)
 
-**[下载 Windows x64 · v0.4.3](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
+**[下载 Windows x64 · v0.4.4](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.4/LMU-Stintrix-v0.4.4-windows-x64.zip)** · [macOS Apple Silicon · DMG](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.4/LMU-Stintrix-v0.4.4-macos-arm64.dmg) · [Mac 使用说明](docs/MACOS.md) · [其他版本](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)
 
 ## 项目简介
 
-**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.3)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
+**macOS 离线版：** Apple Silicon Mac 可导入 Windows Stintrix 单场文件夹、ZIP / 7z 赛事包和 LMU 遥测，复用赛事分析、圈速对比、曲线、报告与个人纪录。原生 `.app` 延续工业风，移除采集、HUD 和游戏连接入口，数据独立保存在应用之外。[Mac 安装、兼容与构建说明](docs/MACOS.md) · [macOS 正式版](https://github.com/MarkYang44/LMU-Stintrix/releases/tag/v0.4.4)。Windows 保留全部实时功能。Mac 构建默认临时签名，Developer ID 公证属于后续分发步骤。
 
 Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌面应用里。查看同一布局的完整圈，比较输入与圈速差异，再结合个人纪录回顾练习效果。
 
@@ -30,16 +30,16 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 界面预览
 
-以下为 v0.2.43 采集的真实 LMU 程序窗口，使用生成的示例赛事与内置 DEMO，不代表真实驾驶成绩。当前界面已增加游戏选择与后续操作优化；纯净 HUD 采用无语言文字的图形显示。[截图来源与采集说明](docs/screenshots/README.md)。
+以下为 v0.4.4 按 100% 界面缩放采集的真实 LMU 程序窗口，使用生成的示例赛事与内置 DEMO，不代表真实驾驶成绩；纯净 HUD 采用无语言文字的图形显示。[截图来源与采集说明](docs/screenshots/README.md)。
 
 <table>
   <tr>
-    <td width="50%"><strong>控制中心</strong><br><a href="docs/screenshots/zh-CN/control-center.webp"><img src="docs/screenshots/zh-CN/control-center.webp" alt="中文控制中心，包含 HUD 控制与附加遥测选项" width="520"></a></td>
+    <td width="50%"><strong>控制中心 · 运行与 HUD</strong><br><a href="docs/screenshots/zh-CN/control-center.webp"><img src="docs/screenshots/zh-CN/control-center.webp" alt="中文运行与 HUD 页面，包含上一场、启动记录、HUD 显示与附加面板" width="520"></a></td>
     <td width="50%"><strong>个人最快圈与条件</strong><br><a href="docs/screenshots/zh-CN/personal-best.webp"><img src="docs/screenshots/zh-CN/personal-best.webp" alt="中文个人最快圈详情，展示车型、圈速、赛道与轮胎条件" width="520"></a></td>
   </tr>
   <tr>
     <td><strong>实时输入 HUD</strong><br><a href="docs/screenshots/zh-CN/input-hud.webp"><img src="docs/screenshots/zh-CN/input-hud.webp" alt="DEMO 纯净 HUD，显示油门、刹车、转向曲线及踏板柱形图" width="520"></a></td>
-    <td><strong>赛事资料库</strong><br><a href="docs/screenshots/zh-CN/session-library.webp"><img src="docs/screenshots/zh-CN/session-library.webp" alt="中文赛事资料库，包含生成的示例赛事和复盘入口" width="520"></a></td>
+    <td><strong>赛事复盘</strong><br><a href="docs/screenshots/zh-CN/session-library.webp"><img src="docs/screenshots/zh-CN/session-library.webp" alt="中文赛事复盘列表，包含生成的示例赛事、PB 差值和复盘工具栏" width="520"></a></td>
   </tr>
 </table>
 
@@ -49,6 +49,8 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 - 实时显示油门、刹车与转向曲线：LMU 可切换原始／游戏过滤后输入，EVO 分别保留物理／仪表输入。
 - 提供紧凑 HUD、布局保存、静默记录与全局快捷键；LMU 还可按需开启轮胎、燃油、虚拟能量、进站、Stint 与天气面板。
+- HUD 右键菜单按显示、附加面板、参考圈、面板尺寸与记录分组，标出当前选项并显示 F6–F11 快捷键；菜单、F10 或小面板里的所有参数都直接打开**设置**的对应分区，设置中还提供采样预设，HUD 运行时显示实测频率。
+- LMU 参考圈：按 F6 实时显示与同车同赛道已记录最快圈（或固定参考圈）的差值；在**运行与 HUD → 参考圈**选择来源与圈类型。
 - EVO 新增挡位／RPM 紧凑仪表条、游戏升挡与限转提示，以及 ABS／TC／ESC 实际干预灯和时间刻度。在“运行与 HUD”或 HUD 右键菜单分别开关，只影响显示；新增原生字段仍随每个采集样本完整保存，不受物理／仪表输入切换影响。
 - LMU 报告中的待确认圈按无效处理。EVO 分别保存两个原始有效性标志，冲突时优先保留明确的有效信号；未确认或无法拆分的历史合并信号仍标为待确认。采集缺口和进站另行影响统计资格。
 
@@ -88,7 +90,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 
 ## 下载安装
 
-1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.3/LMU-Stintrix-v0.4.3-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
+1. [直接下载 Windows x64 ZIP](https://github.com/MarkYang44/LMU-Stintrix/releases/download/v0.4.4/LMU-Stintrix-v0.4.4-windows-x64.zip)，或浏览[其他 Release](https://github.com/MarkYang44/LMU-Stintrix/releases/latest)。
 2. 将整个压缩包解压到可写文件夹。
 3. 双击 **`LMU-Stintrix.exe`**。
 
@@ -106,7 +108,7 @@ Stintrix 把实时输入反馈、自动记录和赛后分析放在同一个桌�
 ## 快速开始
 
 1. 打开 Stintrix，在左上角标志下方选择 **LMU** 或 **AC EVO**；LMU 需在游戏中开启 **Settings → Gameplay → Enable Plugins**。
-2. 点击**启动记录**；顶部 **EN / 中文** 可切换菜单语言。
+2. 点击**启动记录**；侧栏底部的 **中文 / EN** 可切换菜单语言。
 3. 使用窗口或无边框窗口模式进入赛道。
 4. 驾驶排位／计时赛或正赛，收到支持的驾驶数据后自动录制。练习赛默认不记录，可在**设置**中开启。
 5. 结束后进入**赛事复盘**，查看记录或选择完整圈进行对比。

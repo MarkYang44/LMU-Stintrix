@@ -1,9 +1,6 @@
 """Optional compact tyre/strategy overlays and local per-car preferences."""
-import copy
 import tkinter as tk
-from control_fields import Select,Field
 from control_theme import T
-from tkinter import ttk,messagebox
 from pathlib import Path
 from storage import atomic_json
 import vehiclelab
@@ -48,8 +45,8 @@ class Panels:
         for child in [title,*title.winfo_children()]:
             if isinstance(child,tk.Button):continue
             child.bind('<Button-1>',begin);child.bind('<B1-Motion>',move);child.bind('<ButtonRelease-1>',end)
-        menu=tk.Menu(w,tearoff=False);menu.add_command(label='车型阈值与策略设置',command=self.settings_dialog);menu.add_command(label='隐藏该面板',command=lambda:self.hide(kind))
-        w.bind('<Button-3>',lambda e:menu.tk_popup(e.x_root,e.y_root))
+        # Built when opened, like the HUD's own menu (hud_menu.panel).
+        w.bind('<Button-3>',lambda e,k=kind:__import__('hud_menu').popup_panel(self.app,k,self.hide,e))
         body=tk.Frame(w,bg=T.BG);body.pack(fill='both',expand=True,padx=10,pady=7);labels={}
         if kind=='tyres':
             for i,name in enumerate(('左前 FL','右前 FR','左后 RL','右后 RR')):
@@ -106,52 +103,5 @@ class Panels:
         app.root.after(100,self.tick)
 
     def settings_dialog(self):
-        if self.dialog is not None and self.dialog.winfo_exists():self.dialog.lift();return
-        from management import panel
-        app=self.app;window=panel(app,'Stintrix · 轮胎阈值与燃油策略',620,720);self.dialog=window
-        config=copy.deepcopy(app.vehicle_settings);latest=app.engine.latest
-        car=tk.StringVar(window,value=latest['vehicle'] if latest else '*');p=config['profiles'].get(car.get(),config['profiles'].get('*',vehiclelab.DEFAULT_PROFILE))
-        frame=tk.Frame(window,bg=T.BG);frame.pack(fill='both',expand=True,padx=18,pady=15)
-        tk.Label(frame,text='轮胎阈值按车型保存；* 为通用默认。',bg=T.BG,fg=T.FG,anchor='w').grid(row=0,column=0,columnspan=2,sticky='w',pady=5)
-        tk.Label(frame,text='车型',bg=T.BG,fg=T.MUTED).grid(row=1,column=0,sticky='w');box=Select(frame,textvariable=car,values=list(dict.fromkeys([car.get(),'*',*config['profiles']])),width=40);box.grid(row=1,column=1,sticky='ew',pady=5)
-        enabled=tk.BooleanVar(window,value=p['alerts']);tk.Checkbutton(frame,text='启用该车型自定义温度 / 胎压 / 胎况报警',variable=enabled,bg=T.BG,fg=T.FG,selectcolor=T.FIELD).grid(row=2,column=0,columnspan=2,sticky='w')
-        variables={}
-        specs=[('temp_min','胎面中温下限 °C',p['temp_min']),('temp_max','胎面中温上限 °C',p['temp_max']),('pressure_min','胎压下限 kPa',p['pressure_min']),('pressure_max','胎压上限 kPa',p['pressure_max']),('wear_min','胎况字段下限 %',p['wear_min']),
-               ('reserve_l','燃油安全余量 L',config['reserve_l']),('extra_finish_laps','计时赛额外保险圈',config['extra_finish_laps']),('history_laps','估算采用最近完整圈数 1–20',config['history_laps']),('record_hz','附加遥测记录上限 1–50 Hz',config['record_hz']),('target_value','手动总圈数 / 从应用起剩余分钟',config['target_value'])]
-        for row,(key,label,value) in enumerate(specs,3):
-            var=tk.StringVar(window,value=str(value));variables[key]=var;tk.Label(frame,text=label,bg=T.BG,fg=T.MUTED,anchor='w').grid(row=row,column=0,sticky='w',pady=4);Field(frame,textvariable=var,width=18,height=28).grid(row=row,column=1,sticky='ew',pady=4)
-        mode=tk.StringVar(window,value=config['target_mode']);rate=tk.StringVar(window,value=config['rate_mode'])
-        for row,label,var,options in [(13,'赛程来源',mode,['auto','laps','time']),(14,'耗油统计方式',rate,['conservative','median'])]:
-            tk.Label(frame,text=label,bg=T.BG,fg=T.MUTED).grid(row=row,column=0,sticky='w',pady=5);Select(frame,textvariable=var,state='readonly',values=options).grid(row=row,column=1,sticky='ew')
-        tk.Label(frame,text='auto：游戏比赛圈数 / 时间；laps：手动总圈数；time：剩余分钟。\nconservative：近期最高耗油；median：中位数。轮胎示例阈值默认不报警。\n胎况是 mWear 字段百分比，不等同剩余抓地力。',bg=T.BG,fg=T.MUTED,justify='left',wraplength=580).grid(row=15,column=0,columnspan=2,sticky='w',pady=10)
-        def load_profile(_):
-            current=config['profiles'].get(car.get(),config['profiles'].get('*',vehiclelab.DEFAULT_PROFILE));enabled.set(current['alerts'])
-            for key in vehiclelab.DEFAULT_PROFILE:
-                if key!='alerts':variables[key].set(str(current[key]))
-        box.bind('<<ComboboxSelected>>',load_profile)
-        def apply():
-            try:
-                new={**config,'profiles':dict(config['profiles'])};new['profiles'][car.get().strip() or '*']=vehiclelab.profile({'alerts':enabled.get(),**{k:float(variables[k].get()) for k in vehiclelab.DEFAULT_PROFILE if k!='alerts'}})
-                new.update({k:float(variables[k].get()) for k in ('reserve_l','extra_finish_laps','history_laps','record_hz','target_value')},target_mode=mode.get(),rate_mode=rate.get());new=vehiclelab.settings(new)
-                # Preserve current panel visibility and positions, changed outside this dialog.
-                for key,value in app.vehicle_settings.items():
-                    if key.endswith('_enabled') or key.endswith('_position'):new[key]=value
-                app.vehicle_settings=new
-                with app.engine.lock:
-                    app.engine.fuel_planner.configure(new);app.engine.recorder.vehicle_settings=new
-                    if app.engine.latest:
-                        app.engine.fuel_planner.baseline_et=app.engine.latest['et']
-                        sample={**app.engine.latest,'vehicle':app.engine.latest.get('vehicle_data',{})}
-                        app.engine.vehicle_estimate=app.engine.fuel_planner.estimate(sample)
-                if app.engine.recorder.file:
-                    with app.engine.recorder.meta_lock:
-                        recorder=app.engine.recorder;elapsed=app.engine.latest['et']-recorder.origin if app.engine.latest else 0
-                        prior=dict(recorder.meta['vehicle_strategy'])
-                        if not recorder.meta.get('vehicle_settings_history'):recorder.meta['vehicle_settings_history']=[dict(time_s=0,strategy=prior)]
-                        current={k:new[k] for k in ('history_laps','rate_mode','target_mode','target_value','reserve_l','extra_finish_laps')};current['started_at_s']=elapsed
-                        recorder.meta['vehicle_strategy']=current;recorder.meta['vehicle_settings_history'].append(dict(time_s=elapsed,strategy=current))
-                        recorder.meta['vehicle_telemetry']['target_hz']=new['record_hz']
-                        recorder.meta['vehicle_profile']=new['profiles'].get(app.engine.latest['vehicle'],new['profiles'].get('*',vehiclelab.DEFAULT_PROFILE)) if app.engine.latest else vehiclelab.DEFAULT_PROFILE
-                self.save();window.destroy()
-            except (ValueError,OSError) as e:messagebox.showerror('设置未保存',str(e),parent=window)
-        tk.Button(frame,text='应用并保存',command=apply).grid(row=16,column=0,columnspan=2,sticky='ew',pady=7);frame.columnconfigure(1,weight=1)
+        """These preferences are edited in the control center's Settings page."""
+        self.app.open_settings('车辆策略')

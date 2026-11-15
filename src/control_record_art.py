@@ -1,21 +1,17 @@
 """Model-matched, viewport-driven vehicle photo for podium detail headers."""
 import tkinter as tk
-from guidebook import catalog
 from guide_cards import Picture
-from race_art import normalized
+from race_art import guide_car,lmu_art,normalized
 from control_theme import T
 from control_widgets import px
 from control_motion import Motion
 
 
 def vehicle_picture(vehicle):
-    wanted=normalized(vehicle)
-    if not wanted:return None
-    exact=next((car for car in catalog()['cars'].values() if normalized(car['name'])==wanted),None)
-    if exact:return exact
-    from race_art import image_model
-    model=image_model(vehicle);base=normalized(model) if model else None
-    return next(({**car,'reference_model':car['name']} for car in catalog()['cars'].values() if base and normalized(car['name'])==base),None)
+    match=guide_car(vehicle)
+    if not match:return None
+    car,_=match
+    return car if normalized(car['name'])==normalized(vehicle) else {**car,'reference_model':car['name']}
 
 
 class RecordHeader(tk.Frame):
@@ -47,15 +43,17 @@ class RecordHeader(tk.Frame):
         if self.track_picture:self.track_picture.destroy();self.track_picture=None
         if self.reference_note:self.reference_note.destroy();self.reference_note=None
         self.art.grid_forget();self.columnconfigure(1,minsize=0)
-        track_item=None
+        track_item=None;art=None
         if isinstance(vehicle,tuple):
             from evo_art import item as official_item
             vehicle,track,layout=vehicle
             item=official_item('cars',vehicle,root=self.app.data_path)
             track_item=official_item('tracks',track,layout,root=self.app.data_path)
-        else:item=vehicle_picture(vehicle)
-        if item:
-            self.picture=Picture(self.art,self.app,item)
+        else:
+            art=lmu_art(vehicle,self.app.data_path)
+            item=vehicle_picture(vehicle) or {}
+        if item or art:
+            self.picture=Picture(self.art,self.app,item,artwork=art)
             self.picture.pack_configure(pady=0)
             if item.get('reference_model'):
                 from i18n import Label
